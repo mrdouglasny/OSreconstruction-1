@@ -28,9 +28,9 @@ This will fetch Mathlib and all dependencies automatically. The first build may 
 
 ## Project Status
 
-The project builds cleanly. The formalization uses 15 named axioms encoding textbook results from Vladimirov, Jost, Bochner, Osterwalder-Schrader, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
+The project builds cleanly with ~44,000 lines of Lean 4 across 69 files. The formalization uses 14 named axioms encoding textbook results from Vladimirov, Jost, Bochner, Osterwalder-Schrader, and Streater-Wightman; see [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for the full list.
 
-Remaining work is tracked via `sorry` placeholders (~86 total across 27 files):
+Remaining work is tracked via `sorry` placeholders (~73 total across 24 files):
 
 | Area | Sorry-free highlights | Remaining `sorry`s |
 |------|----------------------|---------------------|
@@ -41,13 +41,16 @@ Remaining work is tracked via `sorry` placeholders (~86 total across 27 files):
 | Forward tube distributions | `ForwardTubeDistributions.lean` (591 lines) | 0 |
 | E→R analytic continuation | Paley-Wiener axiom + Bochner tube theorem axiom | 8 |
 | GNS construction | Inner product, field operators, reproducing property | 0 |
-| 1D edge-of-the-wedge | Via Morera's theorem | 0 |
+| Edge-of-the-wedge | Proved from SCV tube domain extension (was axiom) | 0 |
 | Spacetime geometry | Minkowski metric, Lorentz/Poincaré groups | 0 |
-| Modular theory | Tomita operator, modular operator/conjugation | ~9 |
-| Modular automorphisms | σ_t, Connes cocycle | ~14 |
-| KMS condition | Equilibrium states | ~11 |
+| Complex Lie groups | SO⁺(1,d;ℂ) path-connectedness, complex Lorentz invariance | ~5 |
+| Modular theory | Tomita operator, modular operator/conjugation | ~6 |
+| Modular automorphisms | σ_t, Connes cocycle | ~8 |
+| KMS condition | Equilibrium states | ~10 |
+| Spectral/measure theory | Carathéodory extension, spectral integrals | ~17 |
+| Nuclear spaces | Schwartz nuclear, Bochner-Minlos, gaussian-field bridge | ~16 |
 
-See [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for a detailed breakdown of axioms, sorry census, and proof strategies. See also [`OSReconstruction/vNA/TODO.md`](OSReconstruction/vNA/TODO.md) and [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) for execution plans.
+See [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) for axioms, sorry census, and proof strategies. See [`HISTORY.md`](HISTORY.md) for detailed development history. See also [`OSReconstruction/vNA/TODO.md`](OSReconstruction/vNA/TODO.md) and [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) for execution plans.
 
 ## File Structure
 
