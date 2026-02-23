@@ -28,7 +28,7 @@ Wightman QFTs — OS reconstruction is strictly more general than the NuclearSpa
 14. **R→E remaining sorrys** (local commutativity, E0, E2, E4, rotation det=-1, BV wiring)
 15. **E→R analytic continuation chain** (OS II §IV-V, independent of 12-14)
 16. **constructWightmanFunctions** (7 fields, depend on 13 + 15)
-17. **Main reconstruction theorems** (Reconstruction.lean, wiring)
+17. ~~**Main reconstruction theorems**~~ ✅ DONE (Reconstruction/Main.lean wiring, except wightman_uniqueness)
 
 ### What Does NOT Block Reconstruction
 
@@ -159,14 +159,38 @@ All other theorems in this file are fully proven.
 | 13 | 1155 | `constructWightmanFunctions.positive_definite` | From E2 | #8 |
 | 14 | 1158 | `constructWightmanFunctions.hermitian` | Reality of Schwinger functions | #8 |
 
-### Reconstruction.lean — 4 sorrys
+### Reconstruction.lean — 0 sorrys ✅ (theorems moved to Main.lean)
 
-| # | Line | Theorem | Description | Blocked by |
-|---|------|---------|-------------|------------|
-| 15 | 1043 | `wightman_reconstruction` | GNS → WightmanQFT | GNS infra (done) |
-| 16 | 1063 | `wightman_uniqueness` | Uniqueness up to unitary equiv | #15 |
-| 17 | 1399 | `wightman_to_os` | Wire to wightman_to_os_full | wightman_to_os_full (done) |
-| 18 | 1419 | `os_to_wightman` | Wire to os_to_wightman_full | os_to_wightman_full (done) |
+Theorems `wightman_reconstruction`, `wightman_uniqueness`, `wightman_to_os`, `os_to_wightman`
+moved to Reconstruction/Main.lean to resolve circular import constraints
+(GNSHilbertSpace and WickRotation both import Reconstruction).
+
+### Reconstruction/Main.lean — 1 sorry (wiring file)
+
+| # | Theorem | Status |
+|---|---------|--------|
+| 15 | `wightman_reconstruction` | ✅ Wired to `wightman_reconstruction'` (GNSHilbertSpace) |
+| 16 | `wightman_uniqueness` | sorry — standard GNS uniqueness argument |
+| 17 | `wightman_to_os` | ✅ Wired to `wightman_to_os_full` (WickRotation) |
+| 18 | `os_to_wightman` | ✅ Wired to `os_to_wightman_full` (WickRotation) |
+
+### GNSHilbertSpace.lean — 10 sorrys in gnsQFT, matching condition PROVED
+
+**New file (2026-02-23).** Completes the GNS Hilbert space construction:
+- Phase 1: `AddCommGroup` + `Module ℂ` on `PreHilbertSpace` (sorry-free)
+- Phase 2: `InnerProductSpace.Core` (sorry-free)
+- Phase 3: `NormedAddCommGroup` + `InnerProductSpace` (sorry-free, diamond-free)
+- Phase 4: `GNSHilbertSpace` = Cauchy completion (sorry-free), `gnsVacuum_norm` proved
+- Phase 5: `gnsQFT` (WightmanQFT structure, 10 sorrys for hard axioms):
+  - **PROVED**: `vacuum_normalized`, `vacuum_in_domain`, `operator_domain`
+  - **PROVED**: `operator_add`, `operator_smul`, `operator_vector_add`, `operator_vector_smul`
+  - **PROVED**: `wightman_reconstruction'` — matching condition (Wightman functions reproduced)
+  - **SORRY**: `poincare_rep`, `spectrum_condition`, `vacuum_invariant`,
+    `matrix_element_continuous`, `cyclicity`, `poincareActionOnSchwartz`,
+    `poincareAction_spec`, `covariance`, `locality`, `vacuum_unique`
+- Domain: `gnsDomainSubmodule` = image of PreHilbertSpace under completion embedding (not ⊤)
+- Domain density: `gnsDomain_dense` proved
+- Key lemmas (sorry-free): `gnsFieldOp_coe`, `operatorPow_gnsQFT_eq`, `gnsVacuum_norm`
 
 ### GNSConstruction.lean — 0 sorrys ✅
 
@@ -233,12 +257,17 @@ WickRotation.lean (10 sorrys, 8 axioms)
 │  └───────────────────────────────────────────────────────────────┘
 │
 ▼
-Reconstruction.lean (4 sorrys — wiring layer)
+Reconstruction.lean ✅ (0 sorrys — definitions only)
 │
-│  wightman_reconstruction  ◀── GNSConstruction (PROVEN infrastructure)
-│  wightman_uniqueness      ◀── standard GNS uniqueness argument
-│  wightman_to_os           ◀── wightman_to_os_full (PROVEN)
-│  os_to_wightman           ◀── os_to_wightman_full (PROVEN)
+▼
+Reconstruction/Main.lean (1 sorry — wiring layer)
+│
+│  wightman_reconstruction  ✅ WIRED to wightman_reconstruction' (GNSHilbertSpace)
+│  wightman_uniqueness      ◀── sorry (standard GNS uniqueness argument)
+│  wightman_to_os           ✅ WIRED to wightman_to_os_full (WickRotation)
+│  os_to_wightman           ✅ WIRED to os_to_wightman_full (WickRotation)
+│
+Reconstruction/GNSHilbertSpace.lean (10 sorrys — QFT axioms)
 ```
 
 ## Two Critical Bottlenecks
@@ -272,7 +301,7 @@ These groups are **independent** and can be worked on simultaneously:
 - **Group A** (complex analysis): ~~Prove edge_of_the_wedge~~ (DONE) and BHW axiom
 - **Group B** (analytic continuation): full_analytic_continuation → boundary_values_tempered
 - **Group C** (R→E properties): local commutativity, E0, E2, E4, h_in_tube
-- **Group D** (GNS wiring): wightman_reconstruction + wightman_uniqueness
+- **Group D** (GNS completion): gnsQFT remaining 10 sorrys (Poincaré, covariance, locality, cyclicity, etc.)
 
 Groups A and B converge at constructWightmanFunctions (needs both BHW and boundary values).
 
@@ -294,13 +323,15 @@ Groups A and B converge at constructWightmanFunctions (needs both BHW and bounda
 | SCV/TubeDistributions.lean | 2 | 3 | Distribution theory + Bochner axioms |
 | **Reconstruction/AnalyticContinuation.lean** | **0** | **2** | edge_of_wedge + BHW axioms |
 | **Reconstruction/WickRotation.lean** | **14** | **5** | OS↔Wightman bridge |
-| **Reconstruction.lean** | **4** | **0** | Core theorems (IsWickRotationPair) |
+| **Reconstruction.lean** | **0** | **0** | ✅ Complete (theorems moved to Main.lean) |
+| **Reconstruction/Main.lean** | **1** | **0** | Wiring file (wightman_uniqueness sorry) |
+| **Reconstruction/GNSHilbertSpace.lean** | **10** | **0** | GNS construction (10 QFT axiom sorrys) |
 | NuclearSpaces/NuclearOperator.lean | 0 | 0 | ✅ Complete (deferred, not blocking) |
 | NuclearSpaces/NuclearSpace.lean | 2 | 0 | Deferred |
 | NuclearSpaces/BochnerMinlos.lean | 3 | 0 | Deferred |
 | NuclearSpaces/SchwartzNuclear.lean | 5 | 0 | Deferred |
 | NuclearSpaces/EuclideanMeasure.lean | 1 | 0 | Deferred |
-| **Critical path total** | **20** | **10** | |
+| **Critical path total** | **27** | **10** | |
 
 ## Proven Infrastructure (sorry-free)
 
@@ -359,7 +390,9 @@ OperatorDistribution.lean ──> WightmanAxioms.lean
                      ↓
               Reconstruction/AnalyticContinuation.lean  (tube domains, BHW)
               Reconstruction/GNSConstruction.lean       (✅ sorry-free)
+              Reconstruction/GNSHilbertSpace.lean       (GNS Hilbert space, 10 sorrys)
               Reconstruction/WickRotation.lean          (OS↔Wightman bridge)
+              Reconstruction/Main.lean                  (wiring, 1 sorry)
               Reconstruction/Helpers/EdgeOfWedge.lean   (✅ sorry-free, 1D)
 ```
 
