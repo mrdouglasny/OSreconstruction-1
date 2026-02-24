@@ -32,7 +32,7 @@ This will fetch Mathlib and all dependencies automatically. The first build may 
 
 ## Project Status
 
-The project builds cleanly with **zero named axioms** — all former axioms have been converted to theorems. Remaining work is tracked via `sorry` placeholders (115 total across 18 files).
+The project builds cleanly with **zero named axioms** — all former axioms have been converted to theorems. Remaining work is tracked via `sorry` placeholders (108 total across 23 files).
 
 ### Key proved results
 
@@ -43,21 +43,22 @@ The project builds cleanly with **zero named axioms** — all former axioms have
 - **SO+(1,d;ℝ) path-connected**: Full Givens QR proof, zero sorrys (630 lines)
 - **SCV module**: Polydiscs, Osgood, Hartogs, identity theorems, tube extension — zero sorrys
 - **Stone's theorem infrastructure**: Generator commutation, ODE kernel triviality, integral formula — proved (surjectivity pending)
+- **BV convention**: Boundary value approach direction hypothesis corrected to `InForwardCone` (successive differences in V+)
 
-### Sorry breakdown (115 total across 18 files)
+### Sorry breakdown (108 total across 23 files)
 
 | Area | Proved | Remaining `sorry`s |
 |------|--------|---------------------|
 | R→E bridge (WickRotation) | `wightman_to_os_full`, E0, E1, E3 | 2 (E2 reflection positivity, E4 cluster) |
 | E→R analytic continuation (WickRotation) | `os_to_wightman_full` structure | 26 (Paley-Wiener, boundary values, 6 transfers) |
-| BHW theorem chain (Connectedness) | Properties 1-5, complex Lorentz invariance | 7 (EOW flattening, orbit topology) |
-| Jost points (JostPoints) | Jost's lemma, swap existence | 4 (spatial rotations, connectivity) |
-| GNS Hilbert space | Hilbert space, Poincaré rep, matching | 3 (spectral condition, cyclicity, vacuum unique) |
+| BHW theorem chain (Connectedness) | Properties 1-5, complex Lorentz invariance | 6 (EOW flattening, orbit topology) |
+| Jost points (JostPoints) | Jost's lemma, extended tube connected | 3 (spatial rotations, swap existence) |
+| GNS Hilbert space | Hilbert space, Poincaré rep, matching | 1 (spectral condition) |
 | SCV distribution theory | Core theorems (Polydisc–IdentityTheorem) | 14 (Fourier-Laplace, Paley-Wiener, Bochner) |
 | Wightman axiom infrastructure | | 4 (nuclear theorem, spectrum BV) |
-| Nuclear spaces / Bochner-Minlos | | 7 (gauge seminorms, Bochner-Minlos) |
-| Stone's theorem | Generator commutation, ODE, integral formula | 3 (self-adjointness, generates, time evolution) |
-| vNA (modular theory + KMS + measure) | Tomita-Takesaki structure | 44 (modular, KMS, Carathéodory, spectral) |
+| Nuclear spaces / Bochner-Minlos | | 9 (gauge seminorms, Bochner-Minlos, Schwartz nuclear) |
+| Stone's theorem | Generator commutation, ODE, integral formula | 2 (self-adjointness, generates) |
+| vNA (modular theory + KMS + measure) | Tomita-Takesaki structure | 40 (modular, KMS, Carathéodory, spectral) |
 | Uniqueness | | 1 (`wightman_uniqueness`) |
 
 See also [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) and [`OSReconstruction/ComplexLieGroups/TODO.md`](OSReconstruction/ComplexLieGroups/TODO.md) for detailed execution plans.

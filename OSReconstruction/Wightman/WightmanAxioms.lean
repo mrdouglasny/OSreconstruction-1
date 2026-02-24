@@ -358,6 +358,18 @@ def WightmanTempered (qft : WightmanQFT d) (n : ℕ) : Prop :=
 def InOpenForwardCone (d : ℕ) [NeZero d] (η : Fin (d + 1) → ℝ) : Prop :=
   η 0 > 0 ∧ MinkowskiSpace.minkowskiNormSq d η < 0
 
+/-- An approach direction η has successive differences in V⁺.
+
+    This is the correct condition for `x + iε·η` to lie in the forward tube:
+    `Im(z_k - z_{k-1}) = ε·(η_k - η_{k-1}) ∈ V⁺` for all k (with η_{-1} = 0).
+
+    This matches the definition of `ForwardConeAbs` in `ForwardTubeDistributions.lean`
+    and is equivalent to `(fun k μ => ε * η k μ) ∈ ForwardConeAbs d n` for ε > 0. -/
+def InForwardCone (d n : ℕ) [NeZero d] (η : Fin n → Fin (d + 1) → ℝ) : Prop :=
+  ∀ k : Fin n,
+    let prev : Fin (d + 1) → ℝ := if h : k.val = 0 then 0 else η ⟨k.val - 1, by omega⟩
+    InOpenForwardCone d (fun μ => η k μ - prev μ)
+
 /-- The forward tube T_n in n copies of complexified spacetime.
 
     T_n = {(z₁,...,zₙ) ∈ ℂ^{n(d+1)} : Im(z₁) ∈ V₊, Im(z₂-z₁) ∈ V₊, ..., Im(zₙ-zₙ₋₁) ∈ V₊}
@@ -373,6 +385,40 @@ def ForwardTube (d n : ℕ) [NeZero d] : Set (Fin n → Fin (d + 1) → ℂ) :=
     let prev : Fin (d + 1) → ℂ := if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩
     let η : Fin (d + 1) → ℝ := fun μ => (z k μ - prev μ).im
     InOpenForwardCone d η }
+
+/-- Cumulative sum of approach directions, a utility for convention conversion.
+
+    Given directions η_k for k = 0,...,n-1, tubeCumSum(η, k) = ∑_{j≤k} η_j.
+    If each η_k ∈ V⁺, then z_k = x_k + iε · tubeCumSum(η, k) has successive
+    imaginary differences Im(z_k - z_{k-1}) = ε · η_k ∈ V⁺.
+
+    Note: The BV integrands use x_k + iε · η_k directly, with the hypothesis
+    `InForwardCone d n η` ensuring successive diffs η_k - η_{k-1} ∈ V⁺. -/
+def tubeCumSum {d : ℕ} {n : ℕ} (η : Fin n → Fin (d + 1) → ℝ)
+    (k : Fin n) (μ : Fin (d + 1)) : ℝ :=
+  (Finset.Iic k).sum (fun j => η j μ)
+
+@[simp] lemma tubeCumSum_zero {d : ℕ} {n : ℕ} (η : Fin (n + 1) → Fin (d + 1) → ℝ)
+    (μ : Fin (d + 1)) : tubeCumSum η 0 μ = η 0 μ := by
+  simp only [tubeCumSum]
+  have : Finset.Iic (0 : Fin (n + 1)) = {0} := by
+    ext x; simp [Fin.le_def]
+  rw [this, Finset.sum_singleton]
+
+lemma tubeCumSum_sub {d : ℕ} {n : ℕ} (η : Fin n → Fin (d + 1) → ℝ)
+    (k : Fin n) (hk : 0 < k.val) (μ : Fin (d + 1)) :
+    tubeCumSum η k μ - tubeCumSum η ⟨k.val - 1, by omega⟩ μ = η k μ := by
+  simp only [tubeCumSum]
+  have hsub : Finset.Iic (⟨k.val - 1, by omega⟩ : Fin n) ⊆ Finset.Iic k :=
+    Finset.Iic_subset_Iic.mpr (by simp [Fin.le_def])
+  have hsdiff : Finset.Iic k \ Finset.Iic (⟨k.val - 1, by omega⟩ : Fin n) = {k} := by
+    ext x
+    simp only [Finset.mem_sdiff, Finset.mem_Iic, Finset.mem_singleton,
+      Fin.le_def, Fin.ext_iff]
+    omega
+  have := Finset.sum_sdiff hsub (f := fun j => η j μ)
+  rw [hsdiff, Finset.sum_singleton] at this
+  linarith
 
 /-- The extended forward tube T_n^{ext} obtained by Lorentz covariance.
 
@@ -433,7 +479,7 @@ private theorem spectrum_implies_distributional_bv {d n : ℕ} [NeZero d]
     (T : SchwartzNPointSpace d n → ℂ)
     (hT_cont : Continuous T) :
     ∀ (f : SchwartzNPointSpace d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointSpacetime d n,
           F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -445,7 +491,7 @@ private theorem wightman_analyticity_distributional_bv (qft : WightmanQFT d)
     (ha : WightmanAnalyticity d qft) (n : ℕ) :
     ∃ (T : SchwartzNPointSpace d n → ℂ),
       ∀ (f : SchwartzNPointSpace d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointSpacetime d n,
             ha.analyticContinuation n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -462,16 +508,15 @@ private theorem wightman_analyticity_distributional_bv (qft : WightmanQFT d)
     along V₊-component approach directions.**
 
     Given a holomorphic function on the forward tube with distributional boundary values,
-    the pointwise limit along any direction η (with each η_k ∈ V₊) exists.
+    the pointwise limit along any direction η in ForwardConeAbs (successive diffs in V₊) exists.
 
-    Note: this is stronger than `continuous_boundary_forwardTube` because it handles
-    approach directions where the path `x + iεη` may not stay in the forward tube
-    (i.e., successive differences η_k - η_{k-1} need not be in V₊).
+    The path `x + iε·η` stays in the forward tube for ε > 0
+    (the successive imaginary differences ε·(η_k - η_{k-1}) ∈ V₊).
 
     The proof uses the Fourier-Laplace representation of the boundary value:
     the distributional BV T is a tempered distribution whose Fourier transform has
-    support in the dual cone, giving polynomial decay of F(x + iεη) that allows
-    extraction of the pointwise limit.
+    support in the dual cone, giving polynomial decay of F(x + iε·η) that
+    allows extraction of the pointwise limit.
 
     Ref: Vladimirov §26.2-26.3; Streater-Wightman, Theorem 3-7 -/
 private theorem pointwise_limit_along_forwardCone_direction {d n : ℕ} [NeZero d]
@@ -479,14 +524,14 @@ private theorem pointwise_limit_along_forwardCone_direction {d n : ℕ} [NeZero 
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (h_bv : ∃ (T : SchwartzNPointSpace d n → ℂ),
       ∀ (f : SchwartzNPointSpace d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointSpacetime d n,
             F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
           (nhdsWithin 0 (Set.Ioi 0))
           (nhds (T f)))
     (x : Fin n → Fin (d + 1) → ℝ)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η) :
     ∃ (limit : ℂ), Filter.Tendsto
       (fun ε : ℝ => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
       (nhdsWithin 0 (Set.Ioi 0))
@@ -495,20 +540,20 @@ private theorem pointwise_limit_along_forwardCone_direction {d n : ℕ} [NeZero 
 
 /-- Boundary values of the analytic continuation recover Wightman functions.
 
-    For any approach direction η with each component in V₊ and any real configuration x,
-    the limit from within the forward tube exists:
-      lim_{ε→0⁺} W_analytic(x₁ + iεη₁, ..., xₙ + iεηₙ) exists
+    For any approach direction η ∈ ForwardConeAbs (successive diffs in V₊) and any
+    real configuration x, the limit from within the forward tube exists:
+      lim_{ε→0⁺} W_analytic(x₁ + iε·η₁, ..., xₙ + iε·ηₙ) exists
 
     Proved by combining `wightman_analyticity_distributional_bv` (the analytic
     continuation has tempered distributional BVs) with
     `pointwise_limit_along_forwardCone_direction` (distributional BVs + holomorphicity
-    imply pointwise limit existence along V₊-component directions).
+    imply pointwise limit existence along ForwardConeAbs directions).
 
     Ref: Streater-Wightman, "PCT, Spin and Statistics", Theorem 3-7 -/
 theorem wightman_analyticity_boundary (qft : WightmanQFT d)
     (ha : WightmanAnalyticity d qft) (n : ℕ)
     (x : Fin n → Fin (d + 1) → ℝ)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η) :
     -- The limit of the analytic continuation from within the forward tube exists
     ∃ (limit : ℂ), Filter.Tendsto
       (fun ε : ℝ => ha.analyticContinuation n

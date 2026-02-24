@@ -306,7 +306,7 @@ theorem W_analytic_translated_bv_eq {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ)
     (f : SchwartzNPoint d n)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η) :
     Filter.Tendsto
       (fun ε : ℝ => ∫ x : NPointDomain d n,
         (Wfn.spectrum_condition n).choose
@@ -330,7 +330,7 @@ theorem forward_tube_bv_integrable_translated {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (c : Fin (d + 1) → ℂ)
     (f : SchwartzNPoint d n)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     MeasureTheory.Integrable
       (fun x : NPointDomain d n =>
@@ -345,7 +345,7 @@ theorem translate_bv_integral_split {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ)
     (f : SchwartzNPoint d n)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     (∫ x : NPointDomain d n,
       ((Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) -
@@ -380,7 +380,7 @@ theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d)
     (c : Fin (d + 1) → ℂ) :
     ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           ((Wfn.spectrum_condition n).choose (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I + c μ) -
@@ -466,7 +466,7 @@ theorem distributional_uniqueness_forwardTube_inter {d n : ℕ} [NeZero d]
     (hF₂ : DifferentiableOn ℂ F₂
       {z | z ∈ ForwardTube d n ∧ (fun k μ => z k μ + c μ) ∈ ForwardTube d n})
     (h_agree : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           (F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) -
@@ -767,36 +767,23 @@ theorem bhw_smeared_eq_W_analytic_forwardTube_direction {d n : ℕ} [NeZero d]
   rw [him]
   exact inOpenForwardCone_smul d ε hε _ (hη_ft k)
 
-/-- Convex interpolation of approach directions: if η, η' ∈ V₊ componentwise, then
-    for any s ∈ [0,1], the convex combination (1-s)η + sη' also has components in V₊.
+/-- Convex interpolation of approach directions: if η, η' ∈ ForwardConeAbs (successive
+    diffs in V₊), then for any s ∈ [0,1], the convex combination (1-s)η + sη' also has
+    successive diffs in V₊.
 
-    This is because V₊ is convex (inOpenForwardCone_convex). -/
+    This is because ForwardConeAbs is convex (forwardConeAbs_convex). The successive
+    difference of (1-s)η + sη' is (1-s)(η_k - η_{k-1}) + s(η'_k - η'_{k-1}), a convex
+    combination of V₊ elements. -/
 theorem convex_approach_direction {d n : ℕ} [NeZero d]
     (η η' : Fin n → Fin (d + 1) → ℝ)
-    (hη : ∀ k, InOpenForwardCone d (η k))
-    (hη' : ∀ k, InOpenForwardCone d (η' k))
+    (hη : InForwardCone d n η)
+    (hη' : InForwardCone d n η')
     (s : ℝ) (hs0 : 0 ≤ s) (hs1 : s ≤ 1) :
-    ∀ k, InOpenForwardCone d (fun μ => (1 - s) * η k μ + s * η' k μ) := by
-  intro k
-  -- Bridge InOpenForwardCone ↔ BHW.InOpenForwardCone (same definition modulo naming)
-  have norm_eq : ∀ v : Fin (d + 1) → ℝ,
-      MinkowskiSpace.minkowskiNormSq d v = ∑ μ, LorentzLieGroup.minkowskiSignature d μ * v μ ^ 2 := by
-    intro v
-    simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner,
-      MinkowskiSpace.metricSignature, LorentzLieGroup.minkowskiSignature]
-    congr 1; ext i; ring
-  have to_bhw : ∀ v, InOpenForwardCone d v → BHW.InOpenForwardCone d v := by
-    intro v ⟨hv0, hv_norm⟩
-    exact ⟨hv0, norm_eq v ▸ hv_norm⟩
-  have from_bhw : ∀ v, BHW.InOpenForwardCone d v → InOpenForwardCone d v := by
-    intro v ⟨hv0, hv_norm⟩
-    exact ⟨hv0, (norm_eq v).symm ▸ hv_norm⟩
-  have hη_bhw : η k ∈ {η : Fin (d + 1) → ℝ | BHW.InOpenForwardCone d η} := to_bhw _ (hη k)
-  have hη'_bhw : η' k ∈ {η : Fin (d + 1) → ℝ | BHW.InOpenForwardCone d η} := to_bhw _ (hη' k)
-  have hmem := BHW.inOpenForwardCone_convex hη_bhw hη'_bhw (by linarith : 0 ≤ 1 - s)
-    hs0 (by ring : (1 - s) + s = 1)
-  simp only [Set.mem_setOf_eq] at hmem
-  exact from_bhw _ hmem
+    InForwardCone d n (fun k μ => (1 - s) * η k μ + s * η' k μ) := by
+  -- ForwardConeAbs is convex, and InForwardCone ↔ ForwardConeAbs membership
+  rw [inForwardCone_iff_mem_forwardConeAbs]
+  exact forwardConeAbs_convex d n hη hη' (by linarith : 0 ≤ 1 - s) hs0
+    (by ring : (1 - s) + s = 1)
 
 /-- The BV limit along a convex combination of approach directions equals the
     BV limit along either endpoint.
@@ -823,8 +810,8 @@ theorem bv_limit_constant_along_convex_path {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n))
     (f : SchwartzNPoint d n)
     (η η' : Fin n → Fin (d + 1) → ℝ)
-    (hη : ∀ k, InOpenForwardCone d (η k))
-    (hη' : ∀ k, InOpenForwardCone d (η' k))
+    (hη : InForwardCone d n η)
+    (hη' : InForwardCone d n η')
     (L : ℂ)
     (hL : Filter.Tendsto
       (fun ε : ℝ => ∫ x : NPointDomain d n,
@@ -842,8 +829,8 @@ theorem distributional_bv_direction_independence {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n))
     (f : SchwartzNPoint d n)
     (η η' : Fin n → Fin (d + 1) → ℝ)
-    (hη : ∀ k, InOpenForwardCone d (η k))
-    (hη' : ∀ k, InOpenForwardCone d (η' k))
+    (hη : InForwardCone d n η)
+    (hη' : InForwardCone d n η')
     (L : ℂ)
     (hL : Filter.Tendsto
       (fun ε : ℝ => ∫ x : NPointDomain d n,
@@ -877,17 +864,17 @@ theorem distributional_bv_direction_independence {d n : ℕ} [NeZero d]
     2. **Direction independence** (`distributional_bv_direction_independence`):
        The distributional BV of a holomorphic function on a tube domain is independent
        of the approach direction within the cone. This standard result (Vladimirov,
-       Streater-Wightman Thm 2-11) extends the BV from forward-tube directions to
-       all per-component V+ directions.
+       Streater-Wightman Thm 2-11) extends the BV from one ForwardConeAbs direction
+       to any other.
 
-    **Approach direction convention:** This theorem uses the same per-component approach
-    direction `∀ k, η_k ∈ V+` as `spectrum_condition` and `IsWickRotationPair`.
+    **Approach direction convention:** This theorem uses `InForwardCone d n η` (successive
+    differences in V₊), matching `spectrum_condition` and `IsWickRotationPair`.
 
     Ref: Streater-Wightman Theorem 2-11 -/
 theorem bhw_distributional_boundary_values {d n : ℕ} [NeZero d]
     (Wfn : WightmanFunctions d) :
     ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           (W_analytic_BHW Wfn n).val
@@ -927,24 +914,26 @@ theorem bhw_distributional_boundary_values {d n : ℕ} [NeZero d]
       exact (W_analytic_BHW Wfn 0).property.2.1 _ (hft_univ _)
     simp_rw [hcongr]
     -- Step 3: spectrum_condition gives the limit for W_analytic
-    have hη_cone : ∀ k : Fin 0, InOpenForwardCone d (η k) := fun k => Fin.elim0 k
+    have hη_cone : InForwardCone d 0 η := fun k => Fin.elim0 k
     exact (Wfn.spectrum_condition 0).choose_spec.2 f η hη_cone
   · -- n > 0: construct the nice approach direction
     have hn_pos : 0 < n := Nat.pos_of_ne_zero hn
+    -- Extract η(0) ∈ V⁺ from InForwardCone (the 0th successive difference is η(0) - 0)
+    have hη_first : InOpenForwardCone d (η ⟨0, hn_pos⟩) := by
+      have h := hη ⟨0, hn_pos⟩
+      simp only [dite_true] at h
+      simpa [Pi.zero_apply, sub_zero] using h
     set η₀ : Fin n → Fin (d + 1) → ℝ :=
       fun k μ => (↑k.val + 1) * η ⟨0, hn_pos⟩ μ with hη₀_def
     -- η₀ has successive differences in V₊ (each difference = η_0)
-    have hη₀_ft : ∀ k : Fin n,
-        let prev := if h : k.val = 0 then (0 : Fin (d + 1) → ℝ)
-          else η₀ ⟨k.val - 1, by omega⟩
-        InOpenForwardCone d (fun μ => η₀ k μ - prev μ) := by
+    have hη₀_fc : InForwardCone d n η₀ := by
       intro k
       simp only [hη₀_def]
       split
       case isTrue h =>
         -- k = 0: difference is (0+1) · η_0 - 0 = η_0 ∈ V₊
         simp [h]
-        exact hη ⟨0, hn_pos⟩
+        exact hη_first
       case isFalse h =>
         -- k > 0: difference is (k+1)·η_0 - ((k-1)+1)·η_0 = η_0 ∈ V₊
         -- The difference simplifies to ((k+1) - k) · η_0 = η_0
@@ -958,20 +947,11 @@ theorem bhw_distributional_boundary_values {d n : ℕ} [NeZero d]
             simp
           rw [hcast]; ring
         rw [h_diff]
-        exact hη ⟨0, hn_pos⟩
-    -- Each η₀_k ∈ V₊ (since V₊ is closed under positive scaling)
-    have hη₀_cone : ∀ k, InOpenForwardCone d (η₀ k) := by
-      intro k
-      simp only [hη₀_def]
-      have heq : (fun μ => ((↑↑k : ℝ) + 1) * η ⟨0, hn_pos⟩ μ) =
-          ((↑↑k : ℝ) + 1) • η ⟨0, hn_pos⟩ := by
-        ext μ; simp [Pi.smul_apply, smul_eq_mul]
-      rw [heq]
-      exact inOpenForwardCone_smul d ((↑↑k : ℝ) + 1) (by positivity) _ (hη ⟨0, hn_pos⟩)
+        exact hη_first
     -- Step 2: BV of F_ext for η₀.
     -- spectrum_condition gives BV of W_analytic for η₀:
     --   lim ∫ W_analytic(x + iεη₀) f(x) dx = W_n(f)
-    have h_sc := (Wfn.spectrum_condition n).choose_spec.2 f η₀ hη₀_cone
+    have h_sc := (Wfn.spectrum_condition n).choose_spec.2 f η₀ hη₀_fc
     -- F_ext = W_analytic on forward tube, and x + iεη₀ ∈ FT, so integrals agree
     have h_bv_η₀ : Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
@@ -982,12 +962,12 @@ theorem bhw_distributional_boundary_values {d n : ℕ} [NeZero d]
       apply Filter.Tendsto.congr' _ h_sc
       rw [Filter.eventuallyEq_iff_exists_mem]
       exact ⟨Set.Ioi 0, self_mem_nhdsWithin, fun ε hε =>
-        (bhw_smeared_eq_W_analytic_forwardTube_direction Wfn f η₀ hη₀_ft ε hε).symm⟩
+        (bhw_smeared_eq_W_analytic_forwardTube_direction Wfn f η₀ hη₀_fc ε hε).symm⟩
     -- Step 3: Apply direction independence to go from η₀ to arbitrary η
     exact distributional_bv_direction_independence
       (W_analytic_BHW Wfn n).val
       (W_analytic_BHW Wfn n).property.1
-      f η₀ η hη₀_cone hη (Wfn.W n f) h_bv_η₀
+      f η₀ η hη₀_fc hη (Wfn.W n f) h_bv_η₀
 
 /-! #### Schwinger function construction -/
 

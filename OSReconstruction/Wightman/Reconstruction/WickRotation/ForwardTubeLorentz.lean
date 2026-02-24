@@ -323,7 +323,7 @@ instances used here.
 theorem polynomial_growth_on_slice {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : NPointDomain d n),
@@ -392,7 +392,7 @@ theorem polynomial_growth_mul_schwartz_integrable {d n : ℕ} [NeZero d]
 theorem forward_tube_slice_aestrongly_measurable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     MeasureTheory.AEStronglyMeasurable
       (fun x : NPointDomain d n => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
@@ -403,7 +403,7 @@ theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (f : SchwartzNPoint d n)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k))
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     MeasureTheory.Integrable
       (fun x : NPointDomain d n =>
@@ -558,7 +558,7 @@ theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (_hF_hol : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_bv : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -566,7 +566,7 @@ theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
         (nhds (Wfn.W n f)))
     (Λ : LorentzGroup.Restricted (d := d))
     (f : SchwartzNPoint d n)
-    (η : Fin n → Fin (d + 1) → ℝ) (hη : ∀ k, InOpenForwardCone d (η k)) :
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η) :
     Filter.Tendsto
       (fun ε : ℝ => ∫ x : NPointDomain d n,
         F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
@@ -576,9 +576,14 @@ theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
   -- Define the Lorentz-rotated direction and test function
   let Λη : Fin n → Fin (d + 1) → ℝ := fun k μ => ∑ ν, Λ.val.val μ ν * η k ν
   let g : SchwartzNPoint d n := lorentzCompSchwartz Λ f
-  -- Λη is in the forward cone (each component)
-  have hΛη : ∀ k, InOpenForwardCone d (Λη k) :=
-    fun k => restricted_preserves_forward_cone Λ (η k) (hη k)
+  -- Λη is in the forward cone (successive differences preserved by Lorentz)
+  have hΛη : InForwardCone d n Λη := by
+    intro k
+    -- Lorentz action is linear, so Λ(η_k - η_{k-1}) = Λη_k - Λη_{k-1}
+    -- The successive difference of Λη equals Λ applied to the successive difference of η
+    have hk := hη k
+    simp only [InForwardCone, Λη] at hk ⊢
+    sorry -- Lorentz preserves forward cone on successive differences
   -- Apply hF_bv with test function g and direction Λη
   have hbv_g := hF_bv g Λη hΛη
   -- By Lorentz covariance (R5), W n f = W n g
@@ -689,7 +694,7 @@ theorem W_analytic_lorentz_bv_agree
     (Wfn : WightmanFunctions d) (n : ℕ)
     (Λ : LorentzGroup.Restricted (d := d)) :
     ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           ((Wfn.spectrum_condition n).choose

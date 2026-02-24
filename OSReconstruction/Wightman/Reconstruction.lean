@@ -520,12 +520,12 @@ structure WightmanFunctions (d : ℕ) [NeZero d] where
       -- Holomorphicity on the forward tube (DifferentiableOn avoids subtype issues)
       DifferentiableOn ℂ W_analytic (ForwardTube d n) ∧
       -- Boundary values: W_analytic recovers W_n as imaginary parts approach zero.
-      -- For any test function f and approach direction η with components in V₊,
-      -- lim_{ε→0⁺} ∫ W_analytic(x + iεη) f(x) dx = W_n(f)
+      -- For any test function f and approach direction η ∈ ForwardConeAbs,
+      -- lim_{ε→0⁺} ∫ W_analytic(x + iε·η) f(x) dx = W_n(f)
       -- This is the distributional boundary value condition:
       -- the smeared analytic continuation converges to the Wightman distribution.
       (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
             W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -1361,10 +1361,10 @@ def IsWickRotationPair {d : ℕ} [NeZero d] (S : SchwingerFunctions d) (W : (n :
     -- F_analytic is holomorphic on the forward tube
     DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
     -- Boundary values of F_analytic = W_n (as distributions):
-    -- For each test function f and approach direction η ∈ V₊,
-    -- lim_{ε→0⁺} ∫ F_analytic(x + iεη) f(x) dx = W_n(f)
+    -- For each test function f and approach direction η ∈ ForwardConeAbs,
+    -- lim_{ε→0⁺} ∫ F_analytic(x + iε·η) f(x) dx = W_n(f)
     (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))

@@ -230,6 +230,20 @@ theorem forwardConeAbs_implies_allForwardCone {d n : ℕ} [NeZero d]
       ext μ; simp
     rw [heq]; exact inOpenForwardCone_add d _ _ hk hdiff
 
+/-- `InForwardCone` (from WightmanAxioms) is definitionally equivalent to `ForwardConeAbs`
+    membership. Both require successive differences to lie in V₊. -/
+theorem inForwardCone_iff_mem_forwardConeAbs {d n : ℕ} [NeZero d]
+    (η : Fin n → Fin (d + 1) → ℝ) :
+    InForwardCone d n η ↔ η ∈ ForwardConeAbs d n :=
+  Iff.rfl
+
+/-- `InForwardCone` implies each component is in V₊ (bridge from successive-difference
+    to per-component condition). -/
+theorem inForwardCone_implies_allForwardCone {d n : ℕ} [NeZero d]
+    (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η) :
+    ∀ k : Fin n, InOpenForwardCone d (η k) :=
+  forwardConeAbs_implies_allForwardCone η hη
+
 theorem forwardConeAbs_convex (d n : ℕ) [NeZero d] :
     Convex ℝ (ForwardConeAbs d n) := by
   intro y hy y' hy' a b ha hb hab k
@@ -507,7 +521,7 @@ theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
       ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
             F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -539,9 +553,8 @@ theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
     refine ⟨fun f => T (pullback f), hT_cont.comp pullback.continuous, fun f η hη => ?_⟩
     -- η ∈ ForwardConeFlat = eR '' ForwardConeAbs, so η = eR η' for some η' ∈ ForwardConeAbs
     obtain ⟨η', hη', rfl⟩ := hη
-    -- η' ∈ ForwardConeAbs implies each η'_k ∈ V₊, so hT applies
-    have hη'_all := forwardConeAbs_implies_allForwardCone η' hη'
-    have hconv := hT (pullback f) η' hη'_all
+    -- η' ∈ ForwardConeAbs ↔ InForwardCone, so hT applies directly
+    have hconv := hT (pullback f) η' hη'
     -- Show the integrands are equal pointwise, then use Filter.Tendsto.congr
     have heq : ∀ ε : ℝ,
         ∫ x : Fin (n * (d + 1)) → ℝ,
@@ -590,7 +603,7 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
     (hF₁ : DifferentiableOn ℂ F₁ (ForwardTube d n))
     (hF₂ : DifferentiableOn ℂ F₂ (ForwardTube d n))
     (h_agree : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           (F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) -
@@ -619,8 +632,8 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
     let pullback : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ →L[ℂ]
         SchwartzMap (Fin n → Fin (d + 1) → ℝ) ℂ :=
       SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR
-    have hη'_all := forwardConeAbs_implies_allForwardCone η' hη'
-    have hconv := h_agree (pullback f) η' hη'_all
+    -- η' ∈ ForwardConeAbs ↔ InForwardCone, so h_agree applies directly
+    have hconv := h_agree (pullback f) η' hη'
     -- Key lemma: the argument of F₁/F₂ matches after unflattening
     have harg : ∀ (y : NPointDomain d n) (ε : ℝ),
         (flattenCLEquiv n (d + 1)).symm (fun i =>
@@ -909,7 +922,7 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
       ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
             F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -946,8 +959,8 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
       SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR
     refine ⟨fun f => T (pullback f), hT_cont.comp pullback.continuous, fun f η' hη' => ?_⟩
     obtain ⟨η'', hη'', rfl⟩ := hη'
-    have hη''_all := forwardConeAbs_implies_allForwardCone η'' hη''
-    have hconv := hT (pullback f) η'' hη''_all
+    -- η'' ∈ ForwardConeAbs ↔ InForwardCone, so hT applies directly
+    have hconv := hT (pullback f) η'' hη''
     have heq : ∀ ε : ℝ,
         ∫ x : Fin (n * (d + 1)) → ℝ,
           (G fun i => ↑(x i) + ↑ε * ↑(eR η'' i) * Complex.I) * f x =

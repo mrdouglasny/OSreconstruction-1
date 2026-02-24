@@ -260,7 +260,7 @@ theorem forward_tube_bv_tempered
     ∃ (W_n : SchwartzNPoint d n → ℂ),
       Continuous W_n ∧ IsLinearMap ℂ W_n ∧
       (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
             F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -285,7 +285,7 @@ theorem boundary_values_tempered
       DifferentiableOn ℂ F_analytic (ForwardTube d n) ∧
       -- Boundary values of F_analytic give W_n
       (∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        (∀ k, InOpenForwardCone d (η k)) →
+        InForwardCone d n η →
         Filter.Tendsto
           (fun ε : ℝ => ∫ x : NPointDomain d n,
             F_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -354,7 +354,7 @@ theorem bvt_F_holomorphic (OS : OsterwalderSchraderAxioms d)
 theorem bvt_boundary_values (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           bvt_F OS lgc n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -396,7 +396,7 @@ theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
     (hW_cont : Continuous W_0)
     (hW_lin : IsLinearMap ℂ W_0)
     (hBV : ∀ (f : SchwartzNPoint d 0) (η : Fin 0 → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d 0 η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : Fin 0 → Fin (d + 1) → ℝ,
           F_0 (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -421,7 +421,7 @@ theorem bv_translation_invariance_transfer (OS : OsterwalderSchraderAxioms d)
     (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -451,7 +451,7 @@ theorem bv_lorentz_covariance_transfer (OS : OsterwalderSchraderAxioms d)
     (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -483,7 +483,7 @@ theorem bv_local_commutativity_transfer (OS : OsterwalderSchraderAxioms d)
     (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -529,7 +529,7 @@ theorem bv_hermiticity_transfer (OS : OsterwalderSchraderAxioms d)
     (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           F_n (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))

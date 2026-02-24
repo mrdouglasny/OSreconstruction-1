@@ -24,12 +24,12 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 ### LorentzLieGroup.lean — 0 sorrys ✓
 `RestrictedLorentzGroup.isPathConnected` fully proved via `joined_one`.
 
-### JostPoints.lean — 4 sorrys
+### JostPoints.lean — 3 sorrys (down from 4)
 | # | Line | Name | Status |
 |---|------|------|--------|
 | 1 | 913 | `spatial_rotation_e12_plane` | **sorry** — spatial rotation construction |
 | 2 | 929 | `swap_jost_set_exists` | **sorry** — swap-compatible Jost configs exist |
-| 3 | 1106 | `isConnected_extendedTube` | **sorry** — extended tube connected |
+| 3 | ~~1106~~ | ~~`isConnected_extendedTube`~~ | ✅ PROVED — continuous image of connected set |
 | 4 | 1117 | `tube_domain_intersection_connected` | **sorry** — ET ∩ σ·ET connected |
 
 **PROVED:**
@@ -40,7 +40,7 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness.lean — 6 sorrys (down from 7, false lemma deleted)
+### Connectedness.lean — 6 sorrys
 | # | Line | Name | Status |
 |---|------|------|--------|
 | 1 | 1257 | `orbitSet_isPreconnected` | **sorry** — O_w connected (fiber/quotient or polar decomp) |
@@ -86,7 +86,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 10 sorrys across 2 files** (JostPoints: 4, Connectedness: 6)
+**Total: 9 sorrys across 2 files** (JostPoints: 3, Connectedness: 6)
 
 ---
 

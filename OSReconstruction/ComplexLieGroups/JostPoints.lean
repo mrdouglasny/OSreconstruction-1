@@ -1103,7 +1103,36 @@ theorem swap_jost_set_exists (hd : 2 ≤ d) (_hn : 2 ≤ n)
     (available as isPathConnected) composed via the continuous action map. -/
 private lemma isConnected_extendedTube :
     IsConnected (@ExtendedTube d n) := by
-  sorry
+  constructor
+  · -- Nonempty: 1 · w₀ ∈ ExtendedTube for w₀ ∈ FT
+    obtain ⟨w₀, hw₀⟩ := forwardTube_nonempty (d := d) (n := n)
+    exact ⟨complexLorentzAction 1 w₀, Set.mem_iUnion.mpr
+      ⟨1, w₀, hw₀, by rw [complexLorentzAction_one]⟩⟩
+  · -- Preconnected: ExtendedTube = image of G × FT under continuous action
+    -- Rewrite as image of the product set
+    have hET_eq : @ExtendedTube d n =
+        (fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
+          complexLorentzAction p.1 p.2) '' (Set.univ ×ˢ ForwardTube d n) := by
+      ext z; simp only [ExtendedTube, Set.mem_iUnion, Set.mem_setOf_eq,
+        Set.mem_image, Set.mem_prod, Set.mem_univ, true_and]
+      constructor
+      · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨⟨Λ, w⟩, hw, rfl⟩
+      · rintro ⟨⟨Λ, w⟩, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
+    rw [hET_eq]
+    -- Action map is continuous
+    have hcont : Continuous (fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
+        complexLorentzAction p.1 p.2) := by
+      apply continuous_pi; intro k; apply continuous_pi; intro μ
+      simp only [complexLorentzAction]
+      apply continuous_finset_sum; intro ν _
+      exact ((continuous_apply ν).comp ((continuous_apply μ).comp
+        (ComplexLorentzGroup.continuous_val.comp continuous_fst))).mul
+        ((continuous_apply ν).comp ((continuous_apply k).comp continuous_snd))
+    -- G is path-connected, FT is convex (hence preconnected)
+    haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
+      pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
+    exact (isPreconnected_univ.prod forwardTube_convex.isPreconnected).image _
+      hcont.continuousOn
 
 /-- Helper: The intersection of two connected open tube domains that share a
     real "base" is connected.

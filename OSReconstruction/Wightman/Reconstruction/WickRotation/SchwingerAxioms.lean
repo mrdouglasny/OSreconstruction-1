@@ -43,7 +43,7 @@ variable {d : ℕ} [NeZero d]
 theorem polynomial_growth_forwardTube_full {d n : ℕ} [NeZero d]
     {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (h_bv : ∀ (η : Fin n → Fin (d + 1) → ℝ), (∀ k, InOpenForwardCone d (η k)) →
+    (h_bv : ∀ (η : Fin n → Fin (d + 1) → ℝ), InForwardCone d n η →
       ∃ (T : NPointDomain d n → ℂ), ContinuousOn T Set.univ ∧
         ∀ (f : NPointDomain d n → ℂ), MeasureTheory.Integrable f →
           Filter.Tendsto (fun ε : ℝ =>

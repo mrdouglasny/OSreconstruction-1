@@ -70,7 +70,7 @@ theorem W_analytic_swap_distributional_agree {d n : ℕ} [NeZero d]
     (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
     (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
@@ -78,7 +78,7 @@ theorem W_analytic_swap_distributional_agree {d n : ℕ} [NeZero d]
     (hLC : IsLocallyCommutativeWeak d W)
     (i : Fin n) (hi : i.val + 1 < n) :
     ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           (W_analytic (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ) +
@@ -105,7 +105,7 @@ theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
     (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
     (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ k, InOpenForwardCone d (η k)) →
+      InForwardCone d n η →
       Filter.Tendsto
         (fun ε : ℝ => ∫ x : NPointDomain d n,
           W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))

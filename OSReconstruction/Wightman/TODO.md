@@ -90,18 +90,24 @@ All theorems proven and verified `sorryAx`-free:
 Both `edge_of_the_wedge` and `bargmann_hall_wightman` are now **proved theorems**.
 All theorems in this file are fully proven.
 
-### WickRotation/ — 28 sorrys, 0 axioms (split into 5 subfiles)
+### WickRotation/ — 30 sorrys, 0 axioms (split into 5 subfiles)
 
 Refactored from a single 3475-line file into a `WickRotation/` subfolder:
 
 | File | Lines | Sorrys | Content |
 |------|-------|--------|---------|
-| `ForwardTubeLorentz.lean` | ~735 | 3 | Cone/tube preservation, Lorentz COV, distributional BV |
+| `ForwardTubeLorentz.lean` | ~735 | 4 | Cone/tube preservation, Lorentz COV, distributional BV |
 | `BHWExtension.lean` | ~177 | 2 | BHW extension definition, local commutativity |
 | `BHWTranslation.lean` | ~1013 | 5 | Translation invariance, `constructSchwingerFunctions` |
 | `SchwingerAxioms.lean` | ~836 | 5 | E0-E4 axiom proofs |
-| `OSToWightman.lean` | ~752 | 13 | E'→R' direction, bridge theorems |
+| `OSToWightman.lean` | ~752 | 14 | E'→R' direction, bridge theorems |
 | `WickRotation.lean` | barrel | 0 | Re-exports OSToWightman |
+
+Note: BV convention fix (2026-02-24) changed the approach direction hypothesis from
+`∀ k, InOpenForwardCone d (η k)` (each component in V⁺) to `InForwardCone d n η`
+(successive differences η_k - η_{k-1} ∈ V⁺), which is the correct condition for
+`x + iε·η` to lie in `ForwardTube`. This added 1 sorry in ForwardTubeLorentz
+(Lorentz preserving ForwardConeAbs) and 1 in OSToWightman.
 
 **R→E direction — remaining sorrys (2, HARD):**
 
@@ -136,7 +142,7 @@ moved to Reconstruction/Main.lean to resolve circular import constraints
 | 17 | `wightman_to_os` | ✅ Wired to `wightman_to_os_full` (WickRotation) |
 | 18 | `os_to_wightman` | ✅ Wired to `os_to_wightman_full` (WickRotation) |
 
-### GNSHilbertSpace.lean — 3 sorrys in gnsQFT (down from 10), matching condition PROVED
+### GNSHilbertSpace.lean — 1 sorry in gnsQFT (down from 10), matching condition PROVED
 
 **New file (2026-02-23).** Completes the GNS Hilbert space construction:
 - Phase 1: `AddCommGroup` + `Module ℂ` on `PreHilbertSpace` (sorry-free)
@@ -151,8 +157,8 @@ moved to Reconstruction/Main.lean to resolve circular import constraints
   - **PROVED**: `poincareActionOnSchwartz`, `poincareAction_spec`, `covariance`, `locality`
   - **PROVED**: `vacuum_unique` part 1 (time-translation invariance from Poincaré invariance)
   - **SORRY**: `spectrum_condition` — needs Stone's theorem + spectral theory (not in Mathlib)
-  - **SORRY**: `cyclicity` — needs Schwartz nuclear theorem (tensor products dense, not in Mathlib)
-  - **SORRY**: `vacuum_unique` part 2 — needs spectral theory (ker(H) = ℂ·Ω, not in Mathlib)
+  - ~~**SORRY**: `cyclicity`~~ ✅ PROVED
+  - ~~**SORRY**: `vacuum_unique` part 2~~ ✅ PROVED
 - Domain: `gnsDomainSubmodule` = image of PreHilbertSpace under completion embedding (not ⊤)
 - Domain density: `gnsDomain_dense` proved
 - Key lemmas (sorry-free): `gnsFieldOp_coe`, `operatorPow_gnsQFT_eq`, `gnsVacuum_norm`
@@ -257,7 +263,7 @@ These groups are **independent** and can be worked on simultaneously:
 - **Group C** (R→E hard sorrys): **E2 reflection positivity**, **E4 cluster decomposition**
 - **Group D** (GNS/functional analysis): spectral theory, nuclear theorem, Stone's theorem
 
-## Status Overview (2026-02-23)
+## Status Overview (2026-02-24)
 
 ### Wightman Module
 
@@ -267,50 +273,51 @@ These groups are **independent** and can be worked on simultaneously:
 | SchwartzTensorProduct.lean | 0 | ✅ Complete |
 | WightmanAxioms.lean | 4 | Nuclear theorem, spectrum BV |
 | Reconstruction/GNSConstruction.lean | 0 | ✅ Complete |
-| Reconstruction/GNSHilbertSpace.lean | 3 | Spectral, cyclicity, vacuum |
+| Reconstruction/GNSHilbertSpace.lean | 1 | Spectral condition |
 | Reconstruction/AnalyticContinuation.lean | 0 | ✅ Complete |
 | Reconstruction/ForwardTubeDistributions.lean | 0 | ✅ Complete |
-| Reconstruction/WickRotation/ForwardTubeLorentz.lean | 3 | Polynomial growth, BV integrability |
+| Reconstruction/WickRotation/ForwardTubeLorentz.lean | 4 | Polynomial growth, BV integrability, Lorentz∘ForwardConeAbs |
 | Reconstruction/WickRotation/BHWExtension.lean | 2 | Local commutativity |
 | Reconstruction/WickRotation/BHWTranslation.lean | 5 | Translation chain, BV direction |
 | **Reconstruction/WickRotation/SchwingerAxioms.lean** | **5** | **E0, E2, E4** |
-| **Reconstruction/WickRotation/OSToWightman.lean** | **13** | **E→R chain** |
+| **Reconstruction/WickRotation/OSToWightman.lean** | **14** | **E→R chain** |
 | Reconstruction/Main.lean | 1 | `wightman_uniqueness` |
 | Reconstruction/Helpers/ | 0 | ✅ Complete |
-| NuclearSpaces/ | 7 | Deferred (NuclearSpace 2, BochnerMinlos 5) |
-| **Wightman subtotal** | **43** | |
+| NuclearSpaces/ | 9 | Deferred (NuclearSpace 2, BochnerMinlos 5, SchwartzNuclear 2) |
+| **Wightman subtotal** | **45** | |
 
-### Full Project Sorry Census (115 total, 18 files, 0 axioms)
+### Full Project Sorry Census (108 total, 23 files, 0 axioms)
 
 | Module | File | Sorrys |
 |--------|------|--------|
-| **Wightman** | WickRotation/OSToWightman.lean | 13 |
+| **Wightman** | WickRotation/OSToWightman.lean | 14 |
 | | NuclearSpaces/BochnerMinlos.lean | 5 |
 | | WickRotation/BHWTranslation.lean | 5 |
 | | WickRotation/SchwingerAxioms.lean | 5 |
 | | WightmanAxioms.lean | 4 |
-| | WickRotation/ForwardTubeLorentz.lean | 3 |
-| | Reconstruction/GNSHilbertSpace.lean | 3 |
-| | WickRotation/BHWExtension.lean | 2 |
+| | WickRotation/ForwardTubeLorentz.lean | 4 |
+| | NuclearSpaces/SchwartzNuclear.lean | 2 |
 | | NuclearSpaces/NuclearSpace.lean | 2 |
+| | WickRotation/BHWExtension.lean | 2 |
+| | Reconstruction/GNSHilbertSpace.lean | 1 |
 | | Reconstruction/Main.lean | 1 |
-| | **subtotal** | **43** |
-| **vNA** | MeasureTheory/CaratheodoryExtension.lean | 16 |
+| | **subtotal** | **45** |
+| **vNA** | MeasureTheory/CaratheodoryExtension.lean | 11 |
 | | KMS.lean | 10 |
-| | ModularAutomorphism.lean | 8 |
+| | ModularAutomorphism.lean | 7 |
 | | ModularTheory.lean | 6 |
-| | Unbounded/StoneTheorem.lean | 3 |
+| | Unbounded/StoneTheorem.lean | 2 |
 | | Predual.lean | 2 |
 | | Unbounded/Spectral.lean | 2 |
-| | **subtotal** | **47** |
+| | **subtotal** | **40** |
 | **SCV** | LaplaceSchwartz.lean | 6 |
 | | PaleyWiener.lean | 6 |
 | | BochnerTubeTheorem.lean | 2 |
 | | **subtotal** | **14** |
-| **ComplexLieGroups** | Connectedness.lean | 7 |
-| | JostPoints.lean | 4 |
-| | **subtotal** | **11** |
-| **TOTAL** | **18 files** | **115** |
+| **ComplexLieGroups** | Connectedness.lean | 6 |
+| | JostPoints.lean | 3 |
+| | **subtotal** | **9** |
+| **TOTAL** | **23 files** | **108** |
 
 ## Proven Infrastructure (sorry-free)
 
