@@ -24,13 +24,8 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 ### LorentzLieGroup.lean — 0 sorrys ✓
 `RestrictedLorentzGroup.isPathConnected` fully proved via `joined_one`.
 
-### JostPoints.lean — 3 sorrys (down from 4)
-| # | Line | Name | Status |
-|---|------|------|--------|
-| 1 | 913 | `spatial_rotation_e12_plane` | **sorry** — spatial rotation construction |
-| 2 | 929 | `swap_jost_set_exists` | **sorry** — swap-compatible Jost configs exist |
-| 3 | ~~1106~~ | ~~`isConnected_extendedTube`~~ | ✅ PROVED — continuous image of connected set |
-| 4 | 1117 | `tube_domain_intersection_connected` | **sorry** — ET ∩ σ·ET connected |
+### JostPoints.lean — 0 sorrys ✓
+All `sorry`s removed in `JostPoints.lean`.
 
 **PROVED:**
 - `forwardJostSet_subset_extendedTube` (Jost's lemma) ✅ — Wick rotation maps ForwardJostSet into ExtendedTube
@@ -40,15 +35,20 @@ Complex Lorentz group SO⁺(1,d;ℂ) fully defined and path-connected:
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness.lean — 6 sorrys
+### Connectedness.lean — 4 sorrys
 | # | Line | Name | Status |
 |---|------|------|--------|
-| 1 | 1257 | `orbitSet_isPreconnected` | **sorry** — O_w connected (fiber/quotient or polar decomp) |
-| 2 | 1763 | `eow_adj_swap_extension` | **sorry** — EOW flattening for adjacent swap |
-| 3 | 1833 | `T_inter_U_grp_isOpen` | **sorry** — T∩U_grp open on extension domain |
-| 4 | 1854 | `U_grp_isPreconnected` | **sorry** — U_grp preconnected on extension domain |
-| 5 | 2165 | `iterated_eow_permutation_extension` | **sorry** — EOW iteration for general σ |
-| 6 | 2423 | `adjacent_sectors_overlap` | **sorry** — Jost point overlap between sectors |
+| 1 | 1961 | `T_inter_U_grp_isOpen` | **sorry** — generic statement currently too weak; counterexample formalized in `test/t_inter_u_grp_counterexample.lean` |
+| 2 | 1972 | `U_grp_isPreconnected` | **sorry** — U_grp preconnected on extension domain |
+| 3 | 2283 | `iterated_eow_permutation_extension` | **sorry** — EOW iteration for general σ |
+| 4 | 2541 | `adjacent_sectors_overlap` | **sorry** — Jost-point style overlap between adjacent sectors |
+
+### GeodesicConvexity.lean — 3 sorrys
+| # | Line | Name | Status |
+|---|------|------|--------|
+| 1 | 540 | `geodesic_convexity_forwardCone` | **sorry** — geodesic cone convexity |
+| 2 | 598 | `cartan_exp_embedding` | **sorry** — symmetric-space exponential surjectivity |
+| 3 | 745 | `hM_orth` subgoal in `polar_decomposition` | **sorry** — orthochronous real factor |
 
 NOTE: The false lemma `open_locally_path_connected_subset_preconnected` was DELETED
 (GitHub issue #30). The counterexample is G = ℝ, S = (-2,-1) ∪ (-½,½) ∪ (1,2).
@@ -86,7 +86,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 9 sorrys across 2 files** (JostPoints: 3, Connectedness: 6)
+**Total: 7 sorrys across 2 files** (Connectedness: 4, GeodesicConvexity: 3)
 
 ---
 

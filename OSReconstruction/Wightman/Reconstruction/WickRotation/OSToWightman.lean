@@ -743,10 +743,8 @@ theorem os_to_wightman_full (OS : OsterwalderSchraderAxioms d)
 
 /-! ### Wired Corollaries
 
-The theorems `wightman_to_os` and `os_to_wightman` in `Reconstruction.lean` have
-identical signatures to `wightman_to_os_full` and `os_to_wightman_full` above
-(both use `IsWickRotationPair`). They are sorry'd because WickRotation.lean
-imports Reconstruction.lean (circular import prevents wiring from there).
-The `_full` versions here serve as the actual proofs. -/
+The theorem wiring to canonical names now lives in
+`Wightman/Reconstruction/Main.lean`. The `_full` theorems above remain the
+implementation-level results used by that wiring layer. -/
 
 end

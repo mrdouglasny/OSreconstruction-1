@@ -30,36 +30,69 @@ lake build
 
 This will fetch Mathlib and all dependencies automatically. The first build may take a while.
 
+## Entrypoints
+
+- `import OSReconstruction` or `import OSReconstruction.OS` for the OS reconstruction critical path.
+- `import OSReconstruction.All` for the full stack (OS + vNA).
+- `import OSReconstruction.vNA` when working only on the von Neumann algebra development.
+
 ## Project Status
 
-The project builds cleanly with **zero named axioms** — all former axioms have been converted to theorems. Remaining work is tracked via `sorry` placeholders (108 total across 23 files).
+The project builds cleanly with **zero named axioms**. Remaining work is tracked via direct
+`sorry` placeholders.
 
-### Key proved results
+Snapshot (2026-02-25, counted with `rg -n '^\s*sorry\b' OSReconstruction`):
 
-- **Wightman reconstruction** (`wightman_reconstruction`): GNS construction from Wightman functions — sorry-free
-- **R→E bridge** (`wightman_to_os_full`): Wightman → OS axioms — sorry-free
-- **E'→R' bridge** (`os_to_wightman_full`): OS + linear growth → Wightman — sorry-free
-- **Bargmann-Hall-Wightman theorem**: complex Lorentz invariance, permutation symmetry, uniqueness on PET — proved modulo edge-of-the-wedge infrastructure
-- **SO+(1,d;ℝ) path-connected**: Full Givens QR proof, zero sorrys (630 lines)
-- **SCV module**: Polydiscs, Osgood, Hartogs, identity theorems, tube extension — zero sorrys
-- **Stone's theorem infrastructure**: Generator commutation, ODE kernel triviality, integral formula — proved (surjectivity pending)
-- **BV convention**: Boundary value approach direction hypothesis corrected to `InForwardCone` (successive differences in V+)
+| Module | Direct `sorry` lines |
+|--------|-----------------------|
+| `Wightman/` | 43 |
+| `SCV/` | 14 |
+| `ComplexLieGroups/` | 5 |
+| `vNA/` | 40 |
+| **Total** | **102** |
 
-### Sorry breakdown (108 total across 23 files)
+### OS-Critical Sorry Flow Toward Reconstruction
 
-| Area | Proved | Remaining `sorry`s |
-|------|--------|---------------------|
-| R→E bridge (WickRotation) | `wightman_to_os_full`, E0, E1, E3 | 2 (E2 reflection positivity, E4 cluster) |
-| E→R analytic continuation (WickRotation) | `os_to_wightman_full` structure | 26 (Paley-Wiener, boundary values, 6 transfers) |
-| BHW theorem chain (Connectedness) | Properties 1-5, complex Lorentz invariance | 6 (EOW flattening, orbit topology) |
-| Jost points (JostPoints) | Jost's lemma, extended tube connected | 3 (spatial rotations, swap existence) |
-| GNS Hilbert space | Hilbert space, Poincaré rep, matching | 1 (spectral condition) |
-| SCV distribution theory | Core theorems (Polydisc–IdentityTheorem) | 14 (Fourier-Laplace, Paley-Wiener, Bochner) |
-| Wightman axiom infrastructure | | 4 (nuclear theorem, spectrum BV) |
-| Nuclear spaces / Bochner-Minlos | | 9 (gauge seminorms, Bochner-Minlos, Schwartz nuclear) |
-| Stone's theorem | Generator commutation, ODE, integral formula | 2 (self-adjointness, generates) |
-| vNA (modular theory + KMS + measure) | Tomita-Takesaki structure | 40 (modular, KMS, Carathéodory, spectral) |
-| Uniqueness | | 1 (`wightman_uniqueness`) |
+```mermaid
+flowchart TD
+  M["Wightman/Reconstruction/Main.lean"]
+  M --> WR["wightman_reconstruction (proved)"]
+  M --> WU["wightman_uniqueness (1 sorry)"]
+  M --> RE["wightman_to_os"]
+  M --> ER["os_to_wightman"]
+
+  RE --> SA["WickRotation/SchwingerAxioms (5 sorrys)"]
+  SA --> BT["WickRotation/BHWTranslation (5)"]
+  BT --> BE["WickRotation/BHWExtension (2)"]
+  BE --> FL["WickRotation/ForwardTubeLorentz (2)"]
+  FL --> AC["Reconstruction/AnalyticContinuation (0)"]
+  AC --> CL["ComplexLieGroups/Connectedness (2)"]
+  CL --> GC["ComplexLieGroups/GeodesicConvexity (3)"]
+  AC --> JP["ComplexLieGroups/JostPoints (0)"]
+
+  ER --> OW["WickRotation/OSToWightman (14 sorrys)"]
+  OW --> PW["SCV/PaleyWiener (6)"]
+  OW --> LS["SCV/LaplaceSchwartz (6)"]
+  OW --> BO["SCV/BochnerTubeTheorem (2)"]
+```
+
+### Critical-Path Blockers (File Level)
+
+| File | Direct `sorry`s | Notes |
+|------|------------------|-------|
+| `Wightman/Reconstruction/Main.lean` | 1 | `wightman_uniqueness` |
+| `Wightman/Reconstruction/GNSHilbertSpace.lean` | 1 | `covariance_preHilbert` |
+| `Wightman/WightmanAxioms.lean` | 4 | nuclear extension + spectrum/BV infrastructure |
+| `Wightman/Reconstruction/WickRotation/ForwardTubeLorentz.lean` | 2 | growth + PET approach-direction plumbing |
+| `Wightman/Reconstruction/WickRotation/BHWExtension.lean` | 2 | swap/local-commutativity distributional agreement |
+| `Wightman/Reconstruction/WickRotation/BHWTranslation.lean` | 5 | translation/BV uniqueness chain |
+| `Wightman/Reconstruction/WickRotation/SchwingerAxioms.lean` | 5 | E0/E2/E4 hard analytic steps |
+| `Wightman/Reconstruction/WickRotation/OSToWightman.lean` | 14 | analytic continuation + BV transfer chain |
+| `SCV/PaleyWiener.lean` | 6 | one-step extension infrastructure |
+| `SCV/LaplaceSchwartz.lean` | 6 | boundary growth/continuity/convergence |
+| `SCV/BochnerTubeTheorem.lean` | 2 | local-to-global tube extension |
+| `ComplexLieGroups/Connectedness.lean` | 2 | EOW permutation gluing/orbit overlap |
+| `ComplexLieGroups/GeodesicConvexity.lean` | 3 | Cartan/polar decomposition infrastructure |
 
 See also [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) and [`OSReconstruction/ComplexLieGroups/TODO.md`](OSReconstruction/ComplexLieGroups/TODO.md) for detailed execution plans.
 
@@ -74,7 +107,7 @@ OSReconstruction/
 │   ├── ModularTheory.lean        # Tomita-Takesaki: S, Δ, J
 │   ├── ModularAutomorphism.lean  # σ_t, Connes cocycle
 │   ├── KMS.lean                  # KMS condition
-│   ├── Spectral/                 # Spectral theory via RMK (sorry-free)
+│   ├── Spectral/                 # Spectral theory via RMK (active work)
 │   ├── Unbounded/                # Unbounded operators, spectral theorem, Stone
 │   ├── MeasureTheory/            # Spectral integrals, Stieltjes, Carathéodory
 │   └── Bochner/                  # Operator Bochner integrals

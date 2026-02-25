@@ -537,7 +537,7 @@ theorem W_analytic_translation_on_forwardTube {d n : ℕ} [NeZero d]
 theorem permutedExtendedTube_isConnected (d n : ℕ) [NeZero d] :
     IsConnected (PermutedExtendedTube d n) := by
   rw [← BHW_permutedExtendedTube_eq]
-  exact @BHW.isConnected_permutedExtendedTube d n
+  exact BHW.isConnected_permutedExtendedTube (d := d) (n := n)
 
 /-- The forward tube intersected with its c-translate is nonempty.
 

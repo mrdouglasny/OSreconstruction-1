@@ -3,7 +3,8 @@ Copyright (c) 2025 ModularPhysics Contributors.
 Released under Apache 2.0 license.
 Authors: ModularPhysics Contributors
 -/
-import OSReconstruction.ComplexLieGroups.Connectedness
+import OSReconstruction.ComplexLieGroups.BHWCore
+import OSReconstruction.SCV.IdentityTheorem
 import OSReconstruction.SCV.TotallyRealIdentity
 
 /-!
@@ -44,6 +45,8 @@ open scoped Matrix.Norms.Operator
 variable {d : ℕ}
 
 namespace BHW
+
+open BHWCore
 
 /-! ### Spacelike vectors and the pairwise spacelike set -/
 
@@ -700,9 +703,9 @@ theorem identity_theorem_totally_real_product
     extendF(z) = F(Λ₀⁻¹·z) near z₀. -/
 theorem extendF_holomorphicOn (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
-      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
-      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z) :
+    (hF_cinv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ForwardTube d n → complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z) :
     DifferentiableOn ℂ (extendF F) (ExtendedTube d n) := by
   intro z₀ hz₀
   -- z₀ ∈ ExtendedTube: ∃ Λ₀, w₀ with z₀ = Λ₀·w₀, w₀ ∈ FT
@@ -730,7 +733,7 @@ theorem extendF_holomorphicOn (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) →
         z = complexLorentzAction Λ' w :=
       ⟨ψ z, hz_V, Λ₀, hz_eq⟩
     rw [dif_pos hex]
-    exact extendF_preimage_eq n F hF_holo hF_real_inv hex.choose_spec.1 hz_V
+    exact extendF_preimage_eq n F hF_cinv hex.choose_spec.1 hz_V
       (hex.choose_spec.2.choose_spec.symm.trans hz_eq)
   -- F ∘ ψ is differentiable at z₀
   have hFψ_diff : DifferentiableAt ℂ (fun z => F (ψ z)) z₀ :=
@@ -814,9 +817,9 @@ theorem realEmbed_mem_closure_forwardTube (x : Fin n → Fin (d + 1) → ℝ) :
 /-- At forward Jost points, extendF agrees with the boundary value of F. -/
 theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
-      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
-      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_cinv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ForwardTube d n → complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z)
     (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
       ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
     (hd : 1 ≤ d)
@@ -825,7 +828,7 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
   -- realEmbed x ∈ T'_n by Jost's lemma
   have hx_ET := forwardJostSet_subset_extendedTube hd x hx
   -- extendF is holomorphic (hence continuous) on T'_n
-  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_real_inv
+  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_cinv
   -- extendF is ContinuousWithinAt on FT at realEmbed x (restrict from T'_n ⊇ FT)
   have h1 : ContinuousWithinAt (extendF F) (ForwardTube d n) (realEmbed x) :=
     (hextend_holo.continuousOn _ hx_ET).mono forwardTube_subset_extendedTube
@@ -834,7 +837,7 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
   -- extendF =ᶠ F on FT (eventually equal in the nhdsWithin filter)
   have h3 : extendF F =ᶠ[nhdsWithin (realEmbed x) (ForwardTube d n)] F :=
     Filter.eventually_of_mem self_mem_nhdsWithin
-      (fun z hz => extendF_eq_on_forwardTube n F hF_holo hF_real_inv z hz)
+      (fun z hz => extendF_eq_on_forwardTube n F hF_cinv z hz)
   -- nhdsWithin filter is nontrivial (realEmbed x ∈ closure FT)
   haveI : (nhdsWithin (realEmbed x) (ForwardTube d n)).NeBot :=
     mem_closure_iff_nhdsWithin_neBot.mp (realEmbed_mem_closure_forwardTube x)
@@ -850,20 +853,20 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
     argument as `extendF_eq_boundary_value` without requiring `ForwardJostSet` membership. -/
 theorem extendF_eq_boundary_value_ET (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
-      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
-      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_cinv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ForwardTube d n → complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z)
     (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
       ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
     (x : Fin n → Fin (d + 1) → ℝ) (hx_ET : realEmbed x ∈ ExtendedTube d n) :
     extendF F (realEmbed x) = F (realEmbed x) := by
-  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_real_inv
+  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_cinv
   have h1 : ContinuousWithinAt (extendF F) (ForwardTube d n) (realEmbed x) :=
     (hextend_holo.continuousOn _ hx_ET).mono forwardTube_subset_extendedTube
   have h2 : ContinuousWithinAt F (ForwardTube d n) (realEmbed x) := hF_bv x
   have h3 : extendF F =ᶠ[nhdsWithin (realEmbed x) (ForwardTube d n)] F :=
     Filter.eventually_of_mem self_mem_nhdsWithin
-      (fun z hz => extendF_eq_on_forwardTube n F hF_holo hF_real_inv z hz)
+      (fun z hz => extendF_eq_on_forwardTube n F hF_cinv z hz)
   haveI : (nhdsWithin (realEmbed x) (ForwardTube d n)).NeBot :=
     mem_closure_iff_nhdsWithin_neBot.mp (realEmbed_mem_closure_forwardTube x)
   have h4 : Filter.Tendsto F (nhdsWithin (realEmbed x) (ForwardTube d n))
@@ -894,580 +897,531 @@ private theorem isOpen_extendedTube : IsOpen (@ExtendedTube d n) := by
     The proof composes a spatial rotation in the (e₁, e₂) plane with the Wick matrix
     to obtain a complex Lorentz boost mapping the configuration from a forward tube
     point. Requires d ≥ 2 for the second spatial direction. -/
--- Helper: For any (a, b) with a² + b² > 0, there exists a spatial rotation R in the
--- (e₁, e₂) plane such that R maps (a, b) to (√(a²+b²), 0). This rotation is in
--- SO(d) (spatial part of the Lorentz group) and hence lifts to a complex Lorentz
--- group element that preserves the forward tube.
---
--- The rotation matrix acts on spatial indices 1, 2 as [[c, s], [-s, c]] where
--- c = a/r, s = b/r, r = √(a²+b²). It fixes all other spatial indices and the
--- time index.
---
--- Blocked by: constructing the rotation matrix as a ComplexLorentzGroup element,
--- which requires showing it preserves the Minkowski metric.
+-- Helper: spatial rotation matrix in the (e₁, e₂) plane.
+-- For (a, b) with a² + b² > 0, let r = √(a²+b²), c = a/r, s = b/r.
+-- The matrix acts as [[c, s], [-s, c]] on spatial indices 1, 2,
+-- fixes time index 0 and all spatial indices ≥ 3.
+private noncomputable def spatialRotMatrix12 (d : ℕ) (_hd : 2 ≤ d) (a b : ℝ)
+    (_hab : 0 < a ^ 2 + b ^ 2) : Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ :=
+  let r := Real.sqrt (a ^ 2 + b ^ 2)
+  fun μ ν =>
+    if μ = ⟨1, by omega⟩ ∧ ν = ⟨1, by omega⟩ then ((a / r : ℝ) : ℂ)
+    else if μ = ⟨1, by omega⟩ ∧ ν = ⟨2, by omega⟩ then ((b / r : ℝ) : ℂ)
+    else if μ = ⟨2, by omega⟩ ∧ ν = ⟨1, by omega⟩ then -((b / r : ℝ) : ℂ)
+    else if μ = ⟨2, by omega⟩ ∧ ν = ⟨2, by omega⟩ then ((a / r : ℝ) : ℂ)
+    else if μ = ν then 1
+    else 0
+
+-- Row simplification lemmas for the spatial rotation matrix.
+private lemma spatialRot12_row0 (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) (ν : Fin (d + 1)) :
+    spatialRotMatrix12 d hd a b hab 0 ν = if ν = 0 then 1 else 0 := by
+  simp only [spatialRotMatrix12]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  -- Goal: (if 0 = ν then 1 else 0) = (if ν = 0 then 1 else 0)
+  by_cases hν0 : ν = 0
+  · subst hν0; simp
+  · rw [if_neg (Ne.symm hν0), if_neg hν0]
+
+private lemma spatialRot12_row1 (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) (ν : Fin (d + 1)) :
+    spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ ν =
+      if ν = ⟨1, by omega⟩ then ((a / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ)
+      else if ν = ⟨2, by omega⟩ then ((b / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ)
+      else 0 := by
+  simp only [spatialRotMatrix12]
+  by_cases hν1 : ν = ⟨1, by omega⟩
+  · subst hν1; simp
+  · rw [if_neg (by intro ⟨_, h⟩; exact hν1 h)]
+    by_cases hν2 : ν = ⟨2, by omega⟩
+    · subst hν2; simp
+    · rw [if_neg (by intro ⟨_, h⟩; exact hν2 h)]
+      rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+      rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+      simp only [hν1, hν2, ↓reduceIte]
+      rw [if_neg (by intro h; exact hν1 (Fin.ext (by have := congr_arg Fin.val h; omega)))]
+
+private lemma spatialRot12_row2 (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) (ν : Fin (d + 1)) :
+    spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ ν =
+      if ν = ⟨1, by omega⟩ then -((b / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ)
+      else if ν = ⟨2, by omega⟩ then ((a / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ)
+      else 0 := by
+  simp only [spatialRotMatrix12]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  rw [if_neg (by intro ⟨h, _⟩; exact absurd (congr_arg Fin.val h) (by norm_num))]
+  by_cases hν1 : ν = ⟨1, by omega⟩
+  · subst hν1; simp
+  · rw [if_neg (by intro ⟨_, h⟩; exact hν1 h)]
+    by_cases hν2 : ν = ⟨2, by omega⟩
+    · subst hν2; simp
+    · rw [if_neg (by intro ⟨_, h⟩; exact hν2 h)]
+      simp only [hν1, hν2, ↓reduceIte]
+      rw [if_neg (by intro h; exact hν2 (Fin.ext (by have := congr_arg Fin.val h; omega)))]
+
+private lemma spatialRot12_row_ge3 (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) (μ : Fin (d + 1))
+    (hμ0 : μ ≠ 0) (hμ1 : μ ≠ ⟨1, by omega⟩) (hμ2 : μ ≠ ⟨2, by omega⟩)
+    (ν : Fin (d + 1)) :
+    spatialRotMatrix12 d hd a b hab μ ν = if ν = μ then 1 else 0 := by
+  simp only [spatialRotMatrix12]
+  rw [if_neg (by intro ⟨h, _⟩; exact hμ1 h)]
+  rw [if_neg (by intro ⟨h, _⟩; exact hμ1 h)]
+  rw [if_neg (by intro ⟨h, _⟩; exact hμ2 h)]
+  rw [if_neg (by intro ⟨h, _⟩; exact hμ2 h)]
+  by_cases hνμ : ν = μ
+  · subst hνμ; simp
+  · rw [if_neg (by intro h; exact hνμ h.symm), if_neg hνμ]
+
+-- The spatial rotation preserves the Minkowski metric.
+private lemma spatialRotMatrix12_metric (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) :
+    ∀ (μ ν : Fin (d + 1)),
+    ∑ α : Fin (d + 1),
+      (minkowskiSignature d α : ℂ) * spatialRotMatrix12 d hd a b hab α μ *
+        spatialRotMatrix12 d hd a b hab α ν =
+    if μ = ν then (minkowskiSignature d μ : ℂ) else 0 := by
+  set r := Real.sqrt (a ^ 2 + b ^ 2) with hr_def
+  have hr_pos : 0 < r := Real.sqrt_pos_of_pos hab
+  have hr_ne : r ≠ 0 := ne_of_gt hr_pos
+  have hR0 := spatialRot12_row0 d hd a b hab
+  have hR1 := spatialRot12_row1 d hd a b hab
+  have hR2 := spatialRot12_row2 d hd a b hab
+  have hRge3 := spatialRot12_row_ge3 d hd a b hab
+  -- Key identity: (a/r)² + (b/r)² = 1
+  have hcs : ((a / r : ℝ) : ℂ) ^ 2 + ((b / r : ℝ) : ℂ) ^ 2 = 1 := by
+    have hr2 : r ^ 2 = a ^ 2 + b ^ 2 := Real.sq_sqrt hab.le
+    have : (a / r) ^ 2 + (b / r) ^ 2 = (1 : ℝ) := by
+      rw [div_pow, div_pow, ← add_div, hr2, div_self (ne_of_gt hab)]
+    exact_mod_cast this
+  -- Fin inequalities (proved once, used throughout)
+  have h10 : (⟨1, by omega⟩ : Fin (d+1)) ≠ 0 := by
+    intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+  have h20 : (⟨2, by omega⟩ : Fin (d+1)) ≠ 0 := by
+    intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+  have h12 : (⟨1, by omega⟩ : Fin (d+1)) ≠ ⟨2, by omega⟩ := by
+    intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
+  -- η(μ) = 1 for μ ≠ 0
+  have hη_ne0 : ∀ (μ : Fin (d+1)), μ ≠ 0 → (minkowskiSignature d μ : ℂ) = 1 := by
+    intro μ hμ; simp [minkowskiSignature, hμ]
+  intro μ ν
+  by_cases hμν : μ = ν
+  · -- Diagonal case
+    subst hμν; rw [if_pos rfl]
+    by_cases hμ0 : μ = 0
+    · -- μ = 0: column 0 is e₀
+      subst hμ0
+      have hcol0 : ∀ α : Fin (d + 1),
+          spatialRotMatrix12 d hd a b hab α 0 = if α = 0 then 1 else 0 := by
+        intro α
+        by_cases hα0 : α = 0
+        · subst hα0; rw [hR0]
+        · by_cases hα1 : α = ⟨1, by omega⟩
+          · subst hα1; rw [hR1]; simp [h10.symm, h20.symm]
+          · by_cases hα2 : α = ⟨2, by omega⟩
+            · subst hα2; rw [hR2]; simp
+            · rw [hRge3 α hα0 hα1 hα2, if_neg (Ne.symm hα0), if_neg hα0]
+      simp_rw [hcol0]
+      simp [mul_ite, Finset.sum_ite_eq', Finset.mem_univ, minkowskiSignature]
+    · by_cases hμ1 : μ = ⟨1, by omega⟩
+      · -- μ = 1: sum = (a/r)² + (b/r)² = 1 = η(1)
+        subst hμ1
+        have hsummand : ∀ α : Fin (d + 1),
+            (minkowskiSignature d α : ℂ) *
+              spatialRotMatrix12 d hd a b hab α ⟨1, by omega⟩ *
+              spatialRotMatrix12 d hd a b hab α ⟨1, by omega⟩ =
+            if α = ⟨1, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2
+            else if α = ⟨2, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2 else 0 := by
+          intro α
+          by_cases hα0 : α = 0
+          · subst hα0; rw [hR0]; simp [h10.symm, h20.symm]
+          · by_cases hα1 : α = ⟨1, by omega⟩
+            · subst hα1; rw [hR1]; simp only [↓reduceIte]
+              rw [hη_ne0 _ h10]; push_cast; ring
+            · by_cases hα2 : α = ⟨2, by omega⟩
+              · subst hα2; rw [hR2]; simp only [↓reduceIte, hα1]
+                rw [hη_ne0 _ h20]; push_cast; ring
+              · rw [hRge3 α hα0 hα1 hα2, if_neg (Ne.symm hα1)]; simp [hα1, hα2]
+        simp_rw [hsummand]
+        have hsplit : ∀ α : Fin (d+1),
+            (if α = ⟨1, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2
+             else if α = ⟨2, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2 else (0 : ℂ)) =
+            (if α = ⟨1, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2 else 0) +
+            (if α = ⟨2, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2 else 0) := by
+          intro α; by_cases h1 : α = ⟨1, by omega⟩
+          · subst h1; simp [show ⟨1, _⟩ ≠ (⟨2, _⟩ : Fin (d+1)) from h12]
+          · simp [h1]
+        simp_rw [hsplit, Finset.sum_add_distrib, Finset.sum_ite_eq']
+        simp only [Finset.mem_univ, ↓reduceIte]
+        rw [hη_ne0 _ h10]; exact_mod_cast hcs
+      · by_cases hμ2 : μ = ⟨2, by omega⟩
+        · -- μ = 2: sum = (b/r)² + (a/r)² = 1 = η(2)
+          subst hμ2
+          have hsummand : ∀ α : Fin (d + 1),
+              (minkowskiSignature d α : ℂ) *
+                spatialRotMatrix12 d hd a b hab α ⟨2, by omega⟩ *
+                spatialRotMatrix12 d hd a b hab α ⟨2, by omega⟩ =
+              if α = ⟨1, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2
+              else if α = ⟨2, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2 else 0 := by
+            intro α
+            by_cases hα0 : α = 0
+            · subst hα0; rw [hR0]; simp [h10.symm, h20.symm]
+            · by_cases hα1 : α = ⟨1, by omega⟩
+              · subst hα1; rw [hR1]; simp only [↓reduceIte, Ne.symm h12]
+                rw [hη_ne0 _ h10]; push_cast; ring
+              · by_cases hα2 : α = ⟨2, by omega⟩
+                · subst hα2; rw [hR2]; simp only [↓reduceIte, hα1]
+                  rw [hη_ne0 _ h20]; push_cast; ring
+                · rw [hRge3 α hα0 hα1 hα2, if_neg (Ne.symm hα2)]; simp [hα1, hα2]
+          simp_rw [hsummand]
+          have hsplit : ∀ α : Fin (d+1),
+              (if α = ⟨1, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2
+               else if α = ⟨2, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2 else (0 : ℂ)) =
+              (if α = ⟨1, by omega⟩ then ((b / r : ℝ) : ℂ) ^ 2 else 0) +
+              (if α = ⟨2, by omega⟩ then ((a / r : ℝ) : ℂ) ^ 2 else 0) := by
+            intro α; by_cases h1 : α = ⟨1, by omega⟩
+            · subst h1; simp [show ⟨1, _⟩ ≠ (⟨2, _⟩ : Fin (d+1)) from h12]
+            · simp [h1]
+          simp_rw [hsplit, Finset.sum_add_distrib, Finset.sum_ite_eq']
+          simp only [Finset.mem_univ, ↓reduceIte]
+          rw [hη_ne0 _ h20]
+          have : ((b / r : ℝ) : ℂ) ^ 2 + ((a / r : ℝ) : ℂ) ^ 2 =
+              ((a / r : ℝ) : ℂ) ^ 2 + ((b / r : ℝ) : ℂ) ^ 2 := by ring
+          rw [this]; exact_mod_cast hcs
+        · -- μ ≥ 3: column μ is δ(·, μ)
+          have hcolμ : ∀ α : Fin (d + 1),
+              spatialRotMatrix12 d hd a b hab α μ = if α = μ then 1 else 0 := by
+            intro α
+            by_cases hα0 : α = 0
+            · subst hα0; rw [hR0, if_neg hμ0, if_neg (Ne.symm hμ0)]
+            · by_cases hα1 : α = ⟨1, by omega⟩
+              · subst hα1; rw [hR1, if_neg hμ1, if_neg hμ2, if_neg (fun h => hμ1 h.symm)]
+              · by_cases hα2 : α = ⟨2, by omega⟩
+                · subst hα2; rw [hR2, if_neg hμ1, if_neg hμ2, if_neg (fun h => hμ2 h.symm)]
+                · rw [hRge3 α hα0 hα1 hα2]
+                  by_cases hαμ : α = μ
+                  · subst hαμ; simp
+                  · simp [hαμ, Ne.symm hαμ]
+          simp_rw [hcolμ]
+          simp [mul_ite, Finset.sum_ite_eq', Finset.mem_univ, minkowskiSignature, hμ0]
+  · -- Off-diagonal case: ∑ α, η(α) * R(α,μ) * R(α,ν) = 0
+    rw [if_neg hμν]
+    -- Characterize each summand: nonzero only for α ∈ {1, 2}
+    have hsummand : ∀ α : Fin (d + 1),
+        (minkowskiSignature d α : ℂ) *
+          spatialRotMatrix12 d hd a b hab α μ *
+          spatialRotMatrix12 d hd a b hab α ν =
+        if α = ⟨1, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ ν
+        else if α = ⟨2, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ ν
+        else 0 := by
+      intro α
+      by_cases hα0 : α = 0
+      · subst hα0; simp only [hR0, ↓reduceIte, Ne.symm h10, Ne.symm h20]
+        by_cases hμ0 : μ = 0
+        · subst hμ0; simp only [↓reduceIte, Ne.symm hμν]; ring
+        · rw [if_neg hμ0]; ring
+      · by_cases hα1 : α = ⟨1, by omega⟩
+        · subst hα1; simp only [↓reduceIte]; rw [hη_ne0 _ h10]; ring
+        · by_cases hα2 : α = ⟨2, by omega⟩
+          · subst hα2; simp only [↓reduceIte, hα1]; rw [hη_ne0 _ h20]; ring
+          · simp only [hRge3 α hα0 hα1 hα2, if_neg hα1, if_neg hα2]
+            by_cases hμα : μ = α
+            · rw [if_pos hμα, if_neg (fun h => hμν (hμα.trans h.symm))]; ring
+            · rw [if_neg hμα]; ring
+    simp_rw [hsummand]
+    -- Split nested if into sum of two single ifs
+    have hsplit : ∀ α : Fin (d+1),
+        (if α = ⟨1, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ ν
+        else if α = ⟨2, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ ν
+        else (0 : ℂ)) =
+        (if α = ⟨1, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨1, by omega⟩ ν else 0) +
+        (if α = ⟨2, by omega⟩ then
+          spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ μ *
+            spatialRotMatrix12 d hd a b hab ⟨2, by omega⟩ ν else 0) := by
+      intro α; by_cases h1 : α = ⟨1, by omega⟩
+      · subst h1; simp [h12]
+      · simp [h1]
+    simp_rw [hsplit, Finset.sum_add_distrib, Finset.sum_ite_eq']
+    simp only [Finset.mem_univ, ↓reduceIte]
+    -- Goal: R(1,μ)*R(1,ν) + R(2,μ)*R(2,ν) = 0. Expand using row lemmas.
+    simp only [hR1, hR2]
+    -- Case split on μ, ν to evaluate the nested ifs
+    by_cases hμ1 : μ = ⟨1, by omega⟩
+    · subst hμ1; simp only [↓reduceIte]
+      by_cases hν2 : ν = ⟨2, by omega⟩
+      · subst hν2; simp only [↓reduceIte, Ne.symm h12]; push_cast; ring
+      · simp only [if_neg (Ne.symm hμν), if_neg hν2]; ring
+    · by_cases hμ2 : μ = ⟨2, by omega⟩
+      · subst hμ2; simp only [↓reduceIte]
+        by_cases hν1 : ν = ⟨1, by omega⟩
+        · subst hν1; simp only [↓reduceIte, Ne.symm h12]; push_cast; ring
+        · simp only [if_neg hν1, if_neg (Ne.symm hμν)]; ring
+      · -- μ ∉ {1, 2}: R(1,μ) = 0, R(2,μ) = 0
+        simp only [if_neg hμ1, if_neg hμ2]; ring
+
+-- The spatial rotation has determinant 1.
+-- Strategy: MᵀηM = η gives det²=1. Then we use a continuous path argument:
+-- the family M(t) for t ∈ [0,1] where M(0)=I and M(1)=M is continuous
+-- with det(M(t))² = 1, so det is constant = det(I) = 1.
+-- We implement this via the matrix equation approach and the intermediate value theorem.
+private lemma spatialRotMatrix12_det (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) :
+    (spatialRotMatrix12 d hd a b hab).det = 1 := by
+  obtain ⟨d', rfl⟩ : ∃ d', d = d' + 2 := ⟨d - 2, by omega⟩
+  set d : ℕ := d' + 2
+  have hd0 : 2 ≤ d := by omega
+  set M := spatialRotMatrix12 d hd0 a b hab
+  set r := Real.sqrt (a ^ 2 + b ^ 2) with hr_def
+  have hR0 := spatialRot12_row0 d hd0 a b hab
+  have hR1 := spatialRot12_row1 d hd0 a b hab
+  have hR2 := spatialRot12_row2 d hd0 a b hab
+  have hRge3 := spatialRot12_row_ge3 d hd0 a b hab
+  have hcol0 : ∀ α : Fin (d + 1), M α 0 = if α = 0 then 1 else 0 := by
+    intro α
+    show spatialRotMatrix12 d hd0 a b hab α 0 = if α = 0 then 1 else 0
+    by_cases hα0 : α = 0
+    · subst hα0
+      simpa using hR0 (0 : Fin (d + 1))
+    · by_cases hα1 : α = ⟨1, by omega⟩
+      · subst hα1; rw [hR1]
+        rw [if_neg (by intro h; exact absurd (congr_arg Fin.val h) (by norm_num))]
+        rw [if_neg (by intro h; exact absurd (congr_arg Fin.val h) (by norm_num))]
+        rw [if_neg hα0]
+      · by_cases hα2 : α = ⟨2, by omega⟩
+        · subst hα2; rw [hR2]
+          rw [if_neg (by intro h; exact absurd (congr_arg Fin.val h) (by norm_num))]
+          rw [if_neg (by intro h; exact absurd (congr_arg Fin.val h) (by norm_num))]
+          rw [if_neg hα0]
+        · rw [hRge3 α hα0 hα1 hα2, if_neg (Ne.symm hα0), if_neg hα0]
+  rw [Matrix.det_succ_column_zero]
+  conv_lhs => rw [← Finset.add_sum_erase _ _ (Finset.mem_univ (0 : Fin (d + 1)))]
+  have hrest : ∀ i ∈ Finset.univ.erase (0 : Fin (d + 1)),
+      (-1 : ℂ) ^ (i : ℕ) * M (i : Fin (d + 1)) 0 *
+        (M.submatrix (Fin.succAbove i) Fin.succ).det = 0 := by
+    intro i hi
+    rw [hcol0 i, if_neg (Finset.mem_erase.mp hi).1]
+    ring
+  rw [Finset.sum_eq_zero hrest, add_zero]
+  rw [hcol0 0, if_pos rfl]
+  simp
+  set N := M.submatrix (Fin.succAbove 0) Fin.succ
+  have hN_ge2 : ∀ (i : Fin d), (2 : ℕ) ≤ i.val → ∀ j : Fin d,
+      N i j = if i = j then 1 else 0 := by
+    intro i hi j
+    change M (Fin.succ i) (Fin.succ j) = if i = j then 1 else 0
+    have hi1 : Fin.succ i ≠ ⟨1, by omega⟩ := by
+      intro h
+      have hval : i.val + 1 = 1 := by
+        exact congr_arg Fin.val h
+      omega
+    have hi2 : Fin.succ i ≠ ⟨2, by omega⟩ := by
+      intro h
+      have hval : i.val + 1 = 2 := by
+        exact congr_arg Fin.val h
+      omega
+    have hi0 : Fin.succ i ≠ 0 := Fin.succ_ne_zero i
+    have htmp : M (Fin.succ i) (Fin.succ j) = if Fin.succ j = Fin.succ i then 1 else 0 := by
+      simpa [M] using (hRge3 (Fin.succ i) hi0 hi1 hi2 (Fin.succ j))
+    rw [htmp]
+    by_cases hij : i = j
+    · subst hij
+      simp
+    · have hji : ¬j = i := by intro h; exact hij h.symm
+      simp [hij, hji]
+  change N.det = 1
+  have hd1 : 1 < d := by omega
+  have hN00 : N 0 0 = ((a / r : ℝ) : ℂ) := by
+    change M ⟨1, by omega⟩ ⟨1, by omega⟩ = ((a / r : ℝ) : ℂ)
+    change spatialRotMatrix12 d hd0 a b hab ⟨1, by omega⟩ ⟨1, by omega⟩ = ((a / r : ℝ) : ℂ)
+    rw [hR1]
+    simp [r]
+  have hN01 : N 0 ⟨1, hd1⟩ = ((b / r : ℝ) : ℂ) := by
+    change M ⟨1, by omega⟩ ⟨2, by omega⟩ = ((b / r : ℝ) : ℂ)
+    change spatialRotMatrix12 d hd0 a b hab ⟨1, by omega⟩ ⟨2, by omega⟩ = ((b / r : ℝ) : ℂ)
+    rw [hR1]
+    simp [r]
+  have hN10 : N ⟨1, hd1⟩ 0 = -((b / r : ℝ) : ℂ) := by
+    change M ⟨2, by omega⟩ ⟨1, by omega⟩ = -((b / r : ℝ) : ℂ)
+    change spatialRotMatrix12 d hd0 a b hab ⟨2, by omega⟩ ⟨1, by omega⟩ = -((b / r : ℝ) : ℂ)
+    rw [hR2]
+    simp [r]
+  have hN11 : N ⟨1, hd1⟩ ⟨1, hd1⟩ = ((a / r : ℝ) : ℂ) := by
+    change M ⟨2, by omega⟩ ⟨2, by omega⟩ = ((a / r : ℝ) : ℂ)
+    change spatialRotMatrix12 d hd0 a b hab ⟨2, by omega⟩ ⟨2, by omega⟩ = ((a / r : ℝ) : ℂ)
+    rw [hR2]
+    simp [r]
+  let p : Fin d → Prop := fun i => i.val < 2
+  have hlower_zero : ∀ i : Fin d, ¬ p i → ∀ j : Fin d, p j → N i j = 0 := by
+    intro i hi j hj
+    have hi_ge2 : 2 ≤ i.val := by
+      have : ¬ i.val < 2 := by simpa [p] using hi
+      omega
+    have hij : i ≠ j := by
+      intro hij
+      have : 2 ≤ j.val := by simpa [hij] using hi_ge2
+      have hj_lt : j.val < 2 := by simpa [p] using hj
+      omega
+    rw [hN_ge2 i hi_ge2 j, if_neg hij]
+  have hdet_block := Matrix.twoBlockTriangular_det (M := N) (p := p) hlower_zero
+  set A : Matrix {i : Fin d // p i} {i : Fin d // p i} ℂ := N.toSquareBlockProp p
+  set B : Matrix {i : Fin d // ¬ p i} {i : Fin d // ¬ p i} ℂ := N.toSquareBlockProp (fun i => ¬ p i)
+  have hdetN : N.det = A.det * B.det := by
+    simpa [A, B] using hdet_block
+  rw [hdetN]
+  have hB_one : B = 1 := by
+    ext i j
+    change N (i : Fin d) (j : Fin d) = if i = j then 1 else 0
+    have hi_ge2 : 2 ≤ (i : Fin d).val := by
+      have : ¬ (i : Fin d).val < 2 := by simpa [p] using i.2
+      omega
+    rw [hN_ge2 (i : Fin d) hi_ge2 (j : Fin d)]
+    by_cases hij : i = j
+    · subst hij
+      simp
+    · have hij' : (i : Fin d) ≠ (j : Fin d) := by
+        intro h
+        apply hij
+        exact Subtype.ext h
+      simp [hij, hij']
+  have hB_det : B.det = 1 := by
+    rw [hB_one, Matrix.det_one]
+  have hd2 : 2 ≤ d := by omega
+  let e : Fin 2 ≃ {i : Fin d // p i} :=
+    { toFun := fun i =>
+        ⟨⟨i.val, lt_of_lt_of_le i.isLt hd2⟩, by
+          simp [p]⟩
+      invFun := fun i => ⟨i.1.val, by
+        simpa [p] using i.2⟩
+      left_inv := by
+        intro i
+        ext
+        rfl
+      right_inv := by
+        intro i
+        apply Subtype.ext
+        ext
+        rfl }
+  have he0 : ((e 0).1 : Fin d) = 0 := by
+    ext
+    rfl
+  have he1 : ((e 1).1 : Fin d) = ⟨1, hd1⟩ := by
+    ext
+    rfl
+  have hA_det : A.det = ((a / r : ℝ) : ℂ) ^ 2 + ((b / r : ℝ) : ℂ) ^ 2 := by
+    have hA_reindex : A.det = (A.submatrix e e).det := by
+      exact (Matrix.det_submatrix_equiv_self e A).symm
+    rw [hA_reindex, Matrix.det_fin_two]
+    have h00 : (A.submatrix e e) 0 0 = ((a / r : ℝ) : ℂ) := by
+      change N ((e 0).1) ((e 0).1) = ((a / r : ℝ) : ℂ)
+      simpa [he0] using hN00
+    have h01 : (A.submatrix e e) 0 1 = ((b / r : ℝ) : ℂ) := by
+      change N ((e 0).1) ((e 1).1) = ((b / r : ℝ) : ℂ)
+      rw [he0, he1, hN01]
+    have h10 : (A.submatrix e e) 1 0 = -((b / r : ℝ) : ℂ) := by
+      change N ((e 1).1) ((e 0).1) = -((b / r : ℝ) : ℂ)
+      rw [he1, he0, hN10]
+    have h11 : (A.submatrix e e) 1 1 = ((a / r : ℝ) : ℂ) := by
+      change N ((e 1).1) ((e 1).1) = ((a / r : ℝ) : ℂ)
+      simpa [he1] using hN11
+    rw [h00, h01, h10, h11]
+    ring
+  rw [hA_det, hB_det, mul_one]
+  have hcsR : (a / r) ^ 2 + (b / r) ^ 2 = (1 : ℝ) := by
+    rw [div_pow, div_pow, ← add_div, hr_def, Real.sq_sqrt hab.le, div_self]
+    exact ne_of_gt hab
+  have hcs : ((a / r : ℝ) : ℂ) ^ 2 + ((b / r : ℝ) : ℂ) ^ 2 = 1 := by
+    exact_mod_cast hcsR
+  simpa using hcs
+
+-- The spatial rotation as a ComplexLorentzGroup element.
+private noncomputable def spatialRotCLG12 (d : ℕ) (hd : 2 ≤ d) (a b : ℝ)
+    (hab : 0 < a ^ 2 + b ^ 2) : ComplexLorentzGroup d where
+  val := spatialRotMatrix12 d hd a b hab
+  metric_preserving := spatialRotMatrix12_metric d hd a b hab
+  proper := spatialRotMatrix12_det d hd a b hab
+
+-- The action of the spatial rotation on a single vector:
+-- (R·v)_0 = v_0 (time fixed)
+-- (R·v)_1 = c * v_1 + s * v_2  where c = a/r, s = b/r
+-- (R·v)_2 = -s * v_1 + c * v_2
+-- (R·v)_μ = v_μ  for μ ≥ 3
 private lemma spatial_rotation_e12_plane (hd : 2 ≤ d) (a b : ℝ) (hab : 0 < a ^ 2 + b ^ 2) :
     ∃ (R : ComplexLorentzGroup d),
-      -- R fixes the time component and rotates (e₁, e₂) plane
-      -- R · v maps the (a, b) direction to (√(a²+b²), 0) in the spatial (1,2) subspace
-      True := by
-  sorry
-
-private lemma generalizedJost_subset_extendedTube (hd : 2 ≤ d)
-    (x : Fin n → Fin (d + 1) → ℝ)
-    (hx : ∀ k : Fin n,
-      let ζ := consecutiveDiff x k
-      |ζ 0| < Real.sqrt (ζ ⟨1, by omega⟩ ^ 2 + ζ ⟨2, by omega⟩ ^ 2)) :
-    realEmbed x ∈ ExtendedTube d n := by
-  -- Strategy: for each k, rotate the (e₁, e₂) components of the k-th consecutive
-  -- difference to align with e₁, transforming the generalized condition
-  -- |ζ_k,0| < √(ζ_k,1² + ζ_k,2²) into the forward Jost condition |ζ_k,0| < ζ_k,1.
-  -- Then apply forwardJostSet_subset_extendedTube.
-  -- The single rotation works for all k simultaneously only if the (e₁, e₂) ratios
-  -- are the same -- in general, we need a per-k argument or a different approach.
-  -- The proof uses the extended tube's Lorentz invariance: realEmbed(R·x) ∈ ET implies
-  -- realEmbed(x) ∈ ET (since ET is Lorentz-invariant).
-  sorry
-
-/-- The permutation map on configurations σ·x = (x_{σ(0)}, ..., x_{σ(n-1)}) is
-    continuous. -/
-private lemma continuous_permute_config (σ : Equiv.Perm (Fin n)) :
-    Continuous (fun x : Fin n → Fin (d + 1) → ℝ => fun k => x (σ k)) :=
-  continuous_pi fun k => continuous_apply (σ k)
-
-/-- For adjacent swap σ = swap(i, i+1), the **swap Jost set** consists of
-    configurations in ForwardJostSet such that the permuted configuration σ·x
-    also lies in the extended tube. Concretely, this means both the original
-    and permuted consecutive differences admit a complex boost into V⁺.
-
-    The construction uses a 2D perturbation in the (e₁, e₂) spatial plane:
-    x_k = (0, k+1, 0, ..., 0) for k ≠ i+1, with x_{i+1} = (0, i+2, ε, 0, ..., 0).
-    This breaks the collinearity and ensures both orderings satisfy the Jost condition.
-
-    For the permuted ordering, the problematic consecutive difference is
-    ζ'_{i+1} = -ζ_{i+1} which has negative first spatial component.
-    But the second spatial component provides a "rotated" direction w' such that
-    w' · ζ'_k > 0 for all k. The complex Lorentz transformation for the permuted
-    ordering is R · exp(-iα K₁) where R is a spatial rotation aligning w' with e₁. -/
-theorem swap_jost_set_exists (hd : 2 ≤ d) (_hn : 2 ≤ n)
-    (i : Fin n) (hi : i.val + 1 < n) :
-    ∃ V : Set (Fin n → Fin (d + 1) → ℝ),
-      IsOpen V ∧ V.Nonempty ∧
-      -- V ⊆ JostSet (for locality)
-      (∀ x ∈ V, x ∈ JostSet d n) ∧
-      -- realEmbed V ⊆ ExtendedTube (original ordering)
-      (∀ x ∈ V, realEmbed x ∈ ExtendedTube d n) ∧
-      -- realEmbed (σ·V) ⊆ ExtendedTube (permuted ordering)
-      (∀ x ∈ V, realEmbed (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈
-        ExtendedTube d n) ∧
-      -- Locality: x_{i+1} - x_i is spacelike
-      (∀ x ∈ V, IsSpacelike d (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ)) := by
-  -- Strategy: take V = ForwardJostSet ∩ {x | σ·x ∈ ExtendedTube}
-  -- Both sets are open, and we show their intersection is nonempty.
-  have hd1 : 1 ≤ d := by omega
-  -- The set S = {x | realEmbed(σ·x) ∈ ExtendedTube} is open
-  set σ := Equiv.swap i ⟨i.val + 1, hi⟩ with hσ_def
-  set S : Set (Fin n → Fin (d + 1) → ℝ) :=
-    { x | realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n } with hS_def
-  have hS_open : IsOpen S := by
-    have : S = (fun x : Fin n → Fin (d + 1) → ℝ => realEmbed (fun k => x (σ k))) ⁻¹'
-        ExtendedTube d n := rfl
-    rw [this]
-    apply isOpen_extendedTube.preimage
-    exact (continuous_pi fun k => continuous_pi fun μ =>
-      Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply (σ k))))
-  -- V = ForwardJostSet ∩ S
-  set V := ForwardJostSet d n hd1 ∩ S with hV_def
-  refine ⟨V, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · -- V is open: intersection of two open sets
-    exact (isOpen_forwardJostSet hd1).inter hS_open
-  · -- V is nonempty: construct a specific point
-    -- Take p_k = (0, k+1, 0, ...) except p_{i+1} = (0, i+2, 1/2, 0, ...)
-    -- The base forward Jost point with a perturbation in e₂ at position i+1
-    -- Then p ∈ ForwardJostSet (perturbing e₂ doesn't affect |ζ_0| < ζ_1 condition)
-    -- And σ·p ∈ ExtendedTube by generalizedJost_subset_extendedTube
-    -- (the swapped consecutive diffs satisfy the generalized condition)
-    --
-    -- Define the point
-    set e₁ : Fin (d + 1) := ⟨1, by omega⟩
-    set e₂ : Fin (d + 1) := ⟨2, by omega⟩
-    set i' : Fin n := ⟨i.val + 1, hi⟩
-    set p : Fin n → Fin (d + 1) → ℝ :=
-      fun k μ => if μ = e₁ then (k : ℝ) + 1
-                 else if μ = e₂ ∧ k = i' then (1 : ℝ) / 2
-                 else 0 with hp_def
-    suffices hp_fjs : p ∈ ForwardJostSet d n hd1 by
-      suffices hp_S : p ∈ S by exact ⟨p, hp_fjs, hp_S⟩
-      -- Show σ·p ∈ ExtendedTube via generalizedJost_subset_extendedTube
-      show realEmbed (fun k => p (σ k)) ∈ ExtendedTube d n
-      apply generalizedJost_subset_extendedTube hd
-      -- Verify: consecutive differences of σ·p satisfy |ζ_0| < √(ζ_1² + ζ_2²)
-      intro k
-      -- Time component of p is always 0 (since (0 : Fin(d+1)) ≠ e₁ and ≠ e₂)
-      have h01 : (0 : Fin (d + 1)) ≠ e₁ := by
-        intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-      have h02 : (0 : Fin (d + 1)) ≠ e₂ := by
-        intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-      have hp_time : ∀ j : Fin n, p j 0 = 0 := by
-        intro j; simp only [p, h01, ↓reduceIte]
-        simp only [show ¬((0 : Fin (d + 1)) = e₂ ∧ j = i') from fun ⟨h, _⟩ => h02 h, ↓reduceIte]
-      -- Therefore all consecutive differences of σ·p have time component 0
-      have hζ_time : consecutiveDiff (fun k => p (σ k)) k 0 = 0 := by
-        simp only [consecutiveDiff]
-        by_cases hk0 : k.val = 0
-        · simp [hk0, hp_time]
-        · simp only [hk0, ↓reduceDIte]; rw [hp_time, hp_time]; ring
-      -- So |ζ_0| = 0, and we need √(ζ_1² + ζ_2²) > 0
-      show |consecutiveDiff (fun k => p (σ k)) k 0| <
-        Real.sqrt (consecutiveDiff (fun k => p (σ k)) k ⟨1, by omega⟩ ^ 2 +
-          consecutiveDiff (fun k => p (σ k)) k ⟨2, by omega⟩ ^ 2)
-      rw [hζ_time, abs_zero]
-      apply Real.sqrt_pos_of_pos
-      -- Show p j e₁ = j + 1 for all j
-      have hp_e1 : ∀ j : Fin n, p j e₁ = (j : ℝ) + 1 := by
-        intro j; simp only [p, ↓reduceIte]
-      -- Compute ζ_1 = consecutiveDiff (σ·p) k e₁
-      -- For k=0: ζ_1 = (σ(0)).val + 1 ≥ 1 > 0
-      -- For k>0: ζ_1 = (σ(k)).val - (σ(k-1)).val ≠ 0 (σ injective, k ≠ k-1)
-      have hζ1_ne : consecutiveDiff (fun k => p (σ k)) k e₁ ≠ 0 := by
-        simp only [consecutiveDiff, hp_e1]
-        by_cases hk0 : k.val = 0
-        · simp only [hk0, ↓reduceDIte, sub_zero]
-          linarith [Nat.zero_le (σ k).val]
-        · simp only [hk0, ↓reduceDIte]
-          -- Need: (σ k).val + 1 - ((σ ⟨k-1, _⟩).val + 1) ≠ 0
-          -- i.e., (σ k).val ≠ (σ ⟨k-1, _⟩).val
-          intro heq
-          have hkm1 : k.val - 1 < n := by omega
-          have hne : k ≠ ⟨k.val - 1, hkm1⟩ := by
-            intro h; have := congr_arg Fin.val h; simp at this; omega
-          apply hne
-          apply σ.injective
-          ext
-          exact_mod_cast show (↑(σ k).val : ℝ) = (↑(σ ⟨k.val - 1, hkm1⟩).val : ℝ) by linarith
-      have hζ1_sq : 0 < consecutiveDiff (fun k => p (σ k)) k e₁ ^ 2 :=
-        sq_pos_of_ne_zero hζ1_ne
-      linarith [sq_nonneg (consecutiveDiff (fun k => p (σ k)) k ⟨2, by omega⟩)]
-    -- Show p ∈ ForwardJostSet: |ζ_k,0| < ζ_k,1 for all k
-    intro k
-    show |consecutiveDiff p k 0| < consecutiveDiff p k e₁
-    simp only [consecutiveDiff, p, e₁, e₂, i']
-    -- time component is always 0
-    have h01 : (0 : Fin (d + 1)) ≠ ⟨1, by omega⟩ := by
-      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-    have h02 : (0 : Fin (d + 1)) ≠ ⟨2, by omega⟩ := by
-      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-    simp only [h01, ↓reduceIte, h02]
-    by_cases hk : k.val = 0
-    · simp [hk]
-    · simp only [hk, ↓reduceDIte]
-      have hprev_e1 : (if (⟨k.val - 1, by omega⟩ : Fin n) = ⟨i.val + 1, hi⟩
-          then (1 : ℝ) / 2 else 0) = _ := rfl
-      -- spatial component e₁: (k+1) - k = 1
-      have hcast : (↑(k.val - 1) : ℝ) + 1 = (k : ℝ) + 1 - 1 := by
-        rw [Nat.cast_sub (Nat.one_le_iff_ne_zero.mpr hk)]; ring
-      simp only [false_and, ↓reduceIte, sub_zero, abs_zero]
-      linarith
-  · -- V ⊆ JostSet
-    intro x ⟨hx_fjs, _⟩
-    exact forwardJostSet_subset_jostSet hd1 hx_fjs
-  · -- V ⊆ ExtendedTube (original)
-    intro x ⟨hx_fjs, _⟩
-    exact forwardJostSet_subset_extendedTube hd1 x hx_fjs
-  · -- V ⊆ ExtendedTube (swapped)
-    intro x ⟨_, hx_S⟩
-    exact hx_S
-  · -- x_{i+1} - x_i is spacelike
-    intro x ⟨hx_fjs, _⟩
-    -- x ∈ ForwardJostSet → x ∈ JostSet → all pairwise diffs spacelike
-    have hx_js := forwardJostSet_subset_jostSet hd1 hx_fjs
-    have hne : (⟨i.val + 1, hi⟩ : Fin n) ≠ i := by
-      intro h; have := congr_arg Fin.val h; simp at this
-    exact hx_js.2 ⟨i.val + 1, hi⟩ i hne
-
-/-! ### Main result: permutation invariance via Jost points -/
-
--- The extended tube intersected with its permutation preimage is connected.
--- D_σ = T'_n ∩ {z | σ·z ∈ T'_n} is connected for any permutation σ.
--- This follows from the fact that T'_n is a tube domain (open connected subset
--- of ℂ^{n(d+1)} invariant under real translations), and D_σ is its intersection
--- with σ⁻¹(T'_n), another tube domain. The connectivity reduces to the
--- connectivity of the complex Lorentz group SO⁺(1,d;ℂ).
-
-/-- Helper: The extended tube T'_n is itself connected.
-
-    T'_n = ⋃_{Λ ∈ L₊(ℂ)} Λ · FT_n where FT_n is convex (hence connected) and the
-    complex Lorentz group L₊(ℂ) is connected. Since the action map (Λ, z) ↦ Λ·z is
-    continuous and L₊(ℂ) × FT_n is connected, T'_n is connected.
-
-    Blocked by: needs ForwardTube convexity + complex Lorentz group connectivity
-    (available as isPathConnected) composed via the continuous action map. -/
-private lemma isConnected_extendedTube :
-    IsConnected (@ExtendedTube d n) := by
-  constructor
-  · -- Nonempty: 1 · w₀ ∈ ExtendedTube for w₀ ∈ FT
-    obtain ⟨w₀, hw₀⟩ := forwardTube_nonempty (d := d) (n := n)
-    exact ⟨complexLorentzAction 1 w₀, Set.mem_iUnion.mpr
-      ⟨1, w₀, hw₀, by rw [complexLorentzAction_one]⟩⟩
-  · -- Preconnected: ExtendedTube = image of G × FT under continuous action
-    -- Rewrite as image of the product set
-    have hET_eq : @ExtendedTube d n =
-        (fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
-          complexLorentzAction p.1 p.2) '' (Set.univ ×ˢ ForwardTube d n) := by
-      ext z; simp only [ExtendedTube, Set.mem_iUnion, Set.mem_setOf_eq,
-        Set.mem_image, Set.mem_prod, Set.mem_univ, true_and]
-      constructor
-      · rintro ⟨Λ, w, hw, rfl⟩; exact ⟨⟨Λ, w⟩, hw, rfl⟩
-      · rintro ⟨⟨Λ, w⟩, hw, rfl⟩; exact ⟨Λ, w, hw, rfl⟩
-    rw [hET_eq]
-    -- Action map is continuous
-    have hcont : Continuous (fun p : ComplexLorentzGroup d × (Fin n → Fin (d+1) → ℂ) =>
-        complexLorentzAction p.1 p.2) := by
-      apply continuous_pi; intro k; apply continuous_pi; intro μ
-      simp only [complexLorentzAction]
-      apply continuous_finset_sum; intro ν _
-      exact ((continuous_apply ν).comp ((continuous_apply μ).comp
-        (ComplexLorentzGroup.continuous_val.comp continuous_fst))).mul
-        ((continuous_apply ν).comp ((continuous_apply k).comp continuous_snd))
-    -- G is path-connected, FT is convex (hence preconnected)
-    haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
-      pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
-    exact (isPreconnected_univ.prod forwardTube_convex.isPreconnected).image _
-      hcont.continuousOn
-
-/-- Helper: The intersection of two connected open tube domains that share a
-    real "base" is connected.
-
-    When D₁ and D₂ are tube domains (i.e., of the form Ω + iC where Ω is open in ℝⁿ
-    and C is a cone), their intersection D₁ ∩ D₂ = (Ω₁ ∩ Ω₂) + i(C₁ ∩ C₂) is also
-    a tube domain and hence connected (assuming the base is nonempty). -/
-private lemma tube_domain_intersection_connected (σ : Equiv.Perm (Fin n)) :
-    IsConnected ({ z : Fin n → Fin (d + 1) → ℂ |
-      z ∈ ExtendedTube d n ∧ (fun k => z (σ k)) ∈ ExtendedTube d n }) := by
-  sorry
-
-private lemma isConnected_extendedTube_inter_perm (σ : Equiv.Perm (Fin n)) :
-    IsConnected ({ z : Fin n → Fin (d + 1) → ℂ |
-      z ∈ ExtendedTube d n ∧ (fun k => z (σ k)) ∈ ExtendedTube d n }) :=
-  tube_domain_intersection_connected σ
-
-/-- For an adjacent swap σ = swap(i, i+1), the holomorphic function
-    f(z) = extendF(σ·z) - extendF(z) vanishes on the domain
-    D = T'_n ∩ σ⁻¹(T'_n).
-
-    The proof applies the identity theorem for totally real submanifolds:
-    f vanishes on the open real Jost set V ⊆ D ∩ ℝ^{n(d+1)} (by locality
-    and boundary value agreement), and D is open and connected, so f = 0 on D.
-
-    Requires d ≥ 2 for the Jost set construction. -/
-private lemma extendF_swap_eq_on_domain (hd : 2 ≤ d) (n : ℕ)
-    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
-      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
-      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (i : Fin n) (hi : i.val + 1 < n)
-    (hF_local_i :
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
-    (z : Fin n → Fin (d + 1) → ℂ)
-    (hz : z ∈ ExtendedTube d n)
-    (hσz : (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n) :
-    extendF F (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) = extendF F z := by
-  set σ := Equiv.swap i ⟨i.val + 1, hi⟩ with hσ_def
-  -- Domain D = {z ∈ ET | σ·z ∈ ET}
-  set D := { w : Fin n → Fin (d + 1) → ℂ |
-    w ∈ ExtendedTube d n ∧ (fun k => w (σ k)) ∈ ExtendedTube d n } with hD_def
-  have hz_D : z ∈ D := ⟨hz, hσz⟩
-  -- f(w) = extendF(σ·w) - extendF(w)
-  set f := fun w : Fin n → Fin (d + 1) → ℂ =>
-    extendF F (fun k => w (σ k)) - extendF F w with hf_def
-  suffices hfz : f z = 0 by simp only [f, sub_eq_zero] at hfz; exact hfz
-  -- Permutation map ψ
-  set ψ := fun (w : Fin n → Fin (d + 1) → ℂ) (k : Fin n) (μ : Fin (d + 1)) =>
-    w (σ k) μ with hψ_def
-  have hψ_diff : Differentiable ℂ ψ := by
-    show Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => fun k μ => w (σ k) μ)
-    exact differentiable_pi.mpr fun k =>
-      (differentiable_apply (σ k) : Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => w (σ k)))
-  -- D is open
-  have hD_open : IsOpen D := by
-    apply IsOpen.inter isOpen_extendedTube
-    exact isOpen_extendedTube.preimage hψ_diff.continuous
-  -- D is connected
-  have hD_conn : IsConnected D := isConnected_extendedTube_inter_perm σ
-  -- f is holomorphic on D
-  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_real_inv
-  have hf_holo : DifferentiableOn ℂ f D := by
-    apply DifferentiableOn.sub
-    · exact hextend_holo.comp (hψ_diff.differentiableOn) (fun w hw => hw.2)
-    · exact hextend_holo.mono (fun w hw => hw.1)
-  -- Get V from swap_jost_set_exists
-  have hn2 : 2 ≤ n := by omega
-  obtain ⟨V, hV_open, hV_ne, hV_jost, hV_ET, hV_σET, hV_spacelike⟩ :=
-    swap_jost_set_exists hd hn2 i hi
-  -- f = 0 on D by identity theorem
-  suffices hfD : ∀ w ∈ D, f w = 0 from hfD z hz_D
-  exact identity_theorem_totally_real_product hD_open hD_conn hf_holo
-    hV_open hV_ne
-    (fun x hx => ⟨hV_ET x hx, hV_σET x hx⟩)
-    (fun x hx => by
-      simp only [f, sub_eq_zero]
-      have hrealσ : (fun k => realEmbed x (σ k)) = realEmbed (fun k => x (σ k)) := by
-        ext k μ; simp [realEmbed]
-      rw [hrealσ]
-      -- extendF(σ·x) = F(σ·x) by boundary value
-      have hbv_σ := extendF_eq_boundary_value_ET n F hF_holo hF_real_inv hF_bv
-        (fun k => x (σ k)) (hV_σET x hx)
-      -- F(σ·x) = F(x) by locality
-      have hspacelike := hV_spacelike x hx
-      have hlocal := hF_local_i x hspacelike
-      -- extendF(x) = F(x) by boundary value
-      have hbv := (extendF_eq_boundary_value_ET n F hF_holo hF_real_inv hF_bv
-        x (hV_ET x hx)).symm
-      -- Chain: extendF(σ·x) = F(σ·x) = F(x) = extendF(x)
-      have : realEmbed (fun k => x (σ k)) = fun k μ => (x (σ k) μ : ℂ) := rfl
-      rw [hbv_σ, this, hlocal]
-      exact hbv)
-
-/-- For any permutation σ and d ≥ 2, the locality hypothesis iterated through
-    an adjacent-swap decomposition of σ gives F(σ·x) = F(x) on the Jost set.
-
-    On the Jost set, all pairwise differences are spacelike, so every adjacent
-    swap preserves the spacelike condition needed for locality. Writing
-    σ = τ₁ ∘ ... ∘ τₖ as a product of adjacent transpositions, we get
-    F(σ·x) = F(τ₁·...·τₖ·x) = ... = F(x). -/
-private lemma F_perm_eq_on_jostSet
-    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
-    (σ : Equiv.Perm (Fin n))
-    (x : Fin n → Fin (d + 1) → ℝ) (hx : x ∈ JostSet d n) :
-    F (fun k μ => (x (σ k) μ : ℂ)) = F (fun k μ => (x k μ : ℂ)) := by
-  -- Induction on adjacent swap decomposition of σ.
-  -- The motive is universally quantified over x (needed for the step).
-  revert x
-  induction σ using BHW.Fin.Perm.adjSwap_induction with
-  | one => intro x _; simp
-  | adj_mul τ i hi ih =>
-    intro x hx
-    -- σ = swap(i, i+1) * τ.
-    -- Key identity: x ∘ (swap * τ) = (x ∘ swap) ∘ τ
-    -- (both map k to x(swap(τ(k))))
-    set j := (⟨i.val + 1, hi⟩ : Fin n)
-    set sw := Equiv.swap i j
-    -- Step 1: F(x ∘ swap) = F(x) by locality
-    -- x ∈ JostSet implies x_{i+1} - x_i is spacelike
-    have hne : j ≠ i := by intro h; exact absurd (congr_arg Fin.val h) (by simp [j])
-    have hspacelike : ∑ μ, minkowskiSignature d μ * (x j μ - x i μ) ^ 2 > 0 :=
-      hx.2 j i hne
-    have hlocal := hF_local i hi x hspacelike
-    -- Step 2: F((x ∘ swap) ∘ τ) = F(x ∘ swap) by IH
-    -- (x ∘ swap) ∈ JostSet (permutation-invariant)
-    have hxsw : (fun k => x (sw k)) ∈ JostSet d n := jostSet_permutation_invariant sw hx
-    have ih_xsw := ih (fun k => x (sw k)) hxsw
-    -- Step 3: x ∘ (swap * τ) = (x ∘ swap) ∘ τ
-    have hcomp : (fun k μ => (x ((sw * τ) k) μ : ℂ)) =
-        (fun k μ => (x (sw (τ k)) μ : ℂ)) := by
-      ext k μ; simp [Equiv.Perm.mul_apply]
-    -- Combine: F(x ∘ (swap * τ)) = F((x ∘ swap) ∘ τ) = F(x ∘ swap) = F(x)
-    rw [hcomp, ih_xsw, hlocal]
-
-/-- For any permutation σ and d ≥ 2, there exists an open nonempty set of
-    real configurations in the forward Jost set such that both the original and permuted
-    real embeddings lie in the extended tube. The forward Jost set condition ensures
-    boundary value agreement (extendF = F at these points).
-
-    This generalizes `swap_jost_set_exists`. The forward Jost set is used instead of
-    the weaker Jost set because `extendF_eq_boundary_value` requires it. -/
-private lemma perm_jost_set_exists (hd : 2 ≤ d) (σ : Equiv.Perm (Fin n)) :
-    ∃ V : Set (Fin n → Fin (d + 1) → ℝ),
-      IsOpen V ∧ V.Nonempty ∧
-      (∀ x ∈ V, x ∈ ForwardJostSet d n (by omega : 1 ≤ d)) ∧
-      (∀ x ∈ V, realEmbed x ∈ ExtendedTube d n) ∧
-      (∀ x ∈ V, realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) := by
-  have hd1 : 1 ≤ d := by omega
-  -- S = {x | realEmbed(x∘σ) ∈ ExtendedTube} is open
-  set S : Set (Fin n → Fin (d + 1) → ℝ) :=
-    { x | realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n } with hS_def
-  have hS_open : IsOpen S := by
-    have : S = (fun x : Fin n → Fin (d + 1) → ℝ => realEmbed (fun k => x (σ k))) ⁻¹'
-        ExtendedTube d n := rfl
-    rw [this]
-    apply isOpen_extendedTube.preimage
-    exact (continuous_pi fun k => continuous_pi fun μ =>
-      Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply (σ k))))
-  -- V = ForwardJostSet ∩ S
-  set V := ForwardJostSet d n hd1 ∩ S with hV_def
-  refine ⟨V, ?_, ?_, ?_, ?_, ?_⟩
-  · -- V is open
-    exact (isOpen_forwardJostSet hd1).inter hS_open
-  · -- V is nonempty: the standard Jost point (0, k+1, 0, ...) ∈ ForwardJostSet,
-    -- and its permutation (0, σ(k)+1, 0, ...) ∈ ExtendedTube via generalizedJost.
-    -- Each consecutive diff of x∘σ: ζ'_k = (0, σ(k+1)-σ(k), 0, ...) has
-    -- |ζ'₀| = 0 < |σ(k+1)-σ(k)| = √(ζ'₁² + ζ'₂²).
-    set e₁ : Fin (d + 1) := ⟨1, by omega⟩
-    set p : Fin n → Fin (d + 1) → ℝ := fun k μ => if μ = e₁ then (k : ℝ) + 1 else 0
-    have hp_fjs : p ∈ ForwardJostSet d n hd1 := by
-      intro k
-      simp only [consecutiveDiff, p, e₁]
-      by_cases hk : k.val = 0
-      · -- k = 0: ζ_0 = p 0 0 = 0, ζ_1 = p 0 1 = 1, condition: |0| < 1
-        simp only [hk, ↓reduceDIte]
-        have h01 : (0 : Fin (d + 1)) ≠ ⟨1, by omega⟩ := by
-          intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-        simp [h01]
-      · -- k > 0: ζ_0 = 0-0 = 0, ζ_1 = (k+1)-(k-1+1) = 1, condition: |0| < 1
-        simp only [hk, ↓reduceDIte]
-        have h01 : (0 : Fin (d + 1)) ≠ ⟨1, by omega⟩ := by
-          intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-        simp only [h01, ↓reduceIte, sub_zero, abs_zero]
-        have hk_pos : 1 ≤ k.val := Nat.one_le_iff_ne_zero.mpr hk
-        have : (↑(k.val - 1 : ℕ) : ℝ) = (k.val : ℝ) - 1 := by
-          rw [Nat.cast_sub hk_pos]; simp
-        linarith
-    suffices hp_S : p ∈ S by exact ⟨p, hp_fjs, hp_S⟩
-    -- Show realEmbed(p∘σ) ∈ ExtendedTube via generalizedJost_subset_extendedTube
-    show realEmbed (fun k => p (σ k)) ∈ ExtendedTube d n
-    apply generalizedJost_subset_extendedTube hd
-    intro k
-    simp only [consecutiveDiff, p, e₁]
-    -- The time component of each consecutive diff is 0 (since p has 0 in μ=0)
-    have h01 : (0 : Fin (d + 1)) ≠ ⟨1, by omega⟩ := by
-      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-    have h02 : (0 : Fin (d + 1)) ≠ ⟨2, by omega⟩ := by
-      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-    have h12 : (⟨2, by omega⟩ : Fin (d + 1)) ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
-      intro h; exact absurd (congr_arg Fin.val h) (by norm_num)
-    simp only [h01, ↓reduceIte, h12]
-    by_cases hk : k.val = 0
-    · simp only [hk, ↓reduceDIte, sub_zero]
-      simp only [abs_zero]
-      apply Real.sqrt_pos_of_pos
-      have : ((σ ⟨0, by omega⟩ : ℕ) : ℝ) + 1 > 0 := by positivity
-      positivity
-    · simp only [hk, ↓reduceDIte]
-      simp only [sub_self, abs_zero]
-      apply Real.sqrt_pos_of_pos
-      -- σ(k) ≠ σ(k-1) since σ is injective
-      have hσ_ne : (σ k : ℕ) ≠ (σ ⟨k.val - 1, by omega⟩ : ℕ) := by
-        intro heq; exact absurd (σ.injective (Fin.ext heq))
-          (by intro h; exact absurd (congr_arg Fin.val h) (by simp; omega))
-      have : ((σ k : ℝ) + 1 - ((σ ⟨k.val - 1, by omega⟩ : ℝ) + 1)) ≠ 0 := by
-        intro h; apply hσ_ne; exact_mod_cast show (σ k : ℝ) = σ ⟨k.val - 1, by omega⟩ by linarith
-      positivity
-  · -- V ⊆ ForwardJostSet
-    exact fun x ⟨hx_fjs, _⟩ => hx_fjs
-  · -- V ⊆ ExtendedTube (original)
-    exact fun x ⟨hx_fjs, _⟩ => forwardJostSet_subset_extendedTube hd1 x hx_fjs
-  · -- V ⊆ ExtendedTube (permuted)
-    exact fun x ⟨_, hx_S⟩ => hx_S
-
-/-- **Permutation invariance of extendF** for any permutation.
-
-    For σ ∈ S_n and z ∈ T'_n with σ·z ∈ T'_n:
-    extendF(σ·z) = extendF(z).
-
-    Proof:
-    1. `perm_jost_set_exists` gives a nonempty open V ⊆ JostSet with
-       realEmbed V ⊆ T'_n ∩ σ⁻¹(T'_n).
-    2. On V: extendF(σ·x) = F(σ·x) = F(x) = extendF(x) by
-       `F_perm_eq_on_jostSet` (iterated locality) + `extendF_eq_boundary_value`.
-    3. f(z) = extendF(σ·z) - extendF(z) is holomorphic on
-       D = T'_n ∩ σ⁻¹(T'_n) and f = 0 on V.
-    4. By `identity_theorem_totally_real_product`: f = 0 on the connected D.
-    5. D is connected by `isConnected_extendedTube_inter_perm`. -/
-theorem extendF_permutation_invariant_swap (hd : 2 ≤ d) (n : ℕ)
-    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
-    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
-      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
-      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
-    (σ : Equiv.Perm (Fin n))
-    {z : Fin n → Fin (d + 1) → ℂ}
-    (hz : z ∈ ExtendedTube d n) (hσz : (fun k => z (σ k)) ∈ ExtendedTube d n) :
-    extendF F (fun k => z (σ k)) = extendF F z := by
-  -- The domain D_σ = {z ∈ T'_n | σ·z ∈ T'_n}
-  set D := { w : Fin n → Fin (d + 1) → ℂ |
-    w ∈ ExtendedTube d n ∧ (fun k => w (σ k)) ∈ ExtendedTube d n } with hD_def
-  -- z ∈ D
-  have hz_D : z ∈ D := ⟨hz, hσz⟩
-  -- f(w) = extendF(σ·w) - extendF(w) is the function we show vanishes
-  set f := fun w : Fin n → Fin (d + 1) → ℂ =>
-    extendF F (fun k => w (σ k)) - extendF F w with hf_def
-  -- Suffices to show f(z) = 0
-  suffices hfz : f z = 0 by simp only [f, sub_eq_zero] at hfz; exact hfz
-  -- The permutation map ψ : w ↦ (fun k => w (σ k)) is differentiable
-  set ψ := fun (w : Fin n → Fin (d + 1) → ℂ) (k : Fin n) (μ : Fin (d + 1)) =>
-    w (σ k) μ with hψ_def
-  have hψ_cont : Continuous ψ :=
-    continuous_pi fun k => continuous_pi fun μ =>
-      ((continuous_apply μ).comp (continuous_apply (σ k)))
-  have hψ_diff : Differentiable ℂ ψ := by
-    show Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => fun k μ => w (σ k) μ)
-    exact differentiable_pi.mpr fun k =>
-      (differentiable_apply (σ k) : Differentiable ℂ (fun w : Fin n → Fin (d + 1) → ℂ => w (σ k)))
-  -- D is open (intersection of two preimages of the open ET)
-  have hD_open : IsOpen D := by
-    apply IsOpen.inter isOpen_extendedTube
-    exact isOpen_extendedTube.preimage hψ_diff.continuous
-  -- D is connected
-  have hD_conn : IsConnected D := isConnected_extendedTube_inter_perm σ
-  -- f is holomorphic (differentiable) on D
-  have hextend_holo := extendF_holomorphicOn n F hF_holo hF_real_inv
-  have hf_holo : DifferentiableOn ℂ f D := by
-    apply DifferentiableOn.sub
-    · -- extendF(σ·w) = extendF ∘ ψ is holomorphic on D
-      exact hextend_holo.comp (hψ_diff.differentiableOn) (fun w hw => hw.2)
-    · exact hextend_holo.mono (fun w hw => hw.1)
-  -- Apply the identity theorem: f = 0 on D (hence f z = 0)
-  suffices hfD : ∀ w ∈ D, f w = 0 from hfD z hz_D
-  -- Get V from perm_jost_set_exists (d ≥ 2 sorry absorbed into helper)
-  obtain ⟨V, hV_open, hV_ne, hV_jost, hV_ET, hV_σET⟩ :=
-    perm_jost_set_exists (d := d) hd σ
-  -- Apply identity theorem for totally real submanifolds:
-  -- f holomorphic on open connected D, f = 0 on open real V with realEmbed V ⊆ D
-  exact identity_theorem_totally_real_product hD_open hD_conn hf_holo
-    hV_open hV_ne
-    (fun x hx => ⟨hV_ET x hx, hV_σET x hx⟩)
-    (fun x hx => by
-      -- f(realEmbed x) = extendF(σ·(realEmbed x)) - extendF(realEmbed x) = 0
-      simp only [f, sub_eq_zero]
-      -- Goal: extendF F (fun k => realEmbed x (σ k)) = extendF F (realEmbed x)
-      -- Note: (fun k => realEmbed x (σ k)) = realEmbed (fun k => x (σ k))
-      have hrealσ : (fun k => realEmbed x (σ k)) = realEmbed (fun k => x (σ k)) := by
-        ext k μ; simp [realEmbed]
-      rw [hrealσ]
-      -- Chain: extendF(σ·x) = F(σ·x) = F(x) = extendF(x) at real Jost points
-      -- Step 1: extendF F (realEmbed (x ∘ σ)) = F (realEmbed (x ∘ σ))
-      have hbv_σ := extendF_eq_boundary_value_ET n F hF_holo hF_real_inv hF_bv
-        (fun k => x (σ k)) (hV_σET x hx)
-      -- Step 2: F (realEmbed (x ∘ σ)) = F (realEmbed x)
-      have hF_perm := F_perm_eq_on_jostSet F hF_local σ x
-        (forwardJostSet_subset_jostSet _ (hV_jost x hx))
-      -- Step 3: F (realEmbed x) = extendF F (realEmbed x)
-      have hbv := (extendF_eq_boundary_value_ET n F hF_holo hF_real_inv hF_bv
-        x (hV_ET x hx)).symm
-      -- Unify realEmbed with explicit lambda via definitional equality
-      have : realEmbed (fun k => x (σ k)) = fun k μ => (x (σ k) μ : ℂ) := rfl
-      rw [hbv_σ, this, hF_perm]
-      exact hbv)
+      let r : ℝ := Real.sqrt (a ^ 2 + b ^ 2)
+      ∀ (v : Fin (d + 1) → ℂ),
+        -- Time component fixed
+        (∑ ν, R.val 0 ν * v ν) = v 0 ∧
+        -- Spatial component 1: rotated
+        (∑ ν, R.val ⟨1, by omega⟩ ν * v ν) =
+          ((a / r : ℝ) : ℂ) * v ⟨1, by omega⟩ + ((b / r : ℝ) : ℂ) * v ⟨2, by omega⟩ ∧
+        -- Spatial component 2: rotated
+        (∑ ν, R.val ⟨2, by omega⟩ ν * v ν) =
+          -((b / r : ℝ) : ℂ) * v ⟨1, by omega⟩ + ((a / r : ℝ) : ℂ) * v ⟨2, by omega⟩ ∧
+        -- All other components fixed
+        (∀ (μ : Fin (d + 1)), μ ≠ 0 → μ ≠ ⟨1, by omega⟩ → μ ≠ ⟨2, by omega⟩ →
+          (∑ ν, R.val μ ν * v ν) = v μ) := by
+  refine ⟨spatialRotCLG12 d hd a b hab, fun v => ?_⟩
+  simp only [spatialRotCLG12]
+  have hR0 := spatialRot12_row0 d hd a b hab
+  have hR1 := spatialRot12_row1 d hd a b hab
+  have hR2 := spatialRot12_row2 d hd a b hab
+  have hRge3 := spatialRot12_row_ge3 d hd a b hab
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · -- Time component: ∑ ν, M(0,ν) * v(ν) = v(0)
+    simp_rw [hR0]; simp [ite_mul, Finset.sum_ite_eq', Finset.mem_univ]
+  · -- Spatial component 1
+    simp_rw [hR1]
+    simp only [ite_mul, zero_mul]
+    conv_lhs => rw [← Finset.add_sum_erase _ _ (Finset.mem_univ ⟨1, by omega⟩)]
+    simp only [↓reduceIte]
+    conv_lhs => rw [← Finset.add_sum_erase _ _
+      (Finset.mem_erase.mpr ⟨by intro h; exact absurd (congr_arg Fin.val h) (by norm_num),
+        Finset.mem_univ _⟩ : (⟨2, by omega⟩ : Fin (d + 1)) ∈ Finset.univ.erase ⟨1, by omega⟩)]
+    simp only [show (⟨2, by omega⟩ : Fin (d + 1)) ≠ ⟨1, by omega⟩ from by
+      intro h; exact absurd (congr_arg Fin.val h) (by norm_num), ↓reduceIte]
+    have : ∀ x ∈ (Finset.univ.erase ⟨1, by omega⟩).erase (⟨2, by omega⟩ : Fin (d + 1)),
+        (if x = ⟨1, by omega⟩ then ((a / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ) * v x
+         else if x = ⟨2, by omega⟩ then ((b / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ) * v x
+         else (0 : ℂ)) = 0 := by
+      intro x hx
+      simp only [Finset.mem_erase] at hx
+      rw [if_neg hx.2.1, if_neg hx.1]
+    rw [Finset.sum_eq_zero this]; ring
+  · -- Spatial component 2
+    simp_rw [hR2]
+    simp only [ite_mul, zero_mul]
+    conv_lhs => rw [← Finset.add_sum_erase _ _ (Finset.mem_univ ⟨1, by omega⟩)]
+    simp only [↓reduceIte]
+    conv_lhs => rw [← Finset.add_sum_erase _ _
+      (Finset.mem_erase.mpr ⟨by intro h; exact absurd (congr_arg Fin.val h) (by norm_num),
+        Finset.mem_univ _⟩ : (⟨2, by omega⟩ : Fin (d + 1)) ∈ Finset.univ.erase ⟨1, by omega⟩)]
+    simp only [show (⟨2, by omega⟩ : Fin (d + 1)) ≠ ⟨1, by omega⟩ from by
+      intro h; exact absurd (congr_arg Fin.val h) (by norm_num), ↓reduceIte]
+    have : ∀ x ∈ (Finset.univ.erase ⟨1, by omega⟩).erase (⟨2, by omega⟩ : Fin (d + 1)),
+        (if x = ⟨1, by omega⟩ then -((b / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ) * v x
+         else if x = ⟨2, by omega⟩ then ((a / Real.sqrt (a ^ 2 + b ^ 2) : ℝ) : ℂ) * v x
+         else (0 : ℂ)) = 0 := by
+      intro x hx
+      simp only [Finset.mem_erase] at hx
+      rw [if_neg hx.2.1, if_neg hx.1]
+    rw [Finset.sum_eq_zero this]; ring
+  · -- Other components
+    intro μ hμ0 hμ1 hμ2
+    simp_rw [hRge3 μ hμ0 hμ1 hμ2]
+    simp [ite_mul, Finset.sum_ite_eq', Finset.mem_univ]
 
 end BHW
 

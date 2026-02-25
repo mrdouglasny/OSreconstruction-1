@@ -397,7 +397,45 @@ theorem forward_tube_slice_aestrongly_measurable {d n : ℕ} [NeZero d]
     MeasureTheory.AEStronglyMeasurable
       (fun x : NPointDomain d n => F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I))
       MeasureTheory.volume := by
-  sorry
+  -- The affine embedding φ(x) = x + iεη is continuous and maps into ForwardTube
+  -- F is continuous on ForwardTube (holomorphic → continuous), so F∘φ is continuous
+  -- Step 1: φ(x) ∈ ForwardTube for all x
+  have h_in_tube : ∀ x : NPointDomain d n,
+      (fun k μ => (↑(x k μ) : ℂ) + ε * ↑(η k μ) * Complex.I) ∈ ForwardTube d n := by
+    intro x k
+    -- Goal: Im((x_k + iεη_k) - prev) ∈ V⁺
+    -- Since x is real, Im = ε · (η_k - η_{k-1}), which is in V⁺ by InForwardCone
+    have hk := hη k
+    -- Convert goal to match ε * (η_k - prev_η)
+    let diff : Fin (d + 1) → ℝ := fun μ => η k μ -
+      (if h : k.val = 0 then (0 : Fin (d + 1) → ℝ) else η ⟨k.val - 1, by omega⟩) μ
+    suffices hsuff : InOpenForwardCone d (fun μ => ε * diff μ) by
+      convert hsuff using 1
+      ext μ; simp only [diff]
+      split_ifs with h
+      · simp [Complex.add_im, Complex.ofReal_im, Complex.mul_im,
+          Complex.ofReal_re, Complex.I_re, Complex.I_im]
+      · simp [Complex.sub_im, Complex.add_im, Complex.ofReal_im, Complex.mul_im,
+          Complex.ofReal_re, Complex.I_re, Complex.I_im]; ring
+    -- ε * diff ∈ V⁺ since diff ∈ V⁺ and ε > 0
+    obtain ⟨hk0, hkneg⟩ := hk
+    refine ⟨by exact mul_pos hε hk0, ?_⟩
+    -- minkowskiNormSq(ε · diff) = ε² · minkowskiNormSq(diff)
+    show MinkowskiSpace.minkowskiNormSq d (fun μ => ε * diff μ) < 0
+    simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner]
+    have : ∑ i : Fin (d + 1), MinkowskiSpace.metricSignature d i * (ε * diff i) * (ε * diff i) =
+        ε ^ 2 * ∑ i : Fin (d + 1), MinkowskiSpace.metricSignature d i * diff i * diff i := by
+      rw [Finset.mul_sum]; congr 1; ext i; ring
+    rw [this]
+    exact mul_neg_of_pos_of_neg (pow_pos hε 2) hkneg
+  -- Step 2: The affine map is continuous
+  have h_cont_affine : Continuous (fun x : NPointDomain d n =>
+      (fun k μ => (↑(x k μ) : ℂ) + ε * ↑(η k μ) * Complex.I)) := by
+    apply continuous_pi; intro k; apply continuous_pi; intro μ
+    exact (Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply k))).add
+      continuous_const
+  -- Step 3: F is continuous on ForwardTube, compose with continuous affine map
+  exact (hF.continuousOn.comp_continuous h_cont_affine h_in_tube).aestronglyMeasurable
 
 theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
@@ -579,11 +617,26 @@ theorem lorentz_covariant_distributional_bv {d n : ℕ} [NeZero d]
   -- Λη is in the forward cone (successive differences preserved by Lorentz)
   have hΛη : InForwardCone d n Λη := by
     intro k
-    -- Lorentz action is linear, so Λ(η_k - η_{k-1}) = Λη_k - Λη_{k-1}
-    -- The successive difference of Λη equals Λ applied to the successive difference of η
+    -- The successive difference of Λη at k equals Λ applied to the successive difference of η
     have hk := hη k
-    simp only [InForwardCone, Λη] at hk ⊢
-    sorry -- Lorentz preserves forward cone on successive differences
+    -- hk : InOpenForwardCone d (fun μ => η k μ - (if k.val = 0 then 0 else η ⟨k.val - 1, ..⟩) μ)
+    -- Goal: InOpenForwardCone d (fun μ => Λη k μ - (if k.val = 0 then 0 else Λη ⟨k.val - 1, ..⟩) μ)
+    -- Key: Λη k μ - prev μ = ∑ ν, Λ_μν * (η k ν - prev_η ν) by linearity of sum
+    -- So the result follows from restricted_preserves_forward_cone
+    let diff_η : Fin (d + 1) → ℝ := fun μ => η k μ -
+      (if h : k.val = 0 then (0 : Fin (d + 1) → ℝ) else η ⟨k.val - 1, by omega⟩) μ
+    have hdiff : InOpenForwardCone d diff_η := hk
+    have hΛdiff := restricted_preserves_forward_cone Λ diff_η hdiff
+    -- Now show the goal matches Λ · diff_η
+    convert hΛdiff using 1
+    ext μ
+    simp only [Λη, diff_η]
+    -- Goal: (∑ ν, Λ_μν * η k ν) - (if k.val = 0 then 0 else ∑ ν, Λ_μν * η ⟨k.val-1,..⟩ ν) =
+    --       ∑ ν, Λ_μν * (η k ν - (if k.val = 0 then 0 else η ⟨k.val-1,..⟩) ν)
+    split_ifs with h
+    · simp [sub_zero]
+    · rw [← Finset.sum_sub_distrib]
+      congr 1; ext ν; ring
   -- Apply hF_bv with test function g and direction Λη
   have hbv_g := hF_bv g Λη hΛη
   -- By Lorentz covariance (R5), W n f = W n g
