@@ -40,7 +40,7 @@ All `sorry`s removed in `JostPoints.lean`.
 |---|------|------|--------|
 | 1 | 1246 | `orbitSet_isPreconnected` | **sorry** — geometric orbit preconnectedness after removing false geodesic convexity route |
 | 2 | 2121 | `iterated_eow_permutation_extension` | **sorry** — EOW iteration for general σ |
-| 3 | 2418 | `adjacent_sectors_overlap_right` | **sorry** — Jost-point style overlap between adjacent sectors |
+| 3 | 2410 | `adjacent_sectors_overlap_right` | **sorry** — reduced to `d = 1` branch; `d ≥ 2` witness proved in `AdjacentOverlapWitness.lean` |
 
 ### GeodesicConvexity.lean — 2 sorrys
 | # | Line | Name | Status |
@@ -74,6 +74,7 @@ New infrastructure (2026-02-22):
 - `complexLorentzAction_isOpenMap` — Lorentz action is open map
 - `isOpen_permutedForwardTube` — PFT(π) is open
 - `isOpen_permutedExtendedTube` — PET is open
+- `adjacent_overlap_witness_exists` (`AdjacentOverlapWitness.lean`) — explicit overlap witness for `d ≥ 2`
 
 Previously proved infrastructure:
 - ForwardTube, complexLorentzAction, PermutedExtendedTube definitions

@@ -6,6 +6,7 @@ Authors: ModularPhysics Contributors
 import Mathlib.Analysis.Complex.CauchyIntegral
 import Mathlib.Topology.Connected.PathConnected
 import OSReconstruction.ComplexLieGroups.GeodesicConvexity
+import OSReconstruction.ComplexLieGroups.AdjacentOverlapWitness
 import OSReconstruction.SCV.IdentityTheorem
 
 /-!
@@ -2403,6 +2404,9 @@ private theorem lorentzPermSector_isPreconnected (π : Equiv.Perm (Fin n)) :
 -- We work with right-adjacent sector transitions, reducing overlap to an
 -- ExtendedTube witness `x` with `swap(i,i+1)·x ∈ ExtendedTube`.
 
+private theorem extendedTube_eq_core :
+    ExtendedTube d n = BHWCore.ExtendedTube d n := rfl
+
 private theorem adjacent_sectors_overlap_right [NeZero d] (π : Equiv.Perm (Fin n))
     (i : Fin n) (hi : i.val + 1 < n) :
     (lorentzPermSector (d := d) (n := n) π ∩
@@ -2412,10 +2416,25 @@ private theorem adjacent_sectors_overlap_right [NeZero d] (π : Equiv.Perm (Fin 
   -- This is the Jost-point geometric core (dimension-dependent) and requires
   -- dedicated infrastructure from the swap-compatible Jost construction.
   --
-  -- Blocked by: the explicit swap-compatible ExtendedTube witness.
   rcases (adjacent_overlap_reduction_right (d := d) (n := n) π i hi) with hred
-  apply hred.mpr
-  sorry
+  by_cases hd2 : 2 ≤ d
+  · apply hred.mpr
+    rcases adjacent_overlap_witness_exists (d := d) (n := n) hd2 i hi with ⟨x, hx, hswapx⟩
+    refine ⟨x, ?_, ?_⟩
+    · simpa [extendedTube_eq_core (d := d) (n := n)] using hx
+    · simpa [extendedTube_eq_core (d := d) (n := n)] using hswapx
+  · have hd1 : d = 1 := by
+      have hle : d ≤ 1 := Nat.not_lt.mp hd2
+      have hge : 1 ≤ d := Nat.succ_le_of_lt (Nat.pos_of_ne_zero (NeZero.ne d))
+      exact Nat.le_antisymm hle hge
+    -- The d = 1 overlap witness needs a separate 1+1-dimensional construction.
+    -- The d ≥ 2 branch is proved by `adjacent_overlap_witness_exists`.
+    subst hd1
+    apply hred.mpr
+    rcases adjacent_overlap_witness_exists_d1 (n := n) i hi with ⟨x, hx, hswapx⟩
+    refine ⟨x, ?_, ?_⟩
+    · simpa [extendedTube_eq_core (d := 1) (n := n)] using hx
+    · simpa [extendedTube_eq_core (d := 1) (n := n)] using hswapx
 
 /-- **The permuted extended tube is preconnected.**
     PET = union over π in S_n, Λ in L₊(ℂ) of Λ·(π·FT).
