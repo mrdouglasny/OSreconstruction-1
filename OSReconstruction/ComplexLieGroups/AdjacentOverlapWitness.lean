@@ -1120,6 +1120,36 @@ theorem adjacent_overlap_witness_exists
       simp [realEmbed, swapWitnessRealSwapped]
     simpa [hswap] using swapWitnessReal_mem_extendedTube (d := d) (n := n) hd i hi
 
+/-- Real adjacent-overlap witness with explicit spacelike condition at `(i,i+1)`.
+    This strengthens `adjacent_overlap_witness_exists` by exposing a real witness
+    usable with locality hypotheses of the form `hF_local`. -/
+theorem adjacent_overlap_real_spacelike_witness_exists
+    (hd : 2 ≤ d) (i : Fin n) (hi : i.val + 1 < n) :
+    ∃ x : Fin n → Fin (d + 1) → ℝ,
+      (∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0) ∧
+      realEmbed x ∈ ExtendedTube d n ∧
+      realEmbed (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n := by
+  refine ⟨swapWitnessReal (d := d) (n := n) hd i hi, ?_⟩
+  refine ⟨?_, swapWitnessReal_mem_extendedTube (d := d) (n := n) hd i hi, ?_⟩
+  · have hd1 : 1 ≤ d :=
+      Nat.succ_le_of_lt (Nat.lt_of_lt_of_le (Nat.zero_lt_succ _) hd)
+    have hxFJ :
+        swapWitnessReal (d := d) (n := n) hd i hi ∈
+          ForwardJostSet d n hd1 :=
+      swapWitnessReal_mem_forwardJostSet (d := d) (n := n) hd i hi
+    have hsp_ip1 :
+        IsSpacelike d
+          (consecutiveDiff (swapWitnessReal (d := d) (n := n) hd i hi) ⟨i.val + 1, hi⟩) :=
+      forwardJostSet_consec_spacelike (d := d) (n := n) hd1 hxFJ ⟨i.val + 1, hi⟩
+    have hip1_ne0 : ¬ ((⟨i.val + 1, hi⟩ : Fin n).val = 0) := Nat.succ_ne_zero _
+    have hprev : (⟨(⟨i.val + 1, hi⟩ : Fin n).val - 1, by omega⟩ : Fin n) = i := by
+      apply Fin.ext
+      simp
+    simpa [IsSpacelike, consecutiveDiff, hip1_ne0, hprev] using hsp_ip1
+  · simpa [swapWitnessRealSwapped] using
+      (swapWitnessRealSwapped_mem_extendedTube (d := d) (n := n) hd i hi)
+
 /-! ## `d = 1` adjacent-overlap witness -/
 
 private def cdiff2 {n : ℕ} (z : Fin n → Fin 2 → ℂ) (k : Fin n) : Fin 2 → ℂ :=

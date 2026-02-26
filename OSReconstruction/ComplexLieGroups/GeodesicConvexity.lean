@@ -4,6 +4,7 @@ Released under Apache 2.0 license.
 Authors: Michael Douglas, ModularPhysics Contributors
 -/
 import OSReconstruction.ComplexLieGroups.Complexification
+import Mathlib.Analysis.Convex.Deriv
 
 /-!
 # Geodesic Convexity for the Forward Light Cone
@@ -48,6 +49,30 @@ lemma minkowski_sum_decomp (η : Fin (d + 1) → ℝ) :
   rw [Fin.sum_univ_succ]; congr 1
   · simp [minkowskiSignature]
   · congr 1; ext i; simp [minkowskiSignature, Fin.succ_ne_zero]
+
+/-- Forward-cone membership in gap form:
+`η ∈ V₊` iff `η₀ > 0` and `η₀² - ‖η_spatial‖² > 0`. -/
+theorem inOpenForwardCone_iff_timePos_gapPos (η : Fin (d + 1) → ℝ) :
+    InOpenForwardCone d η ↔
+      η 0 > 0 ∧ 0 < (η 0) ^ 2 - ∑ i : Fin d, (η (Fin.succ i)) ^ 2 := by
+  constructor
+  · intro h
+    refine ⟨h.1, ?_⟩
+    have hmink :
+        ∑ μ, minkowskiSignature d μ * η μ ^ 2 =
+          -(η 0) ^ 2 + ∑ i : Fin d, (η (Fin.succ i)) ^ 2 :=
+      minkowski_sum_decomp (d := d) (η := η)
+    have hquad : ∑ μ, minkowskiSignature d μ * η μ ^ 2 < 0 := h.2
+    rw [hmink] at hquad
+    linarith
+  · rintro ⟨h0, hgap⟩
+    refine ⟨h0, ?_⟩
+    have hmink :
+        ∑ μ, minkowskiSignature d μ * η μ ^ 2 =
+          -(η 0) ^ 2 + ∑ i : Fin d, (η (Fin.succ i)) ^ 2 :=
+      minkowski_sum_decomp (d := d) (η := η)
+    rw [hmink]
+    linarith
 
 /-- For η in the forward cone, the spatial norm is less than the time component. -/
 lemma spatial_norm_lt_time {η : Fin (d + 1) → ℝ} (h : InOpenForwardCone d η) :
@@ -129,6 +154,106 @@ theorem inOpenForwardCone_smul_pos {η : Fin (d + 1) → ℝ}
       simp [Pi.smul_apply]]
     rw [hQ]
     exact mul_neg_of_pos_of_neg (sq_pos_of_pos ht) hη.2
+
+/-! ### Concavity helper on `[0,1]` -/
+
+/-- Concavity on `[0,1]` plus strictly positive endpoint values implies strict
+positivity on the whole interval. -/
+theorem concave_pos_on_Icc_of_endpoints_pos
+    {f : ℝ → ℝ}
+    (hconc : ConcaveOn ℝ (Set.Icc (0 : ℝ) 1) f)
+    (h0 : 0 < f 0) (h1 : 0 < f 1) :
+    ∀ t ∈ Set.Icc (0 : ℝ) 1, 0 < f t := by
+  intro t ht
+  have ht0 : 0 ≤ t := ht.1
+  have ht1 : t ≤ 1 := ht.2
+  have hcomb : t * (1 : ℝ) + (1 - t) * (0 : ℝ) = t := by ring
+  have hconc_ineq := hconc.2 (x := (1 : ℝ)) (by simp) (y := (0 : ℝ)) (by simp)
+    ht0 (sub_nonneg.mpr ht1) (by ring)
+  have hline : t * f 1 + (1 - t) * f 0 ≤ f t := by
+    simpa [hcomb] using hconc_ineq
+  have hleft_pos : 0 < t * f 1 + (1 - t) * f 0 := by
+    by_cases hteq0 : t = 0
+    · subst hteq0
+      simpa using h0
+    · by_cases hteq1 : t = 1
+      · subst hteq1
+        simp [h1]
+      · have ht_pos : 0 < t := lt_of_le_of_ne ht0 (Ne.symm hteq0)
+        have h1t_pos : 0 < 1 - t := sub_pos.mpr (lt_of_le_of_ne ht1 hteq1)
+        have htf1 : 0 < t * f 1 := mul_pos ht_pos h1
+        have h1tf0 : 0 < (1 - t) * f 0 := mul_pos h1t_pos h0
+        exact add_pos htf1 h1tf0
+  exact lt_of_lt_of_le hleft_pos hline
+
+/-- On `[0,1]`, if the time component stays positive and the Minkowski gap
+`η₀² - ‖η_spatial‖²` is concave with positive endpoints, then the full vector
+stays in the open forward cone. -/
+theorem inOpenForwardCone_on_Icc_of_timePos_and_concave_gap
+    {η : ℝ → Fin (d + 1) → ℝ}
+    (hη0 : ∀ t ∈ Set.Icc (0 : ℝ) 1, 0 < η t 0)
+    (hconc : ConcaveOn ℝ (Set.Icc (0 : ℝ) 1)
+      (fun t => (η t 0) ^ 2 - ∑ i : Fin d, (η t (Fin.succ i)) ^ 2))
+    (hgap0 : 0 < (η 0 0) ^ 2 - ∑ i : Fin d, (η 0 (Fin.succ i)) ^ 2)
+    (hgap1 : 0 < (η 1 0) ^ 2 - ∑ i : Fin d, (η 1 (Fin.succ i)) ^ 2) :
+    ∀ t ∈ Set.Icc (0 : ℝ) 1, InOpenForwardCone d (η t) := by
+  intro t ht
+  have hgap_pos :
+      0 < (η t 0) ^ 2 - ∑ i : Fin d, (η t (Fin.succ i)) ^ 2 :=
+    concave_pos_on_Icc_of_endpoints_pos hconc hgap0 hgap1 t ht
+  refine ⟨hη0 t ht, ?_⟩
+  have hmink :
+      ∑ μ, minkowskiSignature d μ * (η t μ) ^ 2 =
+        -((η t 0) ^ 2) + ∑ i : Fin d, (η t (Fin.succ i)) ^ 2 :=
+    minkowski_sum_decomp (d := d) (η := η t)
+  rw [hmink]
+  linarith
+
+/-! ### Hyperbolic helper inequalities -/
+
+/-- For `β ≥ 0` and `t ∈ [0,1]`, one has `sinh (β t) ≤ t * sinh β`.
+    This is Jensen on `Icc 0 β` using convexity of `sinh` on `[0,∞)`. -/
+theorem sinh_mul_le_mul_sinh {β : ℝ} (hβ : 0 ≤ β) {t : ℝ}
+    (ht0 : 0 ≤ t) (ht1 : t ≤ 1) :
+    Real.sinh (β * t) ≤ t * Real.sinh β := by
+  have hconv : ConvexOn ℝ (Set.Icc (0 : ℝ) β) Real.sinh := by
+    have hderiv : DifferentiableOn ℝ (deriv Real.sinh) (Set.Icc (0 : ℝ) β) := by
+      simpa [Real.deriv_sinh] using Real.differentiable_cosh.differentiableOn
+    refine convexOn_of_deriv2_nonneg' (D := Set.Icc (0 : ℝ) β) (convex_Icc 0 β)
+      Real.differentiable_sinh.differentiableOn hderiv ?_
+    intro x hx
+    have hiterAux := congrArg (fun g : ℝ → ℝ => g x)
+      (iteratedDeriv_eq_iterate (n := 2) (f := Real.sinh)).symm
+    have hiter : deriv^[2] Real.sinh x = iteratedDeriv 2 Real.sinh x := hiterAux
+    rw [hiter]
+    have h2Aux := congrArg (fun g : ℝ → ℝ => g x) (Real.iteratedDeriv_even_sinh 1)
+    have h2 : iteratedDeriv 2 Real.sinh x = Real.sinh x := h2Aux
+    rw [h2]
+    exact (Real.sinh_nonneg_iff).2 hx.1
+  rcases hconv with ⟨_, hineq⟩
+  have h0mem : (0 : ℝ) ∈ Set.Icc (0 : ℝ) β := ⟨le_rfl, hβ⟩
+  have hβmem : β ∈ Set.Icc (0 : ℝ) β := ⟨hβ, le_rfl⟩
+  have hmain := hineq h0mem hβmem (sub_nonneg.mpr ht1) ht0 (by linarith : (1 - t) + t = 1)
+  simpa [smul_eq_mul, Real.sinh_zero, mul_comm, mul_left_comm, mul_assoc,
+    add_comm, add_left_comm, add_assoc] using hmain
+
+/-- Squared form of `sinh_mul_le_mul_sinh` on `[0,1]`. -/
+theorem sinh_sq_mul_le_mul_sq_sinh_sq {β : ℝ} (hβ : 0 ≤ β) {t : ℝ}
+    (ht0 : 0 ≤ t) (ht1 : t ≤ 1) :
+    Real.sinh (β * t) ^ 2 ≤ t ^ 2 * Real.sinh β ^ 2 := by
+  have h1 : Real.sinh (β * t) ≤ t * Real.sinh β :=
+    sinh_mul_le_mul_sinh hβ ht0 ht1
+  have hlow : -(t * Real.sinh β) ≤ Real.sinh (β * t) := by
+    have hs1 : 0 ≤ Real.sinh (β * t) :=
+      (Real.sinh_nonneg_iff).2 (mul_nonneg hβ ht0)
+    have hs2 : 0 ≤ t * Real.sinh β :=
+      mul_nonneg ht0 ((Real.sinh_nonneg_iff).2 hβ)
+    linarith
+  have hsq : Real.sinh (β * t) ^ 2 ≤ (t * Real.sinh β) ^ 2 := by
+    nlinarith [h1, hlow]
+  calc
+    Real.sinh (β * t) ^ 2 ≤ (t * Real.sinh β) ^ 2 := hsq
+    _ = t ^ 2 * Real.sinh β ^ 2 := by ring
 
 /-! ### Lorentz transformation preserves the Minkowski quadratic form -/
 

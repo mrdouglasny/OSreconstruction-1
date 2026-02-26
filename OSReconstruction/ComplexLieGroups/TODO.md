@@ -1,5 +1,7 @@
 # ComplexLieGroups Module TODO
 
+Last updated: 2026-02-26
+
 ## Sorry Status
 
 ### MatrixLieGroup.lean — 0 sorrys ✓
@@ -38,9 +40,9 @@ All `sorry`s removed in `JostPoints.lean`.
 ### Connectedness.lean — 2 sorrys
 | # | Line | Name | Status |
 |---|------|------|--------|
-| 1 | 1447 | `orbitSet_isPreconnected` | **sorry** — geometric orbit preconnectedness after removing false geodesic convexity route |
-| 2 | 2442 | `iterated_eow_permutation_extension` | **sorry** — EOW iteration for general σ |
-| 3 | 2710 | `adjacent_sectors_overlap_right` | **closed** — proved via `adjacent_overlap_witness_exists_d1` + `adjacent_overlap_witness_exists` (`d ≥ 2`) |
+| 1 | 1844 | `orbitSet_isPreconnected` | **1 local sorry hole** — remaining `d ≥ 2`, `n > 0` joinability goal `hjoin : ∀ Λ ∈ orbitSet w, JoinedIn (orbitSet w) 1 Λ` |
+| 2 | 4372 | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
+| 3 | 4015 | `adjacent_sectors_overlap_right` | **closed** — proved via `adjacent_overlap_witness_exists_d1` + `adjacent_overlap_witness_exists` (`d ≥ 2`) |
 
 ### GeodesicConvexity.lean — 0 sorrys ✓
 The prior placeholder theorems (`cartan_exp_embedding`, `polar_decomposition`)
@@ -133,6 +135,17 @@ Previously proved infrastructure:
 - Repository history/branches (`main`, `bhw-phase-next`, `pr-29*`,
   `eliminate-bhw-axiom`) do not contain a completed non-`sorry` proof of this theorem.
 
+**Update (2026-02-26):**
+- The theorem is now resolved for `d = 0` (trivial group case) and `d = 1`
+  (via `ComplexLieGroups/D1OrbitSet.lean`).
+- The remaining open branch is `d ≥ 2` with `n > 0`.
+- `nonemptyDomain_isPreconnected` has been refactored with a proved reduction
+  `n > 0 → n = 1` (`nonemptyDomain_eq_n1`), so only the one-point orbit geometry
+  is now needed in downstream use (the `n`-dependence has been eliminated there).
+- The previous two local placeholders (`hstab_conn`, `PreconnectedSpace (orbitQuotTube w)`)
+  were refactored into one equivalent geometric obligation:
+  global orbit-set joinability `hjoin`.
+
 **New infrastructure (2026-02-25):**
 - `ComplexLorentzGroup` now has:
   - `IsTopologicalGroup` (continuous multiplication/inversion),
@@ -141,6 +154,11 @@ Previously proved infrastructure:
   future orbit-map proofs (previously blocked by missing typeclass instances).
 
 **Approaches:** See Proofideas/complex_lorentz_invariance.lean for detailed analysis.
+
+**Numerical sanity check (2026-02-26):**
+- Random search in `d = 2` also finds endpoint/segment failures for the removed
+  one-parameter geodesic implication (`t=0` and `t=1` in cone does not force all
+  `t ∈ [0,1]`), so that route is not recoverable by simply restricting to `d ≥ 2`.
 
 ### `iterated_eow_permutation_extension` (edge-of-the-wedge — CORE BHW blocker)
 
@@ -153,6 +171,22 @@ permutations σ, so `eow_chain_adj_swap` can close the induction step.
   "extend from previously-built domain U_σ to U_(swap*σ)" infrastructure.
 - Closing this requires a domain-iteration framework for EOW gluing
   (or a proof refactor that bypasses this formulation).
+
+**Route exclusion (2026-02-26):**
+- The midpoint-implication route is not viable. Compiled counterexamples in
+  `test/midpoint_condition_counterexample_test.lean` and
+  `test/midpoint_route_vacuous_test.lean` show the needed midpoint hypothesis
+  is false already at `σ = 1` (for `d ≥ 2`, `n ≥ 2`), so this cannot be used to
+  close `hExtPerm`.
+
+**Update (2026-02-26):**
+- The theorem now has a completed `n ≤ 1` branch (trivial permutation case).
+- It also has a completed `σ = 1` branch for all `n`.
+- It also has a completed `d = 0` branch (ET-overlap for nontrivial `σ` is vacuous).
+- The remaining open branch is `d > 0`, `n ≥ 2`, with `σ ≠ 1`.
+- The unresolved local goal is exactly `hExtPerm`: ET-overlap invariance of
+  `extendF` under `σ`, equivalent via
+  `permInvariance_forwardTube_iff_extendF_overlap`.
 
 **Independent status check (2026-02-25):**
 - Branch/history scan did not find a completed non-`sorry` version of this
@@ -195,8 +229,8 @@ LorentzLieGroup.lean ✓                       Complexification.lean ✓
                      │
                      ▼
           Connectedness.lean (2 sorrys)
-            orbitSet_isPreconnected [geometric — needs Lie group fiber theory]
-            iterated_eow_permutation_extension [EOW iteration]
+            orbitSet_isPreconnected [geometric — needs orbit-set joinability in `d ≥ 2`]
+            iterated_eow_permutation_extension [EOW iteration; `hExtPerm` gap]
                      │
                      ▼
           SCV/IdentityTheorem.lean ✓
@@ -209,9 +243,12 @@ LorentzLieGroup.lean ✓                       Complexification.lean ✓
 
 ## Execution Order
 
-1. **Connectedness.lean** — prove `orbitSet_isPreconnected` (geometric analysis)
-2. **Connectedness.lean** — prove `iterated_eow_permutation_extension`
+1. **Connectedness.lean / geometric lane** — close `orbitSet_isPreconnected` by
+   proving the remaining `d ≥ 2`, `n > 0` orbit-set joinability goal
+   `hjoin : ∀ Λ ∈ orbitSet w, JoinedIn (orbitSet w) 1 Λ`.
+2. **Connectedness.lean / EOW lane** — close `iterated_eow_permutation_extension`
+   by proving `hExtPerm` for nontrivial `σ`, then discharge the theorem via
+   `iterated_eow_permutation_extension_of_extendF_perm`.
 3. Build: `lake build OSReconstruction.ComplexLieGroups`
-4. Optional parallel track: extend geometric infrastructure (currently centered in
-   `Connectedness.lean` + `DifferenceCoordinates.lean`) if returning to a
-   polar-decomposition proof route.
+4. Only after (1)-(3): continue into `Wightman/Reconstruction/WickRotation/*`
+   blockers that depend on BHW closure.

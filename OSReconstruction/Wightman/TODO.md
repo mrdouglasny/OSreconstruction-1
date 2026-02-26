@@ -1,12 +1,15 @@
 # Wightman TODO: OS Reconstruction Critical Path
 
-Last updated: 2026-02-25
+Last updated: 2026-02-26
 
 This TODO tracks only the proof blockers on the path to the OS reconstruction theorems:
 
 - `wightman_to_os` (R->E)
 - `os_to_wightman` (E'->R')
 - `wightman_reconstruction`/`wightman_uniqueness` wiring completion
+
+For the active BHW closure subgoals in `ComplexLieGroups/Connectedness.lean`, see
+`docs/bhw_connectedness_strategy.md`.
 
 Count convention in this file: direct tactic holes only, i.e.
 `rg -n --glob '*.lean' '^\s*sorry\b' OSReconstruction`.
@@ -17,11 +20,11 @@ Count convention in this file: direct tactic holes only, i.e.
 |-------|-----------------------|
 | `OSReconstruction/Wightman` | 43 |
 | `OSReconstruction/SCV` | 14 |
-| `OSReconstruction/ComplexLieGroups` | 5 |
+| `OSReconstruction/ComplexLieGroups` | 3 |
 | `OSReconstruction/vNA` | 40 |
-| **Whole project** | **102** |
+| **Whole project** | **100** |
 
-Critical-path (OS theorem path + immediate prerequisites) direct total: **53**.
+Critical-path (OS theorem path + immediate prerequisites) direct total: **51**.
 
 ## Flow Chart Toward OS Reconstruction
 
@@ -38,8 +41,8 @@ flowchart TD
   BT --> BE["WickRotation/BHWExtension (2)"]
   BE --> FL["WickRotation/ForwardTubeLorentz (2)"]
   FL --> AC["Reconstruction/AnalyticContinuation (0)"]
-  AC --> CO["ComplexLieGroups/Connectedness (2)"]
-  CO --> GC["ComplexLieGroups/GeodesicConvexity (3)"]
+  AC --> CO["ComplexLieGroups/Connectedness (3)"]
+  CO --> GC["ComplexLieGroups/GeodesicConvexity (0, infra proved)"]
   AC --> JP["ComplexLieGroups/JostPoints (0)"]
 
   T4 --> OW["WickRotation/OSToWightman (14)"]
@@ -66,8 +69,7 @@ flowchart TD
 | `SCV/PaleyWiener.lean` | 6 | one-step Paley-Wiener continuation |
 | `SCV/LaplaceSchwartz.lean` | 6 | Fourier-Laplace growth/BV technical core |
 | `SCV/BochnerTubeTheorem.lean` | 2 | orthant-to-forward-tube extension |
-| `ComplexLieGroups/Connectedness.lean` | 2 | BHW sector gluing/orbit overlap |
-| `ComplexLieGroups/GeodesicConvexity.lean` | 3 | convexity decomposition infrastructure for connectedness |
+| `ComplexLieGroups/Connectedness.lean` | 2 | BHW sector gluing/orbit overlap (`orbitSet_isPreconnected` + `hExtPerm` gap) |
 
 ## Declaration-Level Blocker List
 
@@ -153,18 +155,13 @@ flowchart TD
 
 ### `ComplexLieGroups/Connectedness.lean` (2)
 
-- `iterated_eow_permutation_extension` (line 2208)
-- `adjacent_sectors_overlap_right` (line 2505)
-
-### `ComplexLieGroups/GeodesicConvexity.lean` (3)
-
-- `geodesic_convexity_forwardCone` (line 540)
-- `cartan_exp_embedding` (line 598)
-- `polar_decomposition` (line 745)
+- `orbitSet_isPreconnected` (line 1844; 1 local geometric hole in `d ≥ 2`, `n > 0`:
+  orbit-set joinability `hjoin`)
+- `iterated_eow_permutation_extension` (line 4372; 1 local sorry hole at `hExtPerm`)
 
 ## Priority Execution Order
 
-1. `ComplexLieGroups/GeodesicConvexity` + `Connectedness`
+1. `ComplexLieGroups/Connectedness`
 2. `WickRotation` R->E transport chain:
    `ForwardTubeLorentz` -> `BHWExtension` -> `BHWTranslation` -> `SchwingerAxioms`
 3. SCV continuation chain:
