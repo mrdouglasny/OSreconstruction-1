@@ -685,6 +685,70 @@ def toSOComplex (Λ : ComplexLorentzGroup d) : SOComplex (d + 1) where
     rw [Matrix.det_mul, Matrix.det_mul, Λ.proper, mul_one,
       ← Matrix.det_mul, Winv_mul_W, Matrix.det_one]
 
+/-- Top-left entry is preserved by Wick rotation. -/
+theorem toSOComplex_entry_00 (Λ : ComplexLorentzGroup d) :
+    (toSOComplex Λ).val 0 0 = Λ.val 0 0 := by
+  change ((Winv (d := d)) * Λ.val * (W (d := d))) 0 0 = Λ.val 0 0
+  rw [Matrix.mul_apply, Finset.sum_eq_single 0]
+  · rw [Matrix.mul_apply, Finset.sum_eq_single 0]
+    · simp [W, Winv, mul_assoc]
+      have hI2 : (Complex.I : ℂ) ^ 2 = -1 := by norm_num
+      calc
+        -(Complex.I * (Λ.val 0 0 * Complex.I)) = -((Complex.I : ℂ) ^ 2 * Λ.val 0 0) := by
+          ring
+        _ = -((-1) * Λ.val 0 0) := by simp [hI2]
+        _ = Λ.val 0 0 := by ring
+    · intro j _ hj
+      have hWinv : Winv (d := d) 0 j = 0 := by
+        simp [Winv, hj.symm]
+      simp [hWinv]
+    · simp
+  · intro x _ hx
+    have hW : W x 0 = 0 := by simp [W, hx]
+    simp [hW]
+  · simp
+
+/-- Spatial first-column entries of `toSOComplex Λ` are `I` times those of `Λ`. -/
+theorem toSOComplex_entry_succ0 (Λ : ComplexLorentzGroup d) (i : Fin d) :
+    (toSOComplex Λ).val i.succ 0 = Λ.val i.succ 0 * Complex.I := by
+  change ((Winv (d := d)) * Λ.val * (W (d := d))) i.succ 0 =
+    Λ.val i.succ 0 * Complex.I
+  rw [Matrix.mul_apply, Finset.sum_eq_single 0]
+  · rw [Matrix.mul_apply, Finset.sum_eq_single i.succ]
+    · simp [W, Winv]
+    · intro j _ hj
+      have hWinv : Winv (d := d) i.succ j = 0 := by
+        simp [Winv, hj.symm]
+      simp [hWinv]
+    · simp
+  · intro x _ hx
+    have hW : W x 0 = 0 := by simp [W, hx]
+    simp [hW]
+  · simp
+
+/-- Wick rotation preserves the first-column-`e₀` condition. -/
+theorem toSOComplex_firstColEqE0_iff (Λ : ComplexLorentzGroup d) :
+    (∀ k : Fin (d + 1), (toSOComplex Λ).val k 0 = if k = 0 then 1 else 0) ↔
+      (∀ k : Fin (d + 1), Λ.val k 0 = if k = 0 then 1 else 0) := by
+  constructor
+  · intro h k
+    refine Fin.cases ?_ ?_ k
+    · simpa [toSOComplex_entry_00] using h 0
+    · intro i
+      have hi := h i.succ
+      have hmul : Λ.val i.succ 0 * Complex.I = 0 := by
+        simpa [toSOComplex_entry_succ0, Fin.succ_ne_zero] using hi
+      have hzero : Λ.val i.succ 0 = 0 := by
+        exact (mul_eq_zero.mp hmul).resolve_right Complex.I_ne_zero
+      simpa [Fin.succ_ne_zero] using hzero
+  · intro h k
+    refine Fin.cases ?_ ?_ k
+    · simpa [toSOComplex_entry_00] using h 0
+    · intro i
+      have hzero : Λ.val i.succ 0 = 0 := by
+        simpa [Fin.succ_ne_zero] using h i.succ
+      simp [toSOComplex_entry_succ0, Fin.succ_ne_zero, hzero]
+
 /-- Map from SOComplex to ComplexLorentzGroup via inverse Wick rotation: A ↦ W A W⁻¹. -/
 def fromSOComplex (A : SOComplex (d + 1)) : ComplexLorentzGroup d where
   val := W * A.val * Winv
@@ -711,24 +775,28 @@ def fromSOComplex (A : SOComplex (d + 1)) : ComplexLorentzGroup d where
     rw [Matrix.det_mul, Matrix.det_mul, A.proper, mul_one,
       ← Matrix.det_mul, W_mul_Winv, Matrix.det_one]
 
-private theorem fromSOComplex_toSOComplex (Λ : ComplexLorentzGroup d) :
+/-- `fromSOComplex` is a left inverse of `toSOComplex`. -/
+theorem fromSOComplex_toSOComplex (Λ : ComplexLorentzGroup d) :
     fromSOComplex (toSOComplex Λ) = Λ := by
   apply ext; show W * (Winv * Λ.val * W) * Winv = Λ.val
   simp only [Matrix.mul_assoc]
   rw [W_mul_Winv, Matrix.mul_one, ← Matrix.mul_assoc, W_mul_Winv, Matrix.one_mul]
 
-private theorem toSOComplex_fromSOComplex (A : SOComplex (d + 1)) :
+/-- `toSOComplex` is a left inverse of `fromSOComplex`. -/
+theorem toSOComplex_fromSOComplex (A : SOComplex (d + 1)) :
     toSOComplex (fromSOComplex A) = A := by
   apply SOComplex.ext; show Winv * (W * A.val * Winv) * W = A.val
   simp only [Matrix.mul_assoc]
   rw [Winv_mul_W, Matrix.mul_one, ← Matrix.mul_assoc, Winv_mul_W, Matrix.one_mul]
 
-private theorem fromSOComplex_one :
+/-- `fromSOComplex` sends the orthogonal identity to the Lorentz identity. -/
+theorem fromSOComplex_one :
     fromSOComplex (SOComplex.one : SOComplex (d + 1)) = (one : ComplexLorentzGroup d) := by
   apply ext; show W * SOComplex.one.val * Winv = one.val
   simp [SOComplex.one, one, W_mul_Winv]
 
-private theorem continuous_fromSOComplex :
+/-- Continuity of the inverse Wick-rotation map. -/
+theorem continuous_fromSOComplex :
     Continuous (fromSOComplex : SOComplex (d + 1) → ComplexLorentzGroup d) := by
   have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
   rw [hind.continuous_iff]

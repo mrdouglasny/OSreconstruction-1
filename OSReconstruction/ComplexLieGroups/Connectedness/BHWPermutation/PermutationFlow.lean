@@ -1,4 +1,8 @@
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.Adjacency
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.IndexSetD1
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.JostWitnessGeneralSigma
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.SeedSlices
+import OSReconstruction.ComplexLieGroups.D1OrbitSet
 
 noncomputable section
 
@@ -9,10 +13,150 @@ variable {d : ℕ}
 
 namespace BHW
 
-/-- Permutation action on particle indices. -/
-private def permAct (σ : Equiv.Perm (Fin n)) (z : Fin n → Fin (d + 1) → ℂ) :
-    Fin n → Fin (d + 1) → ℂ :=
-  fun k => z (σ k)
+/-- `π`-sector of points whose `π`-pullback lies in the extended tube. -/
+private def permSector (n : ℕ) (π : Equiv.Perm (Fin n)) :
+    Set (Fin n → Fin (d + 1) → ℂ) :=
+  {z | permAct (d := d) π z ∈ ExtendedTube d n}
+
+private lemma permAct_mul (π τ : Equiv.Perm (Fin n))
+    (z : Fin n → Fin (d + 1) → ℂ) :
+    permAct (d := d) (π * τ) z =
+      permAct (d := d) τ (permAct (d := d) π z) := by
+  ext k μ
+  simp [permAct, Equiv.Perm.mul_apply]
+
+private lemma permAct_comp_inv (π : Equiv.Perm (Fin n))
+    (z : Fin n → Fin (d + 1) → ℂ) :
+    permAct (d := d) π (permAct (d := d) π⁻¹ z) = z := by
+  ext k μ
+  simp [permAct]
+
+private theorem permSector_eq_image_extendedTube (n : ℕ)
+    (π : Equiv.Perm (Fin n)) :
+    permSector (d := d) n π =
+      (permAct (d := d) π⁻¹) '' (ExtendedTube d n) := by
+  ext z
+  constructor
+  · intro hz
+    exact ⟨permAct (d := d) π z, hz, by
+      ext k μ
+      simp [permAct]
+    ⟩
+  · rintro ⟨x, hxET, rfl⟩
+    simpa [permSector, permAct_comp_inv (d := d) π x] using hxET
+
+private theorem isConnected_permSector (n : ℕ)
+    (π : Equiv.Perm (Fin n)) :
+    IsConnected (permSector (d := d) n π) := by
+  have hcont : Continuous (permAct (d := d) π⁻¹) := by
+    refine continuous_pi ?_
+    intro k
+    refine continuous_pi ?_
+    intro μ
+    exact (continuous_apply μ).comp (continuous_apply (π⁻¹ k))
+  have himage :
+      IsConnected ((permAct (d := d) π⁻¹) '' (ExtendedTube d n)) :=
+    isConnected_extendedTube (d := d) (n := n) |>.image _ hcont.continuousOn
+  simpa [permSector_eq_image_extendedTube (d := d) n π] using himage
+
+private theorem adjacent_permSector_overlap_nonempty [NeZero d]
+    (n : ℕ) (π : Equiv.Perm (Fin n))
+    (i : Fin n) (hi : i.val + 1 < n) :
+    (permSector (d := d) n π ∩
+      permSector (d := d) n (π * Equiv.swap i ⟨i.val + 1, hi⟩)).Nonempty := by
+  by_cases hd2 : 2 ≤ d
+  · rcases adjacent_overlap_witness_exists (d := d) (n := n) hd2 i hi with
+      ⟨x, hxET, hswapET⟩
+    refine ⟨permAct (d := d) π⁻¹ x, ?_, ?_⟩
+    · have hxET' : x ∈ ExtendedTube d n := by
+        simpa [ExtendedTube, BHWCore.ExtendedTube] using hxET
+      simpa [permSector, permAct_comp_inv (d := d) π x] using hxET'
+    · have hswapET' : (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n := by
+        simpa [ExtendedTube, BHWCore.ExtendedTube] using hswapET
+      have hmul :
+          permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) (permAct (d := d) π⁻¹ x) =
+            fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k) := by
+        calc
+          permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) (permAct (d := d) π⁻¹ x)
+              = permAct (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩)
+                  (permAct (d := d) π (permAct (d := d) π⁻¹ x)) := by
+                    simpa using
+                      (permAct_mul (d := d) π (Equiv.swap i ⟨i.val + 1, hi⟩)
+                        (permAct (d := d) π⁻¹ x))
+          _ = permAct (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) x := by
+                simp [permAct_comp_inv (d := d) π x]
+          _ = (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) := rfl
+      simpa [permSector, hmul] using hswapET'
+  · have hd1 : d = 1 := by
+      have hle : d ≤ 1 := Nat.not_lt.mp hd2
+      have hge : 1 ≤ d := Nat.succ_le_of_lt (Nat.pos_of_ne_zero (NeZero.ne d))
+      exact Nat.le_antisymm hle hge
+    subst hd1
+    rcases adjacent_overlap_witness_exists_d1 (n := n) i hi with
+      ⟨x, hxET, hswapET⟩
+    refine ⟨permAct (d := 1) π⁻¹ x, ?_, ?_⟩
+    · have hxET' : x ∈ ExtendedTube 1 n := by
+        simpa [ExtendedTube, BHWCore.ExtendedTube] using hxET
+      simpa [permSector, permAct_comp_inv (d := 1) π x] using hxET'
+    · have hswapET' : (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube 1 n := by
+        simpa [ExtendedTube, BHWCore.ExtendedTube] using hswapET
+      have hmul :
+          permAct (d := 1) (π * Equiv.swap i ⟨i.val + 1, hi⟩) (permAct (d := 1) π⁻¹ x) =
+            fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k) := by
+        calc
+          permAct (d := 1) (π * Equiv.swap i ⟨i.val + 1, hi⟩) (permAct (d := 1) π⁻¹ x)
+              = permAct (d := 1) (Equiv.swap i ⟨i.val + 1, hi⟩)
+                  (permAct (d := 1) π (permAct (d := 1) π⁻¹ x)) := by
+                    simpa using
+                      (permAct_mul (d := 1) π (Equiv.swap i ⟨i.val + 1, hi⟩)
+                        (permAct (d := 1) π⁻¹ x))
+          _ = permAct (d := 1) (Equiv.swap i ⟨i.val + 1, hi⟩) x := by
+                simp [permAct_comp_inv (d := 1) π x]
+          _ = (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k)) := rfl
+      simpa [permSector, hmul] using hswapET'
+
+/-- Adjacent-swap equality for `extendF` on neighboring permutation sectors,
+specialized to the `d ≥ 2` connected-overlap route. -/
+private theorem extendF_perm_adjacent_eq_on_sector_overlap_hd2
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (hd2 : 2 ≤ d)
+    (hFwd_conn : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      IsConnected (adjSwapForwardOverlapSet (d := d) n i hi))
+    (π : Equiv.Perm (Fin n))
+    (i : Fin n) (hi : i.val + 1 < n)
+    {z : Fin n → Fin (d + 1) → ℂ}
+    (hzπ : z ∈ permSector (d := d) n π)
+    (hzπs : z ∈ permSector (d := d) n (π * Equiv.swap i ⟨i.val + 1, hi⟩)) :
+    extendF F (permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) z) =
+      extendF F (permAct (d := d) π z) := by
+  let y : Fin n → Fin (d + 1) → ℂ := permAct (d := d) π z
+  have hyET : y ∈ ExtendedTube d n := hzπ
+  have hswapET : (fun k => y (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n := by
+    have hyMul : permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) z =
+        permAct (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) y := by
+      simpa [y] using
+        (permAct_mul (d := d) π (Equiv.swap i ⟨i.val + 1, hi⟩) z)
+    have hEtMul : permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) z ∈ ExtendedTube d n :=
+      hzπs
+    simpa [hyMul, permAct] using hEtMul
+  have hswap :=
+    extendF_adjSwap_eq_of_connected_forwardOverlap_hd2
+      (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 i hi (hFwd_conn i hi)
+      y hyET hswapET
+  simpa [y, permAct, Equiv.Perm.mul_apply] using hswap
 
 /-- One adjacent-swap step in permutation space that preserves ET-membership
 for the fixed configuration `z`. -/
@@ -91,15 +235,13 @@ private theorem extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
           extendF F (permAct (d := d) π₁ z) := by
     intro π₁ π₂ hstep
     rcases hstep with ⟨i, hi, hπ₂, hπ₁ET, hπ₂ET⟩
-    have hswapET :
-        (fun k => (permAct (d := d) π₁ z) (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈
-          ExtendedTube d n := by
-      simpa [permAct, hπ₂, Equiv.Perm.mul_apply] using hπ₂ET
+    have hzπ : z ∈ permSector (d := d) n π₁ := hπ₁ET
+    have hzπs : z ∈ permSector (d := d) n (π₁ * Equiv.swap i ⟨i.val + 1, hi⟩) := by
+      simpa [permSector, hπ₂] using hπ₂ET
     have hswap_eq :=
-      extendF_adjSwap_eq_of_connected_forwardOverlap_hd2
-        (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 i hi (hFwd_conn i hi)
-        (permAct (d := d) π₁ z) hπ₁ET hswapET
-    simpa [hπ₂, permAct, Equiv.Perm.mul_apply] using hswap_eq
+      extendF_perm_adjacent_eq_on_sector_overlap_hd2
+        (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 hFwd_conn π₁ i hi hzπ hzπs
+    simpa [hπ₂] using hswap_eq
   have hchain := hChain σ z hz hσz
   have hchain_eq :
       ∀ {π : Equiv.Perm (Fin n)},
@@ -161,15 +303,100 @@ private theorem extendF_perm_overlap_of_adjSwap_connected_and_midCond_hd2
   exact extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
     (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 hFwd_conn hChain
 
+/-- One right-adjacent permutation step on forward-tube invariance, assuming the
+intermediate point `Γ · (σ · w)` already lies in `FT`.
+
+This isolates the exact missing geometric input in permutation-chain arguments:
+to advance from `σ` to `σ * swap(i,i+1)`, it is enough to provide midpoint
+forward-tube membership for the same `w, Γ`. -/
+private theorem eow_chain_adj_swap_of_midpoint
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (σ₀ : Equiv.Perm (Fin n)) (i₀ : Fin n) (hi₀ : i₀.val + 1 < n)
+    (ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+      ∀ (Γ : ComplexLorentzGroup d),
+        complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n →
+        F (complexLorentzAction Γ (fun k => w (σ₀ k))) = F w)
+    {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
+    {Γ : ComplexLorentzGroup d}
+    (hmid : complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n)
+    (h : complexLorentzAction Γ
+      (fun k => w ((σ₀ * Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩) k)) ∈ ForwardTube d n) :
+    F (complexLorentzAction Γ
+      (fun k => w ((σ₀ * Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩) k))) = F w := by
+  set swap : Equiv.Perm (Fin n) := Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩
+  set z : Fin n → Fin (d + 1) → ℂ :=
+    complexLorentzAction Γ (fun k => w (σ₀ k))
+  have hz : z ∈ ForwardTube d n := hmid
+  have hswapz : (fun k => z (swap k)) ∈ ForwardTube d n := by
+    simpa [z, swap, Equiv.Perm.mul_apply, lorentz_perm_commute] using h
+  have hswap : F (fun k => z (swap k)) = F z :=
+    eow_adj_swap_on_overlap n F hF_holo hF_lorentz hF_bv hF_local i₀ hi₀ hz hswapz
+  have hσ : F z = F w := ih_σ w hw Γ hmid
+  simpa [z, swap, Equiv.Perm.mul_apply, lorentz_perm_commute] using hswap.trans hσ
+
+/-- Right-adjacent permutation step from a midpoint implication.
+
+If every witness `Γ · ((σ * swap) · w) ∈ FT` implies
+`Γ · (σ · w) ∈ FT`, then one adjacent step in permutation-invariance follows. -/
+private theorem eow_chain_adj_swap_of_midCond
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+        F (fun k μ => (x k μ : ℂ)))
+    (σ₀ : Equiv.Perm (Fin n)) (i₀ : Fin n) (hi₀ : i₀.val + 1 < n)
+    (hmidCond :
+      ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+        ∀ (Γ : ComplexLorentzGroup d),
+          complexLorentzAction Γ
+            (fun k => w ((σ₀ * Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩) k)) ∈ ForwardTube d n →
+          complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n)
+    (ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
+      ∀ (Γ : ComplexLorentzGroup d),
+        complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n →
+        F (complexLorentzAction Γ (fun k => w (σ₀ k))) = F w)
+    {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
+    {Γ : ComplexLorentzGroup d}
+    (h : complexLorentzAction Γ
+      (fun k => w ((σ₀ * Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩) k)) ∈ ForwardTube d n) :
+    F (complexLorentzAction Γ
+      (fun k => w ((σ₀ * Equiv.swap i₀ ⟨i₀.val + 1, hi₀⟩) k))) = F w := by
+  have hmid : complexLorentzAction Γ (fun k => w (σ₀ k)) ∈ ForwardTube d n :=
+    hmidCond w hw Γ h
+  exact eow_chain_adj_swap_of_midpoint n F hF_holo hF_lorentz hF_bv hF_local
+    σ₀ i₀ hi₀ ih_σ hw hmid h
+
 /-- Extended-tube overlap domain for a fixed permutation `σ`. -/
 private def permExtendedOverlapSet (n : ℕ) (σ : Equiv.Perm (Fin n)) :
     Set (Fin n → Fin (d + 1) → ℂ) :=
   {z | z ∈ ExtendedTube d n ∧ permAct (d := d) σ z ∈ ExtendedTube d n}
 
-/-- Forward-tube slice controlling the overlap domain for permutation `σ`. -/
-private def permForwardOverlapSet (n : ℕ) (σ : Equiv.Perm (Fin n)) :
-    Set (Fin n → Fin (d + 1) → ℂ) :=
-  {w | w ∈ ForwardTube d n ∧ permAct (d := d) σ w ∈ ExtendedTube d n}
+/-- In this file we reuse the shared seed-set definition from `SeedSlices`. -/
+private abbrev permOrbitSeedSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) : Set (Fin n → Fin (d + 1) → ℂ) :=
+  permSeedSet (d := d) n σ
 
 /-- Fixed-`Λ` slice for permutation forward-overlap witnesses. -/
 private def permForwardOverlapSlice
@@ -228,11 +455,236 @@ private theorem permForwardOverlapSlice_nonempty_nhds
   · intro Λ' hΛ'
     exact ⟨hw.1, hΛ'⟩
 
-/-- Index set of nonempty fixed-`Λ` slices for permutation forward overlap. -/
-private def permForwardOverlapIndexSet
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) : Set (ComplexLorentzGroup d) :=
-  {Λ : ComplexLorentzGroup d |
-    (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+/-- Equivalent form of `permOrbitSeedSet` as an ET/permuted-FT intersection. -/
+private theorem permOrbitSeedSet_eq_inter_permutedForwardTube
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    permOrbitSeedSet (d := d) n σ =
+      ExtendedTube d n ∩ PermutedForwardTube d n σ⁻¹ := by
+  simpa [permOrbitSeedSet] using
+    permSeedSet_eq_inter_permutedForwardTube (d := d) n σ
+
+/-- The seed set is open as an ET/permuted-FT intersection. -/
+private theorem isOpen_permOrbitSeedSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    IsOpen (permOrbitSeedSet (d := d) n σ) := by
+  simpa [permOrbitSeedSet] using isOpen_permSeedSet (d := d) n σ
+
+/-- Reduction of seed-orbit preconnectedness to FT-family assumptions.
+
+If each FT witness has Baire orbit subtype and preconnected orbit image, and
+stabilizers are connected on the seed set, then every seed orbit set is
+preconnected. -/
+private theorem seedOrbitPreconnected_of_forwardTube_families
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hStabSeed : ∀ z ∈ permOrbitSeedSet (d := d) n σ,
+      IsConnected (stabilizer (d := d) (n := n) z))
+    (hBaireFT : ∀ u : Fin n → Fin (d + 1) → ℂ,
+      u ∈ ForwardTube d n → BaireSpace (orbitSubtype (d := d) (n := n) u))
+    (hPreImgFT : ∀ u : Fin n → Fin (d + 1) → ℂ,
+      u ∈ ForwardTube d n →
+      PreconnectedSpace (orbitMap (d := d) (n := n) u '' orbitSet (d := d) (n := n) u)) :
+    ∀ z ∈ permOrbitSeedSet (d := d) n σ,
+      IsPreconnected (orbitSet (d := d) z) := by
+  intro z hzSeed
+  rcases Set.mem_iUnion.mp hzSeed.1 with ⟨Δ, u, huFT, hz_eq⟩
+  letI : BaireSpace (orbitSubtype (d := d) (n := n) u) := hBaireFT u huFT
+  letI : PreconnectedSpace (orbitMap (d := d) (n := n) u '' orbitSet (d := d) (n := n) u) :=
+    hPreImgFT u huFT
+  exact orbitSet_isPreconnected_of_forwardTube_witness (d := d) (n := n)
+    z u Δ huFT hz_eq (hStabSeed z hzSeed)
+
+private theorem permOrbitSeedSet_eq_image_permForwardOverlapSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    permOrbitSeedSet (d := d) n σ =
+      (permAct (d := d) σ) '' (permForwardOverlapSet (d := d) n σ) := by
+  simpa [permOrbitSeedSet] using
+    permSeedSet_eq_image_permForwardOverlapSet (d := d) n σ
+
+private theorem permForwardOverlapSet_eq_image_permOrbitSeedSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    permForwardOverlapSet (d := d) n σ =
+      (permAct (d := d) σ⁻¹) '' (permOrbitSeedSet (d := d) n σ) := by
+  simpa [permOrbitSeedSet] using
+    permForwardOverlapSet_eq_image_permSeedSet (d := d) n σ
+
+private theorem isConnected_permOrbitSeedSet_iff_permForwardOverlapSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    IsConnected (permOrbitSeedSet (d := d) n σ) ↔
+      IsConnected (permForwardOverlapSet (d := d) n σ) := by
+  simpa [permOrbitSeedSet] using
+    isConnected_permSeedSet_iff_permForwardOverlapSet (d := d) n σ
+
+/-- Membership in the permutation index set is equivalent to existence of an ET seed
+whose Lorentz image lies in the forward tube. -/
+private theorem mem_permForwardOverlapIndexSet_iff_exists_seed
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d) :
+    Λ ∈ permForwardOverlapIndexSet (d := d) n σ ↔
+      ∃ z ∈ permOrbitSeedSet (d := d) n σ,
+        complexLorentzAction Λ z ∈ ForwardTube d n := by
+  constructor
+  · rintro ⟨w, hwFT, hΛσwFT⟩
+    refine ⟨permAct (d := d) σ w, ?_, ?_⟩
+    · refine ⟨?_, ?_⟩
+      · refine Set.mem_iUnion.mpr ?_
+        refine ⟨Λ⁻¹, complexLorentzAction Λ (permAct (d := d) σ w), hΛσwFT, ?_⟩
+        simp [complexLorentzAction_inv]
+      · show (fun k => (permAct (d := d) σ w) (σ⁻¹ k)) ∈ ForwardTube d n
+        simpa [permAct] using hwFT
+    · simpa using hΛσwFT
+  · rintro ⟨z, hzSeed, hΛzFT⟩
+    refine ⟨permAct (d := d) σ⁻¹ z, ?_, ?_⟩
+    · simpa [permOrbitSeedSet, permSeedSet, PermutedForwardTube, permAct] using hzSeed.2
+    · have hcancel : permAct (d := d) σ (permAct (d := d) σ⁻¹ z) = z := by
+        ext k μ
+        simp [permAct]
+      simpa [hcancel] using hΛzFT
+
+/-- The permutation index set is a union of orbit sets over ET seeds of the form
+`permAct σ w` with `w ∈ FT`. -/
+private theorem permForwardOverlapIndexSet_eq_iUnion_orbitSet_seed
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    permForwardOverlapIndexSet (d := d) n σ
+      = ⋃ z : {z : Fin n → Fin (d + 1) → ℂ | z ∈ permOrbitSeedSet (d := d) n σ},
+          orbitSet (d := d) z.1 := by
+  ext Λ
+  constructor
+  · intro hΛ
+    rcases (mem_permForwardOverlapIndexSet_iff_exists_seed (d := d) n σ Λ).1 hΛ with
+      ⟨z, hzSeed, hΛzFT⟩
+    refine Set.mem_iUnion.mpr ?_
+    refine ⟨⟨z, hzSeed⟩, ?_⟩
+    simpa [orbitSet] using hΛzFT
+  · intro hΛ
+    rcases Set.mem_iUnion.mp hΛ with ⟨z, hΛorbit⟩
+    have hΛzFT : complexLorentzAction Λ z.1 ∈ ForwardTube d n := by
+      simpa [orbitSet] using hΛorbit
+    exact (mem_permForwardOverlapIndexSet_iff_exists_seed (d := d) n σ Λ).2
+      ⟨z.1, z.2, hΛzFT⟩
+
+/-- Any ET point can be moved into the forward tube by some complex Lorentz element. -/
+private theorem exists_lorentz_to_forward_of_mem_extendedTube
+    (n : ℕ) {z : Fin n → Fin (d + 1) → ℂ}
+    (hz : z ∈ ExtendedTube d n) :
+    ∃ Λ : ComplexLorentzGroup d, complexLorentzAction Λ z ∈ ForwardTube d n := by
+  rcases Set.mem_iUnion.mp hz with ⟨Λ, w, hwFT, hz_eq⟩
+  refine ⟨Λ⁻¹, ?_⟩
+  simpa [hz_eq, complexLorentzAction_inv] using hwFT
+
+/-- If the ET seed set is connected, then any two seeds are linked by a
+refl-transitive chain whose successive orbit sets overlap nontrivially. -/
+private theorem reflTransGen_seed_orbit_overlap_of_seedConnected
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hseed_conn : IsConnected (permOrbitSeedSet (d := d) n σ)) :
+    ∀ (a b : {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z}),
+      Relation.ReflTransGen
+        (fun x y : {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} =>
+          ((orbitSet (d := d) x.1) ∩ (orbitSet (d := d) y.1)).Nonempty)
+        a b := by
+  intro a b
+  let R :
+      {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} →
+      {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} → Prop :=
+    fun x y =>
+      ((orbitSet (d := d) x.1) ∩ (orbitSet (d := d) y.1)).Nonempty
+  let U :
+      Set {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} :=
+    {x | Relation.ReflTransGen R a x}
+
+  have hU_open : IsOpen U := by
+    rw [isOpen_iff_mem_nhds]
+    intro x hxU
+    have hxET : x.1 ∈ ExtendedTube d n := x.2.1
+    rcases exists_lorentz_to_forward_of_mem_extendedTube (d := d) n hxET with ⟨Λ0, hΛ0xFT⟩
+    let W :
+        Set {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} :=
+      {y | complexLorentzAction Λ0 y.1 ∈ ForwardTube d n}
+    have hW_open : IsOpen W := by
+      have hcont : Continuous (fun y :
+          {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} =>
+            complexLorentzAction Λ0 y.1) :=
+        (continuous_complexLorentzAction_snd Λ0).comp continuous_subtype_val
+      exact isOpen_forwardTube.preimage hcont
+    have hxW : x ∈ W := hΛ0xFT
+    refine Filter.mem_of_superset (hW_open.mem_nhds hxW) ?_
+    intro y hyW
+    have hxy : R x y := ⟨Λ0, hΛ0xFT, hyW⟩
+    exact Relation.ReflTransGen.tail hxU hxy
+
+  have hU_closed : IsClosed U := by
+    rw [← isOpen_compl_iff]
+    rw [isOpen_iff_mem_nhds]
+    intro x hxU
+    have hxET : x.1 ∈ ExtendedTube d n := x.2.1
+    rcases exists_lorentz_to_forward_of_mem_extendedTube (d := d) n hxET with ⟨Λ0, hΛ0xFT⟩
+    let W :
+        Set {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} :=
+      {y | complexLorentzAction Λ0 y.1 ∈ ForwardTube d n}
+    have hW_open : IsOpen W := by
+      have hcont : Continuous (fun y :
+          {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} =>
+            complexLorentzAction Λ0 y.1) :=
+        (continuous_complexLorentzAction_snd Λ0).comp continuous_subtype_val
+      exact isOpen_forwardTube.preimage hcont
+    have hxW : x ∈ W := hΛ0xFT
+    refine Filter.mem_of_superset (hW_open.mem_nhds hxW) ?_
+    intro y hyW hyU
+    have hyx : R y x := ⟨Λ0, hyW, hΛ0xFT⟩
+    have hx_inU : x ∈ U := Relation.ReflTransGen.tail hyU hyx
+    exact hxU hx_inU
+
+  have hU_nonempty : U.Nonempty := ⟨a, Relation.ReflTransGen.refl⟩
+  haveI : ConnectedSpace {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z} :=
+    Subtype.connectedSpace hseed_conn
+  have hU_eq : U = Set.univ := IsClopen.eq_univ ⟨hU_closed, hU_open⟩ hU_nonempty
+  have hbU : b ∈ U := by simp [hU_eq]
+  exact hbU
+
+/-- Connectedness reduction for permutation index sets through ET seeds:
+if the seed set is connected and each seed orbit set is preconnected, then the
+index set is connected. -/
+private theorem isConnected_permForwardOverlapIndexSet_of_seedConnected_and_seedOrbitPreconnected
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hseed_conn : IsConnected (permOrbitSeedSet (d := d) n σ))
+    (hseed_orbit_pre : ∀ z ∈ permOrbitSeedSet (d := d) n σ,
+      IsPreconnected (orbitSet (d := d) z)) :
+    IsConnected (permForwardOverlapIndexSet (d := d) n σ) := by
+  have hpre_union :
+      IsPreconnected
+        (⋃ z : {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z},
+          orbitSet (d := d) z.1) := by
+    apply IsPreconnected.iUnion_of_reflTransGen
+    · intro z
+      exact hseed_orbit_pre z.1 z.2
+    · intro z1 z2
+      exact reflTransGen_seed_orbit_overlap_of_seedConnected (d := d) n σ hseed_conn z1 z2
+  have hUnion_eq :
+      (⋃ z : {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z},
+        orbitSet (d := d) z.1) =
+      permForwardOverlapIndexSet (d := d) n σ := by
+    symm
+    exact permForwardOverlapIndexSet_eq_iUnion_orbitSet_seed (d := d) n σ
+  have hnonempty : (permForwardOverlapIndexSet (d := d) n σ).Nonempty := by
+    rcases hseed_conn.1 with ⟨z, hz⟩
+    rcases exists_lorentz_to_forward_of_mem_extendedTube (d := d) n hz.1 with ⟨Λ0, hΛ0zFT⟩
+    have hΛ0 : Λ0 ∈ orbitSet (d := d) z := by simpa [orbitSet] using hΛ0zFT
+    have hΛ0_union :
+        Λ0 ∈ ⋃ z : {z : Fin n → Fin (d + 1) → ℂ | permOrbitSeedSet (d := d) n σ z},
+          orbitSet (d := d) z.1 := Set.mem_iUnion.mpr ⟨⟨z, hz⟩, hΛ0⟩
+    exact ⟨Λ0, hUnion_eq ▸ hΛ0_union⟩
+  refine ⟨hnonempty, ?_⟩
+  rw [← hUnion_eq]
+  exact hpre_union
+
+/-- `d = 1` specialization: connected ET seed set implies connected permutation
+index set, using the `d = 1` orbit-preconnectedness theorem. -/
+private theorem isConnected_permForwardOverlapIndexSet_d1_of_seedConnected
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hseed_conn : IsConnected (permOrbitSeedSet (d := 1) n σ)) :
+    IsConnected (permForwardOverlapIndexSet (d := 1) n σ) := by
+  refine isConnected_permForwardOverlapIndexSet_of_seedConnected_and_seedOrbitPreconnected
+    (d := 1) n σ hseed_conn ?_
+  intro z hz
+  exact orbitSet_isPreconnected_d1_of_mem_extendedTube (n := n) hz.1
 
 /-- Openness of the permutation forward-overlap index set. -/
 private theorem isOpen_permForwardOverlapIndexSet
@@ -574,6 +1026,19 @@ private theorem isConnected_permForwardOverlapSet_of_real_double_coset_generatio
       (d := d) n σ Λ0 hΛ0 hgen
   exact isConnected_permForwardOverlapSet_of_indexConnected (d := d) n σ hidx_conn hnonempty
 
+/-- Any element of the permutation forward-overlap index set provides
+nonemptiness of the corresponding forward-overlap set. -/
+private theorem nonempty_permForwardOverlapSet_of_indexSet_mem
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    {Λ : ComplexLorentzGroup d}
+    (hΛ : Λ ∈ permForwardOverlapIndexSet (d := d) n σ) :
+    (permForwardOverlapSet (d := d) n σ).Nonempty := by
+  rcases hΛ with ⟨w, hw⟩
+  refine ⟨w, ⟨hw.1, ?_⟩⟩
+  refine Set.mem_iUnion.mpr ?_
+  refine ⟨Λ⁻¹, complexLorentzAction Λ (permAct (d := d) σ w), hw.2, ?_⟩
+  simp [complexLorentzAction_inv]
+
 /-- Nonemptiness of permutation forward overlap from the Jost-to-ET bridge. -/
 private theorem nonempty_permForwardOverlapSet_of_jostSetET
     (n : ℕ) (hd : 1 ≤ d) (hn : 1 ≤ n)
@@ -602,6 +1067,47 @@ private theorem nonempty_permForwardOverlapSet_of_jostSetET
     have := complexLorentzAction_mem_extendedTube n Λ⁻¹ hΛσw_ET
     simpa [complexLorentzAction_inv] using this
   exact ⟨w, ⟨hwFT, hσw_ET⟩⟩
+
+/-- Nonemptiness of permutation forward overlap from a local Jost witness package. -/
+private theorem nonempty_permForwardOverlapSet_of_jostWitness
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) :
+    (permForwardOverlapSet (d := d) n σ).Nonempty := by
+  rcases hJostWitness with ⟨x, _hxJ, hxET, hσxET⟩
+  rcases Set.mem_iUnion.mp hxET with ⟨Λ, w, hwFT, hx_eq⟩
+  have hσx_as_action :
+      realEmbed (fun k => x (σ k)) = complexLorentzAction Λ (permAct (d := d) σ w) := by
+    calc
+      realEmbed (fun k => x (σ k))
+          = permAct (d := d) σ (realEmbed x) := by rfl
+      _ = permAct (d := d) σ (complexLorentzAction Λ w) := by simp [hx_eq]
+      _ = complexLorentzAction Λ (permAct (d := d) σ w) := by
+            exact (lorentz_perm_commute Λ w σ).symm
+  have hΛσw_ET : complexLorentzAction Λ (permAct (d := d) σ w) ∈ ExtendedTube d n := by
+    simpa [hσx_as_action] using hσxET
+  have hσw_ET : permAct (d := d) σ w ∈ ExtendedTube d n := by
+    have := complexLorentzAction_mem_extendedTube n Λ⁻¹ hΛσw_ET
+    simpa [complexLorentzAction_inv] using this
+  exact ⟨w, ⟨hwFT, hσw_ET⟩⟩
+
+/-- Basepoint existence in the permutation forward-overlap index set from a
+local Jost witness package. -/
+private theorem exists_permForwardOverlapIndexSet_basepoint_of_jostWitness
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) :
+    ∃ Λ0, Λ0 ∈ permForwardOverlapIndexSet (d := d) n σ := by
+  have hnonempty : (permForwardOverlapSet (d := d) n σ).Nonempty :=
+    nonempty_permForwardOverlapSet_of_jostWitness (d := d) n σ hJostWitness
+  exact nonempty_permForwardOverlapIndexSet_of_forwardOverlapNonempty
+    (d := d) n σ hnonempty
 
 /-- Basepoint existence in the permutation forward-overlap index set, derived
 from the Jost-to-ET bridge. -/
@@ -864,6 +1370,41 @@ private theorem extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
   exact extendF_perm_eq_on_connectedDomain_of_realOpen n F hF_holo hF_lorentz
     σ D hD_open hD_conn hD_sub_ET hD_sub_permET V hV_open hV_ne hV_sub_D hV_eq z hzD
 
+/-- Index-connectedness plus a local Jost witness package yields permutation
+overlap invariance of `extendF`. -/
+private theorem extendF_perm_overlap_of_jostWitness_and_indexConnected
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+          F (fun k μ => (x k μ : ℂ)))
+    (σ : Equiv.Perm (Fin n))
+    (hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n)
+    (hidx_conn : IsConnected (permForwardOverlapIndexSet (d := d) n σ)) :
+    ∀ (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ExtendedTube d n →
+      permAct (d := d) σ z ∈ ExtendedTube d n →
+      extendF F (permAct (d := d) σ z) = extendF F z := by
+  have hnonempty : (permForwardOverlapSet (d := d) n σ).Nonempty :=
+    nonempty_permForwardOverlapSet_of_jostWitness (d := d) n σ hJostWitness
+  have hFwd_conn : IsConnected (permForwardOverlapSet (d := d) n σ) :=
+    isConnected_permForwardOverlapSet_of_indexConnected (d := d) n σ hidx_conn hnonempty
+  exact extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
+    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hFwd_conn
+
 /-- If a (strong) `JostSet`-to-ET bridge is available and the
 permutation forward-overlap slice is connected, then `extendF` is permutation
 invariant on the full ET-overlap domain. -/
@@ -914,6 +1455,84 @@ private theorem extendF_perm_overlap_of_jostSet_and_forwardOverlapConnected
 /-- Wrapper reduction: if the permutation forward-overlap index set is connected
 via real double-coset generation and a (strong) Jost-to-ET bridge holds, then
 `extendF` is permutation-invariant on the full ET overlap domain. -/
+private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation
+    [NeZero d]
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+          F (fun k μ => (x k μ : ℂ)))
+    (σ : Equiv.Perm (Fin n))
+    (hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n)
+    (hgenPack : ∃ Λ0, Λ0 ∈ permForwardOverlapIndexSet (d := d) n σ ∧
+      (∀ Λ ∈ permForwardOverlapIndexSet (d := d) n σ,
+        ∃ R1 R2 : RestrictedLorentzGroup d,
+          Λ = ComplexLorentzGroup.ofReal R1 * Λ0 * ComplexLorentzGroup.ofReal R2)) :
+    ∀ (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ExtendedTube d n →
+      permAct (d := d) σ z ∈ ExtendedTube d n →
+      extendF F (permAct (d := d) σ z) = extendF F z := by
+  rcases hgenPack with ⟨Λ0, hΛ0, hgen⟩
+  have hidx_conn :
+      IsConnected (permForwardOverlapIndexSet (d := d) n σ) :=
+    isConnected_permForwardOverlapIndexSet_of_real_double_coset_generation
+      (d := d) n σ Λ0 hΛ0 hgen
+  exact extendF_perm_overlap_of_jostWitness_and_indexConnected
+    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hidx_conn
+
+/-- Curried form of
+`extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation`. -/
+private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation'
+    [NeZero d]
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
+    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
+      ∀ (x : Fin n → Fin (d + 1) → ℝ),
+        ∑ μ, minkowskiSignature d μ *
+          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
+        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
+          F (fun k μ => (x k μ : ℂ)))
+    (σ : Equiv.Perm (Fin n))
+    (hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n)
+    (Λ0 : ComplexLorentzGroup d)
+    (hΛ0 : Λ0 ∈ permForwardOverlapIndexSet (d := d) n σ)
+    (hgen : ∀ Λ ∈ permForwardOverlapIndexSet (d := d) n σ,
+      ∃ R1 R2 : RestrictedLorentzGroup d,
+        Λ = ComplexLorentzGroup.ofReal R1 * Λ0 * ComplexLorentzGroup.ofReal R2) :
+    ∀ (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ExtendedTube d n →
+      permAct (d := d) σ z ∈ ExtendedTube d n →
+      extendF F (permAct (d := d) σ z) = extendF F z := by
+  exact extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation
+    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness
+    ⟨Λ0, hΛ0, hgen⟩
+
+/-- Wrapper reduction: if the permutation forward-overlap index set is connected
+via real double-coset generation and a (strong) Jost-to-ET bridge holds, then
+`extendF` is permutation-invariant on the full ET overlap domain. -/
 private theorem extendF_perm_overlap_of_jostSet_and_real_double_coset_generation
     [NeZero d]
     (n : ℕ)
@@ -942,14 +1561,20 @@ private theorem extendF_perm_overlap_of_jostSet_and_real_double_coset_generation
       z ∈ ExtendedTube d n →
       permAct (d := d) σ z ∈ ExtendedTube d n →
       extendF F (permAct (d := d) σ z) = extendF F z := by
-  rcases hgenPack with ⟨Λ0, hΛ0, hgen⟩
-  have hnonempty : (permForwardOverlapSet (d := d) n σ).Nonempty :=
-    nonempty_permForwardOverlapSet_of_jostSetET (d := d) n hd hn σ hJostET
-  have hFwd_conn : IsConnected (permForwardOverlapSet (d := d) n σ) :=
-    isConnected_permForwardOverlapSet_of_real_double_coset_generation
-      (d := d) n σ Λ0 hΛ0 hgen hnonempty
-  exact extendF_perm_overlap_of_jostSet_and_forwardOverlapConnected
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd hn σ hJostET hFwd_conn
+  have hJostWitness :
+      ∃ x : Fin n → Fin (d + 1) → ℝ,
+        x ∈ JostSet d n ∧
+        realEmbed x ∈ ExtendedTube d n ∧
+        realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n := by
+    rcases jostSet_nonempty hn hd with ⟨x, hxJ⟩
+    have hxET : realEmbed x ∈ ExtendedTube d n := hJostET x hxJ
+    have hσxJ : (fun k => x (σ k)) ∈ JostSet d n :=
+      jostSet_permutation_invariant σ hxJ
+    have hσxET : realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n :=
+      hJostET (fun k => x (σ k)) hσxJ
+    exact ⟨x, hxJ, hxET, hσxET⟩
+  exact extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation
+    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hgenPack
 
 /-- Build a holomorphic extension domain for a fixed permutation `σ` from
     the corresponding permutation-invariance hypothesis.
@@ -1274,6 +1899,264 @@ private theorem iterated_eow_permutation_extension_of_extendF_perm (n : ℕ)
     exact permutation_invariance_from_extendF_on_extendedTube n F hF_holo hF_lorentz σ hExtPerm
   exact permutation_extension_from_invariance n F hF_holo hF_lorentz σ hperm
 
+/-- Global-to-local packaging: if one already has a holomorphic extension on the
+full permuted extended tube with the expected agreement/invariance properties,
+then the extension data required by `iterated_eow_permutation_extension` follows
+immediately for any fixed permutation `σ`. -/
+private theorem iterated_eow_permutation_extension_of_global
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hGlobal :
+      ∃ (F_ext : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+        DifferentiableOn ℂ F_ext (PermutedExtendedTube d n) ∧
+        (∀ z ∈ ForwardTube d n, F_ext z = F z) ∧
+        (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+          z ∈ PermutedExtendedTube d n →
+          F_ext (complexLorentzAction Λ z) = F_ext z) ∧
+        (∀ (π : Equiv.Perm (Fin n)) (z : Fin n → Fin (d + 1) → ℂ),
+          z ∈ PermutedExtendedTube d n →
+          F_ext (fun k => z (π k)) = F_ext z))
+    (σ : Equiv.Perm (Fin n)) :
+    ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+      (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+      IsOpen U_σ ∧
+      ForwardTube d n ⊆ U_σ ∧
+      {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+      DifferentiableOn ℂ F_σ U_σ ∧
+      (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+        F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+      (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+        F_σ z = F (fun k => z (σ k))) := by
+  rcases hGlobal with ⟨F_ext, hF_ext_holo, hF_ext_FT, hF_ext_lor, hF_ext_perm⟩
+  refine ⟨PermutedExtendedTube d n, F_ext, isOpen_permutedExtendedTube,
+    forwardTube_subset_permutedExtendedTube, ?_, hF_ext_holo, ?_, ?_, ?_⟩
+  · intro z hz
+    exact Set.mem_iUnion.mpr ⟨σ, ⟨1, z, hz, by simp [complexLorentzAction_one]⟩⟩
+  · intro z hz
+    exact hF_ext_FT z hz.2
+  · intro Λ z hz _
+    exact hF_ext_lor Λ z hz
+  · intro z hz
+    have hzσFT : (fun k => z (σ k)) ∈ ForwardTube d n := hz.2
+    calc
+      F_ext z = F_ext (fun k => z (σ k)) := by
+        exact (hF_ext_perm σ z hz.1).symm
+      _ = F (fun k => z (σ k)) := hF_ext_FT _ hzσFT
+
+/-- Bundled extension data for a fixed permutation sector. This is a compact
+record form of the output shape required by `iterated_eow_permutation_extension`.
+-/
+private structure PermExtensionData (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ) where
+  U : Set (Fin n → Fin (d + 1) → ℂ)
+  Fσ : (Fin n → Fin (d + 1) → ℂ) → ℂ
+  hU_open : IsOpen U
+  hFT_sub : ForwardTube d n ⊆ U
+  hσFT_sub : {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U
+  hFσ_holo : DifferentiableOn ℂ Fσ U
+  hFσ_eq_F : ∀ z ∈ U ∩ ForwardTube d n, Fσ z = F z
+  hFσ_inv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ U → complexLorentzAction Λ z ∈ U →
+      Fσ (complexLorentzAction Λ z) = Fσ z
+  hFσ_eq_perm : ∀ z ∈ U ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+      Fσ z = F (fun k => z (σ k))
+
+/-- Convert packed extension data into the existential shape used by
+`iterated_eow_permutation_extension`. -/
+private def PermExtensionData.toExists
+    {n : ℕ} {σ : Equiv.Perm (Fin n)}
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (P : PermExtensionData (d := d) n σ F) :
+    ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+      (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+      IsOpen U_σ ∧
+      ForwardTube d n ⊆ U_σ ∧
+      {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+      DifferentiableOn ℂ F_σ U_σ ∧
+      (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+        F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+      (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+        F_σ z = F (fun k => z (σ k))) := by
+  refine ⟨P.U, P.Fσ, P.hU_open, P.hFT_sub, P.hσFT_sub, P.hFσ_holo,
+    P.hFσ_eq_F, P.hFσ_inv, P.hFσ_eq_perm⟩
+
+/-- Build packed extension data from an existential package. -/
+private def PermExtensionData.ofExists
+    {n : ℕ} {σ : Equiv.Perm (Fin n)}
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (h : ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+      (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+      IsOpen U_σ ∧
+      ForwardTube d n ⊆ U_σ ∧
+      {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+      DifferentiableOn ℂ F_σ U_σ ∧
+      (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+        F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+      (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+        F_σ z = F (fun k => z (σ k)))) :
+    PermExtensionData (d := d) n σ F := by
+  classical
+  let U_σ : Set (Fin n → Fin (d + 1) → ℂ) := Classical.choose h
+  let hU : ∃ (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+      IsOpen U_σ ∧
+      ForwardTube d n ⊆ U_σ ∧
+      {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+      DifferentiableOn ℂ F_σ U_σ ∧
+      (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+        F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+      (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+        F_σ z = F (fun k => z (σ k))) := Classical.choose_spec h
+  let F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ := Classical.choose hU
+  let hF : IsOpen U_σ ∧
+      ForwardTube d n ⊆ U_σ ∧
+      {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+      DifferentiableOn ℂ F_σ U_σ ∧
+      (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+      (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+        z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+        F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+      (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+        F_σ z = F (fun k => z (σ k))) := Classical.choose_spec hU
+  refine ⟨U_σ, F_σ, hF.1, hF.2.1, hF.2.2.1, hF.2.2.2.1, hF.2.2.2.2.1,
+    hF.2.2.2.2.2.1, hF.2.2.2.2.2.2⟩
+
+/-- Identity-sector extension data packaged as `PermExtensionData`. -/
+private def permExtensionData_of_identity (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z) :
+    PermExtensionData (d := d) n (1 : Equiv.Perm (Fin n)) F := by
+  refine ⟨ForwardTube d n, F, isOpen_forwardTube, ?_, ?_, hF_holo, ?_, ?_, ?_⟩
+  · intro z hz
+    exact hz
+  · intro z hz
+    simpa using hz
+  · intro z hz
+    exact rfl
+  · intro Λ z hzU hΛzU
+    exact complex_lorentz_invariance n F hF_holo hF_lorentz Λ z hzU hΛzU
+  · intro z hz
+    simp
+
+/-- Combinatorial induction scaffold: once an adjacent-swap constructor is
+available for sector extension data, extension data follows for every
+permutation by `adjSwap_induction`. -/
+private def permExtensionData_all_of_adjSwap
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hStep :
+      ∀ (σ : Equiv.Perm (Fin n)) (i : Fin n) (hi : i.val + 1 < n),
+        Nonempty (PermExtensionData (d := d) n σ F) →
+        Nonempty (PermExtensionData (d := d) n
+          (Equiv.swap i ⟨i.val + 1, hi⟩ * σ) F)) :
+    ∀ τ : Equiv.Perm (Fin n), Nonempty (PermExtensionData (d := d) n τ F) := by
+  refine Fin.Perm.adjSwap_induction (n := n)
+    (motive := fun τ => Nonempty (PermExtensionData (d := d) n τ F))
+    ?base
+    (fun σ i hi ih => hStep σ i hi ih)
+  exact ⟨permExtensionData_of_identity (d := d) n F hF_holo hF_lorentz⟩
+
+/-- Unpack a family of sector-wise `PermExtensionData` into the existential
+output format of `iterated_eow_permutation_extension`. -/
+private def iteratedExtension_exists_of_allData
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hAll : ∀ σ : Equiv.Perm (Fin n), Nonempty (PermExtensionData (d := d) n σ F)) :
+    ∀ σ : Equiv.Perm (Fin n),
+      ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+        (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+        IsOpen U_σ ∧
+        ForwardTube d n ⊆ U_σ ∧
+        {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+        DifferentiableOn ℂ F_σ U_σ ∧
+        (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+        (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+          z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+          F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+        (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+          F_σ z = F (fun k => z (σ k))) := by
+  intro σ
+  rcases hAll σ with ⟨hσ⟩
+  exact hσ.toExists
+
+/-- Lift an adjacent-swap extension step constructor into full sector-wise
+existence data for all permutations, via `PermExtensionData` packing. -/
+private theorem iteratedExtension_exists_of_adjSwapStep
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (hStep :
+      ∀ (σ : Equiv.Perm (Fin n)) (i : Fin n) (hi : i.val + 1 < n),
+        (∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+          (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+          IsOpen U_σ ∧
+          ForwardTube d n ⊆ U_σ ∧
+          {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+          DifferentiableOn ℂ F_σ U_σ ∧
+          (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+          (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+            z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+            F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+          (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+            F_σ z = F (fun k => z (σ k)))) →
+        (∃ (U_τ : Set (Fin n → Fin (d + 1) → ℂ))
+          (F_τ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+          IsOpen U_τ ∧
+          ForwardTube d n ⊆ U_τ ∧
+          {z | (fun k => z ((Equiv.swap i ⟨i.val + 1, hi⟩ * σ) k)) ∈ ForwardTube d n}
+            ⊆ U_τ ∧
+          DifferentiableOn ℂ F_τ U_τ ∧
+          (∀ z ∈ U_τ ∩ ForwardTube d n, F_τ z = F z) ∧
+          (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+            z ∈ U_τ → complexLorentzAction Λ z ∈ U_τ →
+            F_τ (complexLorentzAction Λ z) = F_τ z) ∧
+          (∀ z ∈ U_τ ∩
+              {z | (fun k => z ((Equiv.swap i ⟨i.val + 1, hi⟩ * σ) k)) ∈ ForwardTube d n},
+            F_τ z = F (fun k => z ((Equiv.swap i ⟨i.val + 1, hi⟩ * σ) k))))) :
+    ∀ σ : Equiv.Perm (Fin n),
+      ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
+        (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
+        IsOpen U_σ ∧
+        ForwardTube d n ⊆ U_σ ∧
+        {z | (fun k => z (σ k)) ∈ ForwardTube d n} ⊆ U_σ ∧
+        DifferentiableOn ℂ F_σ U_σ ∧
+        (∀ z ∈ U_σ ∩ ForwardTube d n, F_σ z = F z) ∧
+        (∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+          z ∈ U_σ → complexLorentzAction Λ z ∈ U_σ →
+          F_σ (complexLorentzAction Λ z) = F_σ z) ∧
+        (∀ z ∈ U_σ ∩ {z | (fun k => z (σ k)) ∈ ForwardTube d n},
+          F_σ z = F (fun k => z (σ k))) := by
+  have hStepPacked :
+      ∀ (σ : Equiv.Perm (Fin n)) (i : Fin n) (hi : i.val + 1 < n),
+        Nonempty (PermExtensionData (d := d) n σ F) →
+        Nonempty (PermExtensionData (d := d) n
+          (Equiv.swap i ⟨i.val + 1, hi⟩ * σ) F) := by
+    intro σ i hi hσ
+    rcases hσ with ⟨hσ⟩
+    have hσ_ex := hσ.toExists
+    exact ⟨PermExtensionData.ofExists (d := d) (n := n)
+      (σ := Equiv.swap i ⟨i.val + 1, hi⟩ * σ) (F := F) (hStep σ i hi hσ_ex)⟩
+  have hAll : ∀ σ : Equiv.Perm (Fin n), Nonempty (PermExtensionData (d := d) n σ F) :=
+    permExtensionData_all_of_adjSwap (d := d) n F hF_holo hF_lorentz hStepPacked
+  exact iteratedExtension_exists_of_allData (d := d) n F hAll
+
 /-- **Iterated EOW extension for permutations.**
     For any permutation σ of Fin n (decomposed as a product of adjacent swaps),
     the iterated application of eow_adj_swap_extension produces a holomorphic
@@ -1358,27 +2241,24 @@ private theorem iterated_eow_permutation_extension (n : ℕ)
               (by simpa [ExtendedTube, BHWCore.ExtendedTube] using hσz)
           exact (hσ hσ1).elim
         · have hd1 : 1 ≤ d := Nat.succ_le_of_lt (Nat.pos_of_ne_zero hd0)
-          have hn1 : 1 ≤ n := by omega
-          have hExtPerm_of_geometric :
-              (∀ x : Fin n → Fin (d + 1) → ℝ, x ∈ JostSet d n →
-                realEmbed x ∈ ExtendedTube d n) →
-              (∃ Λ0, Λ0 ∈ permForwardOverlapIndexSet (d := d) n σ ∧
-                (∀ Λ ∈ permForwardOverlapIndexSet (d := d) n σ,
-                  ∃ R1 R2 : RestrictedLorentzGroup d,
-                    Λ = ComplexLorentzGroup.ofReal R1 * Λ0 * ComplexLorentzGroup.ofReal R2)) →
-              ∀ (z : Fin n → Fin (d + 1) → ℂ),
-                z ∈ ExtendedTube d n →
-                permAct (d := d) σ z ∈ ExtendedTube d n →
-                extendF F (permAct (d := d) σ z) = extendF F z := by
-            intro hJostET hgenPack z hz hσz
-            haveI : NeZero d := ⟨hd0⟩
-            exact extendF_perm_overlap_of_jostSet_and_real_double_coset_generation
-              (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd1 hn1 σ
-              hJostET hgenPack z hz hσz
+          have hJostWitness_hd2 :
+              2 ≤ d →
+              (∃ x : Fin n → Fin (d + 1) → ℝ,
+                x ∈ JostSet d n ∧
+                realEmbed x ∈ ExtendedTube d n ∧
+                realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) := by
+            intro hd2
+            simpa using
+              JostWitnessGeneralSigma.jostWitness_exists (d := d) (n := n) hd2 σ
           -- Remaining geometric obligations in the nontrivial branch:
-          -- (1) Replace the false global bridge `JostSet ⊆ ExtendedTube`
-          --     with a correct local real-overlap hypothesis.
-          -- (2) Real double-coset generation on `permForwardOverlapIndexSet`.
+          -- `hJostWitness_hd2` provides the local witness for `d ≥ 2`.
+          -- ET-overlap invariance is then reduced (directly) to:
+          --   (a) connectedness of `permOrbitSeedSet` for the `d ≥ 2` route,
+          --       converted via `isConnected_permOrbitSeedSet_iff_permForwardOverlapSet`,
+          --       then applied to
+          --       `extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected`,
+          -- plus the separate `d = 1` branch (which cannot use the same real
+          -- Jost-witness mechanism).
           sorry
       exact iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz
         hF_bv hF_local σ hExtPerm

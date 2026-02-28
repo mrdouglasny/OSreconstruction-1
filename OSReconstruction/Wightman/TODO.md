@@ -1,6 +1,6 @@
 # Wightman TODO: OS Reconstruction Critical Path
 
-Last updated: 2026-02-26
+Last updated: 2026-02-27
 
 This TODO tracks only the proof blockers on the path to the OS reconstruction theorems:
 
@@ -8,8 +8,10 @@ This TODO tracks only the proof blockers on the path to the OS reconstruction th
 - `os_to_wightman` (E'->R')
 - `wightman_reconstruction`/`wightman_uniqueness` wiring completion
 
-For the active BHW closure subgoals in `ComplexLieGroups/Connectedness.lean`, see
-`docs/bhw_connectedness_strategy.md`.
+For the active BHW closure subgoals, see:
+- `docs/development_plan_systematic.md`
+- `docs/bhw_connectedness_strategy.md`
+- `claude_to_codex.md` (source analysis and recommendations)
 
 Count convention in this file: direct tactic holes only, i.e.
 `rg -n --glob '*.lean' '^\s*sorry\b' OSReconstruction`.
@@ -20,11 +22,11 @@ Count convention in this file: direct tactic holes only, i.e.
 |-------|-----------------------|
 | `OSReconstruction/Wightman` | 43 |
 | `OSReconstruction/SCV` | 14 |
-| `OSReconstruction/ComplexLieGroups` | 3 |
+| `OSReconstruction/ComplexLieGroups` | 2 |
 | `OSReconstruction/vNA` | 40 |
-| **Whole project** | **100** |
+| **Whole project** | **99** |
 
-Critical-path (OS theorem path + immediate prerequisites) direct total: **51**.
+Critical-path (OS theorem path + immediate prerequisites) direct total: **50**.
 
 ## Flow Chart Toward OS Reconstruction
 
@@ -41,8 +43,7 @@ flowchart TD
   BT --> BE["WickRotation/BHWExtension (2)"]
   BE --> FL["WickRotation/ForwardTubeLorentz (2)"]
   FL --> AC["Reconstruction/AnalyticContinuation (0)"]
-  AC --> CO["ComplexLieGroups/Connectedness (3)"]
-  CO --> GC["ComplexLieGroups/GeodesicConvexity (0, infra proved)"]
+  AC --> CO["ComplexLieGroups/Connectedness/* (2)"]
   AC --> JP["ComplexLieGroups/JostPoints (0)"]
 
   T4 --> OW["WickRotation/OSToWightman (14)"]
@@ -69,7 +70,8 @@ flowchart TD
 | `SCV/PaleyWiener.lean` | 6 | one-step Paley-Wiener continuation |
 | `SCV/LaplaceSchwartz.lean` | 6 | Fourier-Laplace growth/BV technical core |
 | `SCV/BochnerTubeTheorem.lean` | 2 | orthant-to-forward-tube extension |
-| `ComplexLieGroups/Connectedness.lean` | 2 | BHW sector gluing/orbit overlap (`orbitSet_isPreconnected` + `hExtPerm` gap) |
+| `ComplexLieGroups/Connectedness/ComplexInvariance/Core.lean` | 1 | BHW orbit-set connectedness (`hjoin` branch) |
+| `ComplexLieGroups/Connectedness/BHWPermutation/PermutationFlow.lean` | 1 | BHW permutation overlap extension (`hExtPerm` branch) |
 
 ## Declaration-Level Blocker List
 
@@ -153,21 +155,22 @@ flowchart TD
 - `paley_wiener_one_step_simple` (line 382)
 - `paley_wiener_unique` (line 412)
 
-### `ComplexLieGroups/Connectedness.lean` (2)
+### `ComplexLieGroups/Connectedness/ComplexInvariance/Core.lean` (1)
 
-- `orbitSet_isPreconnected` (line 1844; 1 local geometric hole in `d ≥ 2`, `n > 0`:
-  orbit-set joinability `hjoin`)
-- `iterated_eow_permutation_extension` (line 4372; 1 local sorry hole at `hExtPerm`)
+- `orbitSet_isPreconnected` (remaining local branch `d ≥ 2`, `n > 0`, goal `hjoin`)
+
+### `ComplexLieGroups/Connectedness/BHWPermutation/PermutationFlow.lean` (1)
+
+- `iterated_eow_permutation_extension` (remaining local branch `d > 0`, `n ≥ 2`, `σ ≠ 1`, goal `hExtPerm`)
 
 ## Priority Execution Order
 
-1. `ComplexLieGroups/Connectedness`
-2. `WickRotation` R->E transport chain:
-   `ForwardTubeLorentz` -> `BHWExtension` -> `BHWTranslation` -> `SchwingerAxioms`
-3. SCV continuation chain:
-   `PaleyWiener` + `LaplaceSchwartz` + `BochnerTubeTheorem`
-4. `WickRotation/OSToWightman` E'->R' transfer lemmas
-5. Finish `GNSHilbertSpace.covariance_preHilbert` and `Main.wightman_uniqueness`
+1. In parallel: close `ComplexLieGroups` root blockers and SCV load-bearing lemmas (`L1`, `P1`).
+2. Finish SCV continuation chain (`LaplaceSchwartz`, `PaleyWiener`, `BochnerTubeTheorem`).
+3. `WickRotation` R->E transport chain:
+   `ForwardTubeLorentz` -> `BHWExtension` -> `BHWTranslation` -> `SchwingerAxioms`.
+4. `WickRotation/OSToWightman` E'->R' transfer lemmas (centered on `forward_tube_bv_tempered`).
+5. Finish wiring: `GNSHilbertSpace` remaining sorry and `Main.wightman_uniqueness`.
 
 ## Scope Guardrail
 

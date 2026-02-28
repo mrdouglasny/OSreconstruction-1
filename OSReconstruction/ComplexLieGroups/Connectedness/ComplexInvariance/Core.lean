@@ -13,6 +13,7 @@ import OSReconstruction.ComplexLieGroups.Connectedness.DimensionZero
 import OSReconstruction.ComplexLieGroups.Connectedness.ForwardTubeDomain
 import OSReconstruction.ComplexLieGroups.Connectedness.OrbitSetBasic
 import OSReconstruction.ComplexLieGroups.Connectedness.OrbitSetQuotient
+import OSReconstruction.ComplexLieGroups.Connectedness.ComplexInvariance.OrbitSetN1Preconnected
 import OSReconstruction.ComplexLieGroups.Connectedness.Permutation
 import OSReconstruction.ComplexLieGroups.Connectedness.PermutedTube
 import OSReconstruction.ComplexLieGroups.Connectedness.PermutedTubeConnected
@@ -250,7 +251,7 @@ private theorem reMatrix_isInLorentzAlgebra
   unfold IsInLorentzAlgebra
   ext i j
   simp only [Matrix.add_apply, Matrix.mul_apply, Matrix.transpose_apply,
-    minkowskiMatrix, Matrix.diagonal_apply, reMatrix, Matrix.zero_apply,
+    LorentzLieGroup.minkowskiMatrix, Matrix.diagonal_apply, reMatrix, Matrix.zero_apply,
     mul_ite, mul_zero, ite_mul, zero_mul, Finset.sum_ite_eq, Finset.sum_ite_eq',
     Finset.mem_univ, if_true]
   -- Goal: (X j i).re * η j + η i * (X i j).re = 0
@@ -277,7 +278,7 @@ private theorem imMatrix_isInLorentzAlgebra
   unfold IsInLorentzAlgebra
   ext i j
   simp only [Matrix.add_apply, Matrix.mul_apply, Matrix.transpose_apply,
-    minkowskiMatrix, Matrix.diagonal_apply, imMatrix, Matrix.zero_apply,
+    LorentzLieGroup.minkowskiMatrix, Matrix.diagonal_apply, imMatrix, Matrix.zero_apply,
     mul_ite, mul_zero, ite_mul, zero_mul, Finset.sum_ite_eq, Finset.sum_ite_eq',
     Finset.mem_univ, if_true]
   have hij := congr_fun (congr_fun hX' i) j
@@ -1196,59 +1197,34 @@ private theorem orbitSet_isPreconnected_of_doubleCoset_generation_with_stabilize
   exact orbitSet_isPreconnected_of_joinedIn_one w hw hjoin
 
 /-- **The orbit set O_w is preconnected.**
-    Geometric input for `nonemptyDomain_isPreconnected`.
+    One-point geometric input for `nonemptyDomain_isPreconnected`.
 
     NOTE (2026-02-25): The previous proof route used a global endpoint-to-interval
     geodesic cone lemma, which is false as stated and has been removed. A corrected
     proof must use stronger hypotheses (or a different path construction). -/
-private theorem orbitSet_isPreconnected (w : Fin n → Fin (d + 1) → ℂ)
-    (hw : w ∈ ForwardTube d n) :
+private theorem orbitSet_onePoint_isPreconnected (w : Fin 1 → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d 1) :
     IsPreconnected {Λ : ComplexLorentzGroup d |
-      complexLorentzAction Λ w ∈ ForwardTube d n} := by
-  by_cases hn : n = 0
-  · subst hn
-    have hft0 : ∀ z : Fin 0 → Fin (d + 1) → ℂ, z ∈ ForwardTube d 0 := by
-      intro z k
-      exact (Fin.elim0 k)
-    let S : Set (ComplexLorentzGroup d) :=
-      {Λ : ComplexLorentzGroup d | complexLorentzAction Λ w ∈ ForwardTube d 0}
-    have hS_univ : S = Set.univ := by
-      ext Λ
-      constructor
-      · intro _
-        trivial
-      · intro _
-        exact hft0 (complexLorentzAction Λ w)
-    haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
-      pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
-    simpa [S, hS_univ] using
-      (PreconnectedSpace.isPreconnected_univ (α := ComplexLorentzGroup d))
-  · by_cases hd : d = 1
-    · subst hd
-      have hw_core : w ∈ BHWCore.ForwardTube 1 n := by
-        simpa [ForwardTube] using hw
-      have hpre_core := orbitSet_isPreconnected_d1 (n := n) w hw_core
-      simpa [complexLorentzAction, BHWCore.complexLorentzAction, ForwardTube] using hpre_core
-    · -- Remaining geometric blocker: d > 1 orbit-set preconnectedness.
-      by_cases h0 : d = 0
-      · subst h0
-        let S : Set (ComplexLorentzGroup 0) :=
-          {Λ : ComplexLorentzGroup 0 | complexLorentzAction Λ w ∈ ForwardTube 0 n}
-        haveI : Subsingleton (ComplexLorentzGroup 0) := complexLorentzGroup_d0_subsingleton
-        have hsubs : S.Subsingleton := by
-          intro a _ b _
-          exact Subsingleton.elim a b
-        simpa [S] using hsubs.isPreconnected
-      · have hd2 : 2 ≤ d := by omega
-        have hnz : n ≠ 0 := hn
-        -- Reduced geometric blocker (`d ≥ 2`, `n > 0`):
-        -- produce a joining path inside `orbitSet w` from `1` to every orbit element.
-        have hjoin : ∀ (Λ : ComplexLorentzGroup d), Λ ∈ orbitSet w →
-            JoinedIn (orbitSet w) (1 : ComplexLorentzGroup d) Λ := by
-          -- expected Lie/geometric input in this regime:
-          -- polar/fiber argument yielding global joinability in the orbit set.
-          sorry
-        exact orbitSet_isPreconnected_of_joinedIn_one (d := d) (n := n) w hw hjoin
+      complexLorentzAction Λ w ∈ ForwardTube d 1} := by
+  by_cases hd : d = 1
+  · subst hd
+    have hw_core : w ∈ BHWCore.ForwardTube 1 1 := by
+      simpa [ForwardTube] using hw
+    have hpre_core := orbitSet_isPreconnected_d1 (n := 1) w hw_core
+    simpa [complexLorentzAction, BHWCore.complexLorentzAction, ForwardTube] using hpre_core
+  · -- Remaining geometric blocker for `d > 1`.
+    by_cases h0 : d = 0
+    · subst h0
+      let S : Set (ComplexLorentzGroup 0) :=
+        {Λ : ComplexLorentzGroup 0 | complexLorentzAction Λ w ∈ ForwardTube 0 1}
+      haveI : Subsingleton (ComplexLorentzGroup 0) := complexLorentzGroup_d0_subsingleton
+      have hsubs : S.Subsingleton := by
+        intro a _ b _
+        exact Subsingleton.elim a b
+      simpa [S] using hsubs.isPreconnected
+    · rcases Nat.exists_eq_succ_of_ne_zero h0 with ⟨m, hm⟩
+      subst hm
+      exact orbitSet_forwardTube_one_isPreconnected (m := m) w hw
 
 private lemma forwardTube_one_iff
     (w : Fin 1 → Fin (d + 1) → ℂ) :
@@ -1433,7 +1409,7 @@ theorem nonemptyDomain_isPreconnected :
       simpa [complexLorentzAction_one] using hw
     · -- Each one-point orbit set is preconnected.
       rintro S ⟨w, hw, rfl⟩
-      exact orbitSet_isPreconnected (d := d) (n := 1) w hw
+      exact orbitSet_onePoint_isPreconnected (d := d) w hw
 
 
 end BHW

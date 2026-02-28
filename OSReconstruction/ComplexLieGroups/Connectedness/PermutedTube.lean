@@ -20,6 +20,87 @@ def PermutedForwardTube (d n : ℕ) (π : Equiv.Perm (Fin n)) :
     Set (Fin n → Fin (d + 1) → ℂ) :=
   { z | (fun k => z (π k)) ∈ ForwardTube d n }
 
+private lemma strictMono_perm_eq_one_local {n : ℕ}
+    (σ : Equiv.Perm (Fin n))
+    (hσ : StrictMono σ) :
+    σ = 1 := by
+  let e : Fin n ≃o Fin n := hσ.orderIsoOfSurjective σ σ.surjective
+  have he : e = OrderIso.refl (Fin n) := Subsingleton.elim _ _
+  apply Equiv.ext
+  intro i
+  have hval : e i = i := by
+    simp [he]
+  simpa [e] using hval
+
+private lemma forwardTube_step_pos
+    {z : Fin (n + 1) → Fin (d + 1) → ℂ}
+    (hz : z ∈ ForwardTube d (n + 1))
+    (i : Fin n) :
+    0 < (z i.succ 0 - z i.castSucc 0).im := by
+  have hk := hz i.succ
+  simpa [ForwardTube, InOpenForwardCone] using hk.1
+
+private lemma strictMono_imTime
+    {z : Fin (n + 1) → Fin (d + 1) → ℂ}
+    (hz : z ∈ ForwardTube d (n + 1)) :
+    StrictMono (fun k : Fin (n + 1) => (z k 0).im) := by
+  rw [Fin.strictMono_iff_lt_succ]
+  intro i
+  have hstep : 0 < (z i.succ 0 - z i.castSucc 0).im :=
+    forwardTube_step_pos (d := d) hz i
+  have him : (z i.succ 0).im - (z i.castSucc 0).im > 0 := by
+    simpa [Complex.sub_im] using hstep
+  linarith
+
+private lemma strictMono_perm_of_strictMono_comp_local
+    {n : ℕ}
+    {f : Fin n → ℝ}
+    (hf : StrictMono f)
+    (σ : Equiv.Perm (Fin n))
+    (hfσ : StrictMono (fun k : Fin n => f (σ k))) :
+    StrictMono σ := by
+  intro a b hab
+  have hlt : f (σ a) < f (σ b) := hfσ hab
+  by_contra hnot
+  have hle : σ b ≤ σ a := le_of_not_gt hnot
+  rcases lt_or_eq_of_le hle with hlt' | heq
+  · exact (lt_asymm hlt (hf hlt')).elim
+  · exact (lt_irrefl _) (heq ▸ hlt)
+
+/-- If `w` lies in both `FT` and `π(FT)`, then `π = 1`. -/
+theorem permutedForwardTube_forces_perm_one
+    (π : Equiv.Perm (Fin n))
+    {w : Fin n → Fin (d + 1) → ℂ}
+    (hw : w ∈ ForwardTube d n)
+    (hπw : w ∈ PermutedForwardTube d n π) :
+    π = 1 := by
+  cases n with
+  | zero =>
+      exact Subsingleton.elim π 1
+  | succ m =>
+      have hy : StrictMono (fun k : Fin (m + 1) => (w k 0).im) :=
+        strictMono_imTime (d := d) hw
+      have hyπ : StrictMono (fun k : Fin (m + 1) => (w (π k) 0).im) := by
+        have hperm : (fun k => w (π k)) ∈ ForwardTube d (m + 1) := by
+          simpa [PermutedForwardTube] using hπw
+        exact strictMono_imTime (d := d) hperm
+      exact strictMono_perm_eq_one_local π
+        (strictMono_perm_of_strictMono_comp_local hy π hyπ)
+
+/-- For nontrivial `π`, `FT` and `π(FT)` are disjoint. -/
+theorem forwardTube_inter_permutedForwardTube_eq_empty_of_ne_one
+    (π : Equiv.Perm (Fin n))
+    (hπ : π ≠ 1) :
+    ForwardTube d n ∩ PermutedForwardTube d n π = (∅ : Set (Fin n → Fin (d + 1) → ℂ)) := by
+  ext w
+  constructor
+  · intro hw
+    rcases hw with ⟨hwFT, hwPFT⟩
+    have hπ1 := permutedForwardTube_forces_perm_one (d := d) (n := n) π hwFT hwPFT
+    exact (hπ hπ1).elim
+  · intro hw
+    exact hw.elim
+
 /-- The permuted extended tube T''_n = ⋃_{π ∈ S_n} ⋃_{Λ ∈ L₊(ℂ)} Λ · π(T_n). -/
 def PermutedExtendedTube (d n : ℕ) : Set (Fin n → Fin (d + 1) → ℂ) :=
   ⋃ π : Equiv.Perm (Fin n),

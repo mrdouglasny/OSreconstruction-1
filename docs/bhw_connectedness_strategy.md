@@ -1,6 +1,6 @@
 # BHW Connectedness Closure Strategy
 
-Last updated: 2026-02-26
+Last updated: 2026-02-28
 
 ## Objective
 
@@ -31,6 +31,73 @@ that block the constructive BHW theorem path (no axioms).
    `Connectedness/BHWPermutation/PermutationFlow.lean:564`
 - Hole B: `hExtPerm` in the nontrivial branch.
 - Live branch: `σ ≠ 1`, `n ≥ 2`, `d ≠ 0`.
+
+## 2026-02-28 Correction (d = 1 witness route)
+
+- The previously suggested global fix
+  `JostWitnessGeneralSigma.jostWitness_exists_d1` (for arbitrary `σ`) is not viable.
+- Verified in scratch:
+  - `test/d1_no_real_witness_swap_n2_probe.lean`
+    proves `no_real_jost_witness_swap_n2`:
+    for `d = 1`, `n = 2`, `σ = (0 1)`, there is no real
+    `x : Fin 2 → Fin 2 → ℝ` with
+    `x ∈ JostSet 1 2`, `realEmbed x ∈ ExtendedTube 1 2`, and
+    `realEmbed (fun k => x (σ k)) ∈ ExtendedTube 1 2`.
+  - strengthened in the same probe:
+    `no_real_et_pair_swap_n2` and
+    `no_real_adjacent_spacelike_witness_swap_n2`;
+    even without `JostSet`, no real `x` can satisfy both ET constraints for
+    `(0 1)` in `n = 2`.
+- supporting sign infrastructure:
+  `test/d1_real_witness_sign_obstruction_test.lean`.
+- Consequence:
+  - keep the split strategy explicit:
+    1. `d ≥ 2`: existing real-Jost witness route remains viable.
+    2. `d = 1`: requires a separate non-real-witness mechanism.
+
+### Reference check note (Streater–Wightman, Ch. 2)
+
+- The permuted-extended-tube overlap argument in the classical text is built
+  by exhibiting a common real Jost neighborhood using vectors with two
+  independent spatial directions (see the construction around formulas
+  `(2-93)` and Figure 2-4 in `references/pct-spin-and-statistics-and-all-that-9781400884230_compress.pdf`).
+- This aligns with the formal obstruction seen in Lean for `d = 1`:
+  the real-witness overlap anchor used in `d ≥ 2` does not transfer directly
+  to one spatial dimension.
+- Operational consequence for this repo:
+  - keep `d = 1` as a genuinely separate proof branch;
+  - avoid spending cycles trying to force a `jostWitness_exists_d1` analog.
+
+## 2026-02-28 Correction (midpoint route also fails in d = 1)
+
+- The old adjacent-swap midpoint implication route is not only false for `d ≥ 2`;
+  it is also false for `d = 1` (for `n ≥ 2`).
+- Verified in scratch:
+  - `test/midpoint_condition_d1_counterexample_test.lean`
+    (`midpoint_condition_identity_false_d1`).
+- Consequence:
+  - Do not use midpoint/backstep induction as a closure strategy for either branch.
+
+## 2026-02-28 New Reduction (compiled in test scope)
+
+- New test file:
+  `test/extendf_perm_overlap_base_reduction_test.lean` (compiles cleanly).
+- Proven reduction:
+  full ET-overlap permutation invariance for fixed `σ`
+  can be reduced to a strictly weaker FT-base condition:
+  ```
+  hBase :
+    ∀ w ∈ ForwardTube d n,
+      (fun k => w (σ k)) ∈ ExtendedTube d n →
+      extendF F (fun k => w (σ k)) = F w
+  ```
+  From `hBase`, one gets:
+  1. full ET-overlap invariance of `extendF` for `σ`,
+  2. forward-tube permutation invariance for `σ`.
+- Practical consequence:
+  the remaining geometric/analytic burden can be targeted at constructing
+  this FT-base anchor condition, instead of directly proving the full ET-overlap
+  equality in one shot.
 
 ## Dependency Flow (BHW path)
 
@@ -74,9 +141,12 @@ Acceptance gate:
 - Record and preserve the following counterexample facts:
   - `ForwardTube` is not permutation-invariant in particle index order.
   - the old midpoint implication used for adjacent-chain back-propagation is false.
+  - stronger: ET midpoint-backstep can fail even when the base point is already in `ET`
+    (`midpoint_condition_on_ET_false`).
 - Existing evidence:
   - `test/midpoint_condition_counterexample_test.lean`
   - `test/midpoint_route_vacuous_test.lean`
+  - `test/jostset_et_counterexample_test.lean`
 
 Acceptance gate:
 - Counterexample files compile and are referenced in strategy comments near the blocked route.

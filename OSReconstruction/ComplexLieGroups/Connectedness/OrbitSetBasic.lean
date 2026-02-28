@@ -41,6 +41,48 @@ lemma stabilizer_closed {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
   have h2 : Continuous (fun _ : ComplexLorentzGroup d => w) := continuous_const
   simpa [stabilizer, orbitMap] using isClosed_eq h1 h2
 
+/-- Stabilizers are conjugate along the orbit: `Stab(Γ·w) = Γ Stab(w) Γ⁻¹`. -/
+theorem stabilizer_eq_conj_image {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (Γ : ComplexLorentzGroup d) :
+    stabilizer (complexLorentzAction Γ w) =
+      (fun g : ComplexLorentzGroup d => Γ * g * Γ⁻¹) '' stabilizer w := by
+  ext h
+  constructor
+  · intro hh
+    refine ⟨Γ⁻¹ * h * Γ, ?_, ?_⟩
+    · change complexLorentzAction (Γ⁻¹ * h * Γ) w = w
+      calc
+        complexLorentzAction (Γ⁻¹ * h * Γ) w
+            = complexLorentzAction Γ⁻¹
+                (complexLorentzAction h (complexLorentzAction Γ w)) := by
+                  simp [complexLorentzAction_mul, mul_assoc]
+        _ = complexLorentzAction Γ⁻¹ (complexLorentzAction Γ w) := by
+              simpa [stabilizer] using congrArg (complexLorentzAction Γ⁻¹) hh
+        _ = w := by simp [complexLorentzAction_inv]
+    · simp [mul_assoc]
+  · rintro ⟨g, hg, rfl⟩
+    change complexLorentzAction (Γ * g * Γ⁻¹) (complexLorentzAction Γ w) =
+      complexLorentzAction Γ w
+    calc
+      complexLorentzAction (Γ * g * Γ⁻¹) (complexLorentzAction Γ w)
+          = complexLorentzAction Γ (complexLorentzAction g w) := by
+              simp [complexLorentzAction_mul, mul_assoc, complexLorentzAction_inv]
+      _ = complexLorentzAction Γ w := by
+            simp [stabilizer] at hg
+            simpa using congrArg (complexLorentzAction Γ) hg
+
+/-- Connectedness of stabilizers is invariant along the orbit. -/
+theorem isConnected_stabilizer_of_conj {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (Γ : ComplexLorentzGroup d)
+    (hconn : IsConnected (stabilizer w)) :
+    IsConnected (stabilizer (complexLorentzAction Γ w)) := by
+  rw [stabilizer_eq_conj_image (d := d) (n := n) w Γ]
+  have hcont : Continuous (fun g : ComplexLorentzGroup d => Γ * g * Γ⁻¹) :=
+    (continuous_const.mul continuous_id).mul continuous_const
+  exact hconn.image _ hcont.continuousOn
+
 /-- Fiber of the orbit map through `Λ·w` is the left coset `Λ * stabilizer(w)`. -/
 lemma fiber_orbitMap_eq_leftCoset_image_stabilizer {n : ℕ}
     (w : Fin n → Fin (d + 1) → ℂ) (Λ : ComplexLorentzGroup d) :
@@ -96,6 +138,26 @@ theorem orbitSet_isPreconnected_of_quotientData {n : ℕ}
         (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)) hquot hFib
   exact isPreconnected_iff_preconnectedSpace.mpr inferInstance
 
+/-- Reduction principle for orbit-set preconnectedness via quotient-map fibers,
+with explicit nonemptiness of the orbit set. -/
+theorem orbitSet_isPreconnected_of_quotientData_nonempty {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (hne : Nonempty (orbitSet w))
+    (hquot : Topology.IsQuotientMap
+      (fun Λ : orbitSet w =>
+        (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)))
+    (hFib : ∀ y : (orbitMap w '' orbitSet w),
+      IsConnected ((fun Λ : orbitSet w =>
+        (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)) ⁻¹' ({y} : Set _)))
+    [PreconnectedSpace (orbitMap w '' orbitSet w)] :
+    IsPreconnected (orbitSet w) := by
+  haveI : Nonempty (orbitSet w) := hne
+  haveI : PreconnectedSpace (orbitSet w) :=
+    IsQuotientMap.preconnectedSpace_of_connectedFibers
+      (f := fun Λ : orbitSet w =>
+        (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)) hquot hFib
+  exact isPreconnected_iff_preconnectedSpace.mpr inferInstance
+
 /-- The orbit set contains the identity. -/
 theorem mem_orbitSet_one {n : ℕ} {z : Fin n → Fin (d + 1) → ℂ}
     (hz : z ∈ ForwardTube d n) :
@@ -122,6 +184,35 @@ theorem continuous_complexLorentzAction_fst {n : ℕ} (z : Fin n → Fin (d + 1)
 theorem isOpen_orbitSet {n : ℕ} (z : Fin n → Fin (d + 1) → ℂ) :
     IsOpen (orbitSet z) :=
   isOpen_forwardTube.preimage (continuous_complexLorentzAction_fst z)
+
+/-- Orbit-set transport along an orbit relation:
+`orbitSet (Γ • w0)` is the right-translate image of `orbitSet w0`. -/
+theorem orbitSet_eq_image_mul_right_inv {n : ℕ}
+    (w0 w : Fin n → Fin (d + 1) → ℂ)
+    (Γ : ComplexLorentzGroup d)
+    (hEq : w = complexLorentzAction Γ w0) :
+    orbitSet w =
+      (fun Λ : ComplexLorentzGroup d => Λ * Γ⁻¹) '' orbitSet w0 := by
+  ext Λ
+  constructor
+  · intro hΛ
+    refine ⟨Λ * Γ, ?_, ?_⟩
+    · simpa [orbitSet, hEq, complexLorentzAction_mul, mul_assoc] using hΛ
+    · simp [mul_assoc]
+  · rintro ⟨Λ0, hΛ0, rfl⟩
+    simpa [orbitSet, hEq, complexLorentzAction_mul, mul_assoc, complexLorentzAction_inv] using hΛ0
+
+/-- Preconnectedness transport along an orbit relation. -/
+theorem orbitSet_isPreconnected_of_orbit_eq {n : ℕ}
+    (w0 w : Fin n → Fin (d + 1) → ℂ)
+    (Γ : ComplexLorentzGroup d)
+    (hEq : w = complexLorentzAction Γ w0)
+    (hpre0 : IsPreconnected (orbitSet w0)) :
+    IsPreconnected (orbitSet w) := by
+  rw [orbitSet_eq_image_mul_right_inv (d := d) (n := n) w0 w Γ hEq]
+  have hcont : Continuous (fun Λ : ComplexLorentzGroup d => Λ * Γ⁻¹) :=
+    continuous_mul_right Γ⁻¹
+  exact hpre0.image _ hcont.continuousOn
 
 /-- If the global orbit map is open, then its restriction to `orbitSet w` is open. -/
 theorem orbitMap_restricted_isOpen_of_global {n : ℕ}

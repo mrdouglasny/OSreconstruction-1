@@ -96,30 +96,29 @@ theorem eow_adj_swap_extension_holo_only (n : ℕ)
   set σ := Equiv.swap i ⟨i.val + 1, hi⟩
   set σFT : Set (Fin n → Fin (d + 1) → ℂ) :=
     {z | (fun k => z (σ k)) ∈ ForwardTube d n}
-  -- Key: FT and σ·FT are disjoint (opposite time component signs at index i+1)
+  have hσ_ne : σ ≠ 1 := by
+    intro hσ
+    have hineq : i ≠ ⟨i.val + 1, hi⟩ := by
+      intro h
+      have hval : i.val + 1 = i.val := by
+        simpa using (congrArg Fin.val h).symm
+      exact Nat.succ_ne_self i.val hval
+    have hfix : (σ i : Fin n) = i := by simp [hσ]
+    have hnext : (σ i : Fin n) = ⟨i.val + 1, hi⟩ := by
+      change (Equiv.swap i ⟨i.val + 1, hi⟩ i : Fin n) = ⟨i.val + 1, hi⟩
+      exact Equiv.swap_apply_left i ⟨i.val + 1, hi⟩
+    have hval : i.val + 1 = i.val := by
+      exact congrArg Fin.val (hnext.symm.trans hfix)
+    exact Nat.succ_ne_self i.val hval
+  -- Key: FT and σ·FT are disjoint for nontrivial permutations.
   have h_disj : ∀ z, z ∈ ForwardTube d n → z ∉ σFT := by
     intro z hz hz_σ
-    -- Extract the forward cone condition at k = ⟨i+1, hi⟩ for both z and z∘σ
-    have h1 := hz ⟨i.val + 1, hi⟩
-    have h2 : (fun k => z (σ k)) ∈ ForwardTube d n := hz_σ
-    have h3 := h2 ⟨i.val + 1, hi⟩
-    -- Simplify: at k = i+1, the dite condition (k.val = 0) is false
-    simp only [σ] at h1 h3
-    have hk_ne : ¬ ((⟨i.val + 1, hi⟩ : Fin n).val = 0) := Nat.succ_ne_zero _
-    simp only [hk_ne, ↓reduceDIte, InOpenForwardCone] at h1 h3
-    -- For z: prev = z ⟨i, _⟩, diff = z ⟨i+1, hi⟩ - z ⟨i, _⟩
-    -- For z∘σ: (z∘σ)(i+1) = z(σ(i+1)) = z(i), (z∘σ)(i) = z(σ(i)) = z(i+1)
-    -- So diff for z∘σ = z(i) - z(i+1) = -(z(i+1) - z(i))
-    have hprev : (⟨i.val + 1 - 1, by omega⟩ : Fin n) = i :=
-      Fin.ext (show i.val + 1 - 1 = i.val by omega)
-    rw [hprev] at h1 h3
-    rw [Equiv.swap_apply_right, Equiv.swap_apply_left] at h3
-    -- h1.1: (z ⟨i+1,hi⟩ 0 - z i 0).im > 0
-    -- h3.1: (z i 0 - z ⟨i+1,hi⟩ 0).im > 0
-    have := h1.1
-    have := h3.1
-    linarith [Complex.sub_im (z ⟨i.val + 1, hi⟩ 0) (z i 0),
-              Complex.sub_im (z i 0) (z ⟨i.val + 1, hi⟩ 0)]
+    have hz_inter : z ∈ ForwardTube d n ∩ PermutedForwardTube d n σ := ⟨hz, hz_σ⟩
+    have hcontra : z ∈ (∅ : Set (Fin n → Fin (d + 1) → ℂ)) := by
+      rw [forwardTube_inter_permutedForwardTube_eq_empty_of_ne_one (d := d) (n := n)
+        σ hσ_ne] at hz_inter
+      exact hz_inter
+    exact hcontra.elim
   -- Also need the reverse direction for the agreement proofs
   have h_disj' : ∀ z, z ∈ σFT → z ∉ ForwardTube d n :=
     fun z hz hft => h_disj z hft hz
@@ -337,6 +336,68 @@ theorem permutation_invariance_of_extendF_on_extendedTube
     _ = extendF F z := hperm_z
     _ = extendF F w := hLorentz_z
     _ = F w := hright
+
+/-- Identity-theorem propagation template on a connected domain inside the
+extended-tube overlap for a fixed permutation `τ`. This isolates the analytic
+continuation step from the geometric step that provides a suitable real open
+set `V`. -/
+theorem extendF_perm_eq_on_connectedDomain_of_openSubset
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (τ : Equiv.Perm (Fin n))
+    (D : Set (Fin n → Fin (d + 1) → ℂ))
+    (hD_open : IsOpen D) (hD_conn : IsConnected D)
+    (hD_sub_ET : D ⊆ ExtendedTube d n)
+    (hD_sub_permET : D ⊆ {z | (fun k => z (τ k)) ∈ ExtendedTube d n})
+    (W : Set (Fin n → Fin (d + 1) → ℂ))
+    (hW_open : IsOpen W) (hW_ne : W.Nonempty)
+    (hW_sub : W ⊆ D)
+    (hW_eq : ∀ z ∈ W, extendF F (fun k => z (τ k)) = extendF F z) :
+    ∀ z ∈ D, extendF F (fun k => z (τ k)) = extendF F z := by
+  have hF_cinv : ∀ (Λ : ComplexLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z := by
+    intro Λ z hz hΛz
+    exact complex_lorentz_invariance n F hF_holo hF_real_inv Λ z hz hΛz
+  let g : (Fin n → Fin (d + 1) → ℂ) → ℂ :=
+    fun z => extendF F (fun k => z (τ k)) - extendF F z
+  have hExtend_holo : DifferentiableOn ℂ (extendF F) (ExtendedTube d n) :=
+    extendF_holomorphicOn n F hF_holo hF_cinv
+  have hperm_diff : Differentiable ℂ
+      (fun z : Fin n → Fin (d + 1) → ℂ => fun k => z (τ k)) :=
+    differentiable_pi.mpr (fun k => differentiable_apply (τ k))
+  have hperm_maps : Set.MapsTo
+      (fun z : Fin n → Fin (d + 1) → ℂ => fun k => z (τ k))
+      D (ExtendedTube d n) := by
+    intro z hz
+    exact hD_sub_permET hz
+  have hDiff_perm : DifferentiableOn ℂ (fun z : Fin n → Fin (d + 1) → ℂ =>
+      extendF F (fun k => z (τ k))) D := by
+    intro z hz
+    exact (hExtend_holo _ (hperm_maps hz)).comp z
+      ((hperm_diff z).differentiableWithinAt) hperm_maps
+  have hDiff_id : DifferentiableOn ℂ (extendF F) D :=
+    hExtend_holo.mono hD_sub_ET
+  have hDiff_g : DifferentiableOn ℂ g D := hDiff_perm.sub hDiff_id
+  have hDiff_zero : DifferentiableOn ℂ (fun _ : Fin n → Fin (d + 1) → ℂ => (0 : ℂ)) D := by
+    exact (differentiableOn_const (c := (0 : ℂ)) :
+      DifferentiableOn ℂ (fun _ : Fin n → Fin (d + 1) → ℂ => (0 : ℂ)) D)
+  rcases hW_ne with ⟨z0, hz0W⟩
+  have hz0D : z0 ∈ D := hW_sub hz0W
+  have hagree : g =ᶠ[𝓝 z0] (fun _ : Fin n → Fin (d + 1) → ℂ => (0 : ℂ)) := by
+    apply Filter.eventuallyEq_of_mem (hW_open.mem_nhds hz0W)
+    intro z hzW
+    have hz_eq : extendF F (fun k => z (τ k)) = extendF F z := hW_eq z hzW
+    simp [g, hz_eq]
+  have hmain := identity_theorem_product hD_open hD_conn hDiff_g hDiff_zero hz0D hagree
+  intro z hzD
+  have hgz : g z = 0 := hmain hzD
+  exact sub_eq_zero.mp hgz
 
 /-- Identity-theorem propagation template on a connected domain inside the
 extended-tube overlap for a fixed permutation `τ`. This isolates the analytic

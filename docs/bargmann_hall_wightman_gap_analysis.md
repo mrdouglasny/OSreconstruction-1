@@ -1,5 +1,9 @@
 # Bargmann-Hall-Wightman Theorem: Gap Analysis
 
+> Status note (2026-02-27): Historical document.
+> `bargmann_hall_wightman` is now a theorem (not an axiom).
+> For current blockers, use `docs/development_plan_systematic.md`.
+
 ## Status Summary
 
 The Bargmann-Hall-Wightman (BHW) theorem (`bargmann_hall_wightman` in

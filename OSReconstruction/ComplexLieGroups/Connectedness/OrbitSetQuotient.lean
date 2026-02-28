@@ -1,4 +1,6 @@
 import OSReconstruction.ComplexLieGroups.Connectedness.OrbitSetBasic
+import Mathlib.Topology.Algebra.Group.OpenMapping
+import Mathlib.Topology.Homeomorph.Lemmas
 
 noncomputable section
 
@@ -28,6 +30,161 @@ abbrev orbitSetToQuotTube {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
         (show complexLorentzAction (Λ : ComplexLorentzGroup d) w ∈ ForwardTube d n from
           Λ.property)⟩
 
+/-- Orbit subtype of `w` for the complex Lorentz action. -/
+abbrev orbitSubtype {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :=
+  MulAction.orbit (ComplexLorentzGroup d) w
+
+/-- Orbit map with codomain the orbit subtype. -/
+private abbrev orbitSubtypeMap {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
+    ComplexLorentzGroup d → orbitSubtype (d := d) w :=
+  fun g => g • (⟨w, by exact MulAction.mem_orbit_self w⟩ : orbitSubtype (d := d) w)
+
+/-- Forward-tube slice inside the orbit subtype. -/
+private abbrev orbitTubeSubtype {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
+    Set (orbitSubtype (d := d) w) :=
+  {y | y.1 ∈ ForwardTube d n}
+
+/-- Restrict `orbitSubtypeMap` to `orbitSet`, landing in the forward-tube orbit slice. -/
+private abbrev orbitSetToTubeSubtype {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
+    orbitSet w → orbitTubeSubtype (d := d) (n := n) w :=
+  fun Λ => ⟨orbitSubtypeMap (d := d) w Λ, Λ.property⟩
+
+private instance orbitSubtypeContinuousSMul {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
+    ContinuousSMul (ComplexLorentzGroup d) (orbitSubtype (d := d) w) where
+  continuous_smul := by
+    refine Continuous.subtype_mk
+      (by
+        simpa using
+          (continuous_fst.smul (continuous_subtype_val.comp continuous_snd) :
+            Continuous (fun p : ComplexLorentzGroup d × orbitSubtype (d := d) w => p.1 • p.2.1)))
+      (by
+        intro p
+        rcases p.2.2 with ⟨g, hg⟩
+        refine ⟨p.1 * g, ?_⟩
+        rw [← hg]
+        simp [smul_smul])
+
+private instance orbitSubtypeIsPretransitive {n : ℕ} (w : Fin n → Fin (d + 1) → ℂ) :
+    MulAction.IsPretransitive (ComplexLorentzGroup d) (orbitSubtype (d := d) w) where
+  exists_smul_eq := by
+    intro x y
+    rcases x.2 with ⟨gx, hgx⟩
+    rcases y.2 with ⟨gy, hgy⟩
+    refine ⟨gy * gx⁻¹, ?_⟩
+    apply Subtype.ext
+    calc
+      (gy * gx⁻¹) • x.1 = (gy * gx⁻¹) • (gx • w) := by rw [← hgx]
+      _ = gy • w := by simp [smul_smul]
+      _ = y.1 := by simpa using hgy
+
+private theorem orbitSubtypeMap_isQuotient {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    [BaireSpace (orbitSubtype (d := d) w)] :
+    Topology.IsQuotientMap (orbitSubtypeMap (d := d) w) := by
+  have hopen : IsOpenMap (orbitSubtypeMap (d := d) w) := by
+    simpa [orbitSubtypeMap] using
+      (isOpenMap_smul_of_sigmaCompact (G := ComplexLorentzGroup d)
+        (X := orbitSubtype (d := d) w)
+        (x := (⟨w, by exact MulAction.mem_orbit_self w⟩ : orbitSubtype (d := d) w)))
+  have hcont : Continuous (orbitSubtypeMap (d := d) w) := by
+    simpa [orbitSubtypeMap] using
+      ((continuous_id : Continuous (fun g : ComplexLorentzGroup d => g)).smul continuous_const)
+  have hsurj : Function.Surjective (orbitSubtypeMap (d := d) w) := by
+    intro y
+    rcases y with ⟨y, hy⟩
+    rcases hy with ⟨g, rfl⟩
+    exact ⟨g, rfl⟩
+  exact hopen.isQuotientMap hcont hsurj
+
+private theorem orbitTubeSubtype_isOpen {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) :
+    IsOpen (orbitTubeSubtype (d := d) (n := n) w) :=
+  isOpen_forwardTube.preimage continuous_subtype_val
+
+private theorem orbitSetToTubeSubtype_isQuotient {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    [BaireSpace (orbitSubtype (d := d) w)] :
+    Topology.IsQuotientMap (orbitSetToTubeSubtype (d := d) (n := n) w) := by
+  have hq : Topology.IsQuotientMap (orbitSubtypeMap (d := d) w) :=
+    orbitSubtypeMap_isQuotient (d := d) (n := n) w
+  have hs : IsOpen (orbitTubeSubtype (d := d) (n := n) w) :=
+    orbitTubeSubtype_isOpen (d := d) (n := n) w
+  simpa [orbitSetToTubeSubtype, orbitSet, orbitTubeSubtype, orbitSubtypeMap] using
+    hq.restrictPreimage_isOpen hs
+
+private theorem orbitImage_eq_ft_inter_orbitRange {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) :
+    orbitMap w '' orbitSet w =
+      ForwardTube d n ∩
+        Set.range (Subtype.val : orbitSubtype (d := d) w → (Fin n → Fin (d + 1) → ℂ)) := by
+  ext z
+  constructor
+  · rintro ⟨Λ, hΛ, rfl⟩
+    refine ⟨hΛ, ?_⟩
+    refine ⟨⟨orbitMap w Λ, ?_⟩, rfl⟩
+    refine ⟨Λ, ?_⟩
+    rfl
+  · rintro ⟨hzFT, ⟨y, rfl⟩⟩
+    rcases y.2 with ⟨Λ, hΛ⟩
+    have hmap : orbitMap w Λ = y.1 := by
+      simpa [orbitMap] using hΛ
+    have hΛFT : orbitMap w Λ ∈ ForwardTube d n := by
+      simpa [hmap] using hzFT
+    refine ⟨Λ, ?_, hmap⟩
+    simpa [orbitSet] using hΛFT
+
+/-- Baire-orbit reduction: if the orbit subtype through `w` is Baire, then the
+restricted orbit map `orbitSet w → orbitMap w '' orbitSet w` is a quotient map. -/
+theorem orbitSet_restricted_orbitMap_isQuotient_of_baireOrbit {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    [BaireSpace (orbitSubtype (d := d) w)] :
+    Topology.IsQuotientMap (fun Λ : orbitSet w =>
+      (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)) := by
+  let f : orbitSubtype (d := d) w → (Fin n → Fin (d + 1) → ℂ) := Subtype.val
+  have hf : Topology.IsEmbedding f := Topology.IsEmbedding.subtypeVal
+  let s : Set (Fin n → Fin (d + 1) → ℂ) :=
+    ForwardTube d n ∩ Set.range (Subtype.val : orbitSubtype (d := d) w → (Fin n → Fin (d + 1) → ℂ))
+  have hs : s ⊆ Set.range f := by
+    intro z hz
+    exact hz.2
+  let hHomeo0 : (f ⁻¹' s) ≃ₜ s := hf.homeomorphOfSubsetRange hs
+  have hdom_eq : f ⁻¹' s = orbitTubeSubtype (d := d) (n := n) w := by
+    ext y
+    constructor
+    · intro hy
+      simpa [orbitTubeSubtype, s, f] using hy.1
+    · intro hy
+      refine ⟨?_, ⟨y, rfl⟩⟩
+      simpa [orbitTubeSubtype, s, f] using hy
+  let hHomeo1 : orbitTubeSubtype (d := d) (n := n) w ≃ₜ s :=
+    (Homeomorph.setCongr hdom_eq.symm).trans hHomeo0
+  have himage_eq : s = orbitMap w '' orbitSet w := by
+    simpa [s] using (orbitImage_eq_ft_inter_orbitRange (d := d) (n := n) w).symm
+  let hHomeo : orbitTubeSubtype (d := d) (n := n) w ≃ₜ orbitMap w '' orbitSet w :=
+    hHomeo1.trans (Homeomorph.setCongr himage_eq)
+  have hHomeo_coe : ∀ y : orbitTubeSubtype (d := d) (n := n) w,
+      ((hHomeo y : orbitMap w '' orbitSet w) : (Fin n → Fin (d + 1) → ℂ)) = y.1 := by
+    intro y
+    change ((Homeomorph.setCongr himage_eq (hHomeo1 y) : orbitMap w '' orbitSet w).1) = y.1
+    change (hHomeo1 y).1 = y.1
+    change (hHomeo0 ((Homeomorph.setCongr hdom_eq.symm y))).1 = y.1
+    rfl
+  let q : orbitSet w → orbitMap w '' orbitSet w :=
+    fun Λ => ⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩
+  have hq_eq : q = (hHomeo : orbitTubeSubtype (d := d) (n := n) w → orbitMap w '' orbitSet w) ∘
+      orbitSetToTubeSubtype (d := d) (n := n) w := by
+    funext Λ
+    apply Subtype.ext
+    simpa [q, orbitSetToTubeSubtype, orbitSubtypeMap, orbitMap] using
+      (hHomeo_coe (orbitSetToTubeSubtype (d := d) (n := n) w Λ))
+  have hq_comp : Topology.IsQuotientMap
+      ((hHomeo : orbitTubeSubtype (d := d) (n := n) w → orbitMap w '' orbitSet w) ∘
+        orbitSetToTubeSubtype (d := d) (n := n) w) :=
+    Topology.IsQuotientMap.comp
+      (hHomeo.isQuotientMap)
+      (orbitSetToTubeSubtype_isQuotient (d := d) (n := n) w)
+  simpa [q, hq_eq] using hq_comp
+
 /-- Continuity of `ofQuotientStabilizer` for the Lorentz action follows from the
     quotient-map characterization of `QuotientGroup.mk`. -/
 theorem continuous_ofQuotientStabilizer {n : ℕ}
@@ -36,6 +193,45 @@ theorem continuous_ofQuotientStabilizer {n : ℕ}
   refine (QuotientGroup.isQuotientMap_mk (N := stabilizerSubgroup w)).continuous_iff.mpr ?_
   simpa [Function.comp, MulAction.ofQuotientStabilizer_mk] using
     (continuous_complexLorentzAction_fst w)
+
+/-- The quotient by a stabilizer subgroup is a Baire space. -/
+theorem baireSpace_quotientStabilizer {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) :
+    BaireSpace (ComplexLorentzGroup d ⧸ stabilizerSubgroup w) := by
+  let hf : IsOpenQuotientMap
+      (QuotientGroup.mk :
+        ComplexLorentzGroup d →
+          ComplexLorentzGroup d ⧸ stabilizerSubgroup w) :=
+    QuotientGroup.isOpenQuotientMap_mk (N := stabilizerSubgroup w)
+  exact IsOpenQuotientMap.baireSpace hf
+
+/-- Continuity of the quotient-to-orbit map encoded by
+`orbitEquivQuotientStabilizer.symm`. -/
+theorem continuous_orbitEquivQuotientStabilizer_symm {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) :
+    Continuous ((MulAction.orbitEquivQuotientStabilizer
+      (ComplexLorentzGroup d) w).symm) := by
+  let g : ComplexLorentzGroup d ⧸ stabilizerSubgroup w →
+      MulAction.orbit (ComplexLorentzGroup d) w :=
+    (MulAction.orbitEquivQuotientStabilizer (ComplexLorentzGroup d) w).symm
+  let f : ComplexLorentzGroup d ⧸ stabilizerSubgroup w →
+      Fin n → Fin (d + 1) → ℂ :=
+    MulAction.ofQuotientStabilizer (ComplexLorentzGroup d) w
+  have hf : Continuous f := continuous_ofQuotientStabilizer (d := d) (n := n) w
+  have hg_eq :
+      g = fun q =>
+        (⟨f q, MulAction.ofQuotientStabilizer_mem_orbit
+          (ComplexLorentzGroup d) w q⟩ : MulAction.orbit (ComplexLorentzGroup d) w) := by
+    funext q
+    refine Quotient.inductionOn q ?_
+    intro a
+    apply Subtype.ext
+    simp [g, f, MulAction.orbitEquivQuotientStabilizer_symm_apply,
+      MulAction.ofQuotientStabilizer_mk]
+  change Continuous g
+  rw [hg_eq]
+  exact hf.subtype_mk (fun q =>
+    MulAction.ofQuotientStabilizer_mem_orbit (ComplexLorentzGroup d) w q)
 
 /-- The quotient-tube subset is open in `G ⧸ Stab(w)`. -/
 theorem isOpen_orbitQuotTube {n : ℕ}
@@ -155,20 +351,21 @@ theorem orbitSet_isPreconnected_of_stabilizer_connected_quotTube {n : ℕ}
   exact isPreconnected_iff_preconnectedSpace.mpr inferInstance
 
 /-- If the stabilizer is connected and the restricted orbit map is quotient onto a
-    preconnected image, then the orbit set is preconnected.
+    preconnected image, then a nonempty orbit set is preconnected.
 
     This discharges the fiber-connectedness premise in
-    `orbitSet_isPreconnected_of_quotientData` from stabilizer connectedness via
+    `orbitSet_isPreconnected_of_quotientData_nonempty` from stabilizer connectedness via
     the explicit coset description of orbit-map fibers. -/
-theorem orbitSet_isPreconnected_of_stabilizer_connected {n : ℕ}
-    (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n)
+theorem orbitSet_isPreconnected_of_stabilizer_connected_nonempty {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ)
+    (hne : Nonempty (orbitSet w))
     (hstab_conn : IsConnected (stabilizer w))
     (hquot : Topology.IsQuotientMap
       (fun Λ : orbitSet w =>
         (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)))
     [PreconnectedSpace (orbitMap w '' orbitSet w)] :
     IsPreconnected (orbitSet w) := by
-  refine orbitSet_isPreconnected_of_quotientData (d := d) (n := n) w hw hquot ?_
+  refine orbitSet_isPreconnected_of_quotientData_nonempty (d := d) (n := n) w hne hquot ?_
   intro y
   rcases y with ⟨yval, hyim⟩
   rcases hyim with ⟨Λy, hΛy_orbit, rfl⟩
@@ -221,6 +418,20 @@ theorem orbitSet_isPreconnected_of_stabilizer_connected {n : ℕ}
       rfl
   simpa [h_range_eq, y0] using h_range_conn
 
+/-- If the stabilizer is connected and the restricted orbit map is quotient onto a
+    preconnected image, then the orbit set is preconnected. -/
+theorem orbitSet_isPreconnected_of_stabilizer_connected {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n)
+    (hstab_conn : IsConnected (stabilizer w))
+    (hquot : Topology.IsQuotientMap
+      (fun Λ : orbitSet w =>
+        (⟨orbitMap w Λ, ⟨Λ, Λ.property, rfl⟩⟩ : orbitMap w '' orbitSet w)))
+    [PreconnectedSpace (orbitMap w '' orbitSet w)] :
+    IsPreconnected (orbitSet w) := by
+  have hne : Nonempty (orbitSet w) := ⟨⟨1, by simpa [orbitSet, complexLorentzAction_one] using hw⟩⟩
+  exact orbitSet_isPreconnected_of_stabilizer_connected_nonempty
+    (d := d) (n := n) w hne hstab_conn hquot
+
 /-- Combined reduction for orbit-set preconnectedness:
     connected stabilizer + preconnected orbit image + openness of the global orbit map. -/
 theorem orbitSet_isPreconnected_of_stabilizer_connected_and_openOrbitMap {n : ℕ}
@@ -235,5 +446,42 @@ theorem orbitSet_isPreconnected_of_stabilizer_connected_and_openOrbitMap {n : �
     orbitSet_restricted_orbitMap_isQuotient (d := d) (n := n) w
       (hopen_restr.subtype_mk (fun Λ => ⟨Λ, Λ.property, rfl⟩))
   exact orbitSet_isPreconnected_of_stabilizer_connected (d := d) (n := n) w hw hstab_conn hquot
+
+/-- Baire-orbit reduction of the orbit-set preconnectedness criterion:
+connected stabilizer + Baire orbit subtype + preconnected orbit image. -/
+theorem orbitSet_isPreconnected_of_stabilizer_connected_and_baireOrbit {n : ℕ}
+    (w : Fin n → Fin (d + 1) → ℂ) (hw : w ∈ ForwardTube d n)
+    (hstab_conn : IsConnected (stabilizer w))
+    [BaireSpace (orbitSubtype (d := d) w)]
+    [PreconnectedSpace (orbitMap w '' orbitSet w)] :
+    IsPreconnected (orbitSet w) := by
+  have hquot :=
+    orbitSet_restricted_orbitMap_isQuotient_of_baireOrbit (d := d) (n := n) w
+  exact orbitSet_isPreconnected_of_stabilizer_connected (d := d) (n := n) w hw hstab_conn hquot
+
+/-- Transport orbit-set preconnectedness from a forward-tube witness `u` to an
+ET point `z = Δ • u`.
+
+This is useful when ET-membership provides an explicit FT preimage and the orbit
+preconnectedness machinery is available at that witness. -/
+theorem orbitSet_isPreconnected_of_forwardTube_witness {n : ℕ}
+    (z u : Fin n → Fin (d + 1) → ℂ)
+    (Δ : ComplexLorentzGroup d)
+    (hu : u ∈ ForwardTube d n)
+    (hz_eq : z = complexLorentzAction Δ u)
+    (hstab_conn : IsConnected (stabilizer z))
+    [BaireSpace (orbitSubtype (d := d) u)]
+    [PreconnectedSpace (orbitMap u '' orbitSet u)] :
+    IsPreconnected (orbitSet z) := by
+  have hzu : u = complexLorentzAction Δ⁻¹ z := by
+    simp [hz_eq, complexLorentzAction_inv]
+  have hstab_u : IsConnected (stabilizer u) := by
+    have hstab_u' : IsConnected (stabilizer (complexLorentzAction Δ⁻¹ z)) :=
+      isConnected_stabilizer_of_conj (d := d) (n := n) (w := z) Δ⁻¹ hstab_conn
+    simpa [hzu] using hstab_u'
+  have hpre_u : IsPreconnected (orbitSet u) :=
+    orbitSet_isPreconnected_of_stabilizer_connected_and_baireOrbit
+      (d := d) (n := n) u hu hstab_u
+  exact orbitSet_isPreconnected_of_orbit_eq (d := d) (n := n) u z Δ hz_eq hpre_u
 
 end BHW

@@ -1,5 +1,6 @@
 import OSReconstruction.ComplexLieGroups.Connectedness.OrbitSetBasic
 import OSReconstruction.ComplexLieGroups.GeodesicConvexity
+import OSReconstruction.Wightman.Spacetime.MinkowskiGeometry
 
 noncomputable section
 
@@ -168,5 +169,63 @@ theorem forwardTube_nonempty : (ForwardTube d n).Nonempty := by
     rw [minkowski_sum_decomp, hη0]
     simp only [hηi]
     norm_num
+
+/-- For a one-point forward-tube configuration (`n = 1`), the complex Minkowski
+quadratic form of that point is nonzero. -/
+theorem forwardTube_one_complexQuadratic_ne_zero [NeZero d]
+    (w : Fin 1 → Fin (d + 1) → ℂ)
+    (hw : w ∈ ForwardTube d 1) :
+    (∑ μ : Fin (d + 1), (minkowskiSignature d μ : ℂ) * (w 0 μ) ^ 2) ≠ 0 := by
+  let ξ : MinkowskiSpace d := fun μ => (w 0 μ).re
+  let η : MinkowskiSpace d := fun μ => (w 0 μ).im
+  have hcone : InOpenForwardCone d η := by
+    have h0 := hw 0
+    simpa [ForwardTube, η] using h0
+  have hcone' : η 0 > 0 ∧ MinkowskiSpace.minkowskiNormSq d η < 0 := by
+    refine ⟨hcone.1, ?_⟩
+    simpa [InOpenForwardCone, MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner,
+      MinkowskiSpace.metricSignature, minkowskiSignature, sq] using hcone.2
+  have hsplit :
+      (fun μ => w 0 μ) = (fun μ => (ξ μ : ℂ) + (η μ : ℂ) * Complex.I) := by
+    ext μ
+    simp [ξ, η, Complex.re_add_im]
+  intro hq
+  have hq0 : MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ) = 0 := by
+    simpa [MinkowskiSpace.complexMinkowskiQuadratic, MinkowskiSpace.metricSignature,
+      minkowskiSignature] using hq
+  have him_formula :
+      (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).im =
+        2 * MinkowskiSpace.minkowskiInner d ξ η := by
+    calc
+      (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).im =
+          (MinkowskiSpace.complexMinkowskiQuadratic d
+            (fun μ => (ξ μ : ℂ) + (η μ : ℂ) * Complex.I)).im := by
+              simp [hsplit]
+      _ = 2 * MinkowskiSpace.minkowskiInner d ξ η :=
+        MinkowskiSpace.complexQuadratic_im (d := d) ξ η
+  have horth : MinkowskiSpace.minkowskiInner d ξ η = 0 := by
+    have hImZero :
+        (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).im = 0 := by
+      simp [hq0]
+    linarith [him_formula, hImZero]
+  have hξ_nonneg : MinkowskiSpace.minkowskiNormSq d ξ ≥ 0 :=
+    MinkowskiSpace.minkowskiInner_orthogonal_to_timelike_nonneg
+      (d := d) ξ η hcone'.2 hcone'.1 horth
+  have hre_formula :
+      (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).re =
+        MinkowskiSpace.minkowskiNormSq d ξ - MinkowskiSpace.minkowskiNormSq d η := by
+    calc
+      (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).re =
+          (MinkowskiSpace.complexMinkowskiQuadratic d
+            (fun μ => (ξ μ : ℂ) + (η μ : ℂ) * Complex.I)).re := by
+              simp [hsplit]
+      _ = MinkowskiSpace.minkowskiNormSq d ξ - MinkowskiSpace.minkowskiNormSq d η :=
+        MinkowskiSpace.complexQuadratic_re (d := d) ξ η
+  have hnorm_eq : MinkowskiSpace.minkowskiNormSq d ξ = MinkowskiSpace.minkowskiNormSq d η := by
+    have hReZero :
+        (MinkowskiSpace.complexMinkowskiQuadratic d (fun μ => w 0 μ)).re = 0 := by
+      simp [hq0]
+    linarith [hre_formula, hReZero]
+  linarith [hξ_nonneg, hcone'.2, hnorm_eq]
 
 end BHW

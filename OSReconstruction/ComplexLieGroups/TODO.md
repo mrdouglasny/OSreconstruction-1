@@ -1,6 +1,11 @@
 # ComplexLieGroups Module TODO
 
-Last updated: 2026-02-26
+Last updated: 2026-02-27
+
+Plan sync:
+- Source recommendations: `claude_to_codex.md`
+- Canonical execution plan: `docs/development_plan_systematic.md`
+- Active local strategy notes: `docs/bhw_connectedness_strategy.md`
 
 ## Sorry Status
 
@@ -37,11 +42,10 @@ All `sorry`s removed in `JostPoints.lean`.
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness/* — 2 sorrys
+### Connectedness/* — 1 sorry
 | # | File | Line | Name | Status |
 |---|------|------|------|--------|
-| 1 | `Connectedness/ComplexInvariance/Core.lean` | 1250 | `orbitSet_isPreconnected` | **1 local sorry hole** — remaining `d ≥ 2`, `n > 0` joinability goal `hjoin : ∀ Λ ∈ orbitSet w, JoinedIn (orbitSet w) 1 Λ` (with new double-coset/stabilizer-path infrastructure available) |
-| 2 | `Connectedness/BHWPermutation/PermutationFlow.lean` | 1382 | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
+| 1 | `Connectedness/BHWPermutation/PermutationFlow.lean` | 2156 | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
 
 ### GeodesicConvexity.lean — 0 sorrys ✓
 The prior placeholder theorems (`cartan_exp_embedding`, `polar_decomposition`)
@@ -108,6 +112,35 @@ New infrastructure (2026-02-22):
   `orbitSet_isPreconnected_of_doubleCoset_generation_with_stabilizerPath`
   (`Connectedness/ComplexInvariance/Core.lean`) — right-action/stabilizer-path
   orbit-set transport and a reduced double-coset preconnectedness criterion
+- `toSOComplex_entry_00`, `toSOComplex_entry_succ0`,
+  `toSOComplex_firstColEqE0_iff`, `fromSOComplex_toSOComplex`,
+  `toSOComplex_fromSOComplex`, `continuous_fromSOComplex`
+  (`Complexification.lean`) — exported Wick-rotation column/inverse/continuity
+  infrastructure for stabilizer transport arguments
+- `SOComplex.instContinuousMul`, `SOComplex.instContinuousInv`,
+  `SOComplex.instIsTopologicalGroup` (`SOConnected.lean`) — topological-group
+  instances for `SOComplex`, enabling direct use of continuous multiplication/
+  inversion APIs in first-column-fiber transport arguments
+- `SOComplex.isConnected_unitQuadric` (`SOConnected.lean`) — connectedness of
+  `{v | ∑ vᵢ² = 1}` via first-column surjectivity and path-connectedness of
+  `SOComplex`
+- `SOComplex.firstColEqVec`, `SOComplex.isConnected_firstColEqVec_set`
+  (`SOConnected.lean`) — connectedness of arbitrary fixed-first-column fibers
+  over unit-quadric vectors via left-translation from the `e₀` fiber
+- `wI0`, `stabilizerI0`, `mem_stabilizerI0_iff_firstColEqE0`,
+  `stabilizerI0_eq_fromSO_image_firstCol`, `isConnected_stabilizerI0`
+  (`Connectedness/ComplexInvariance/StabilizerI0.lean`) — connectedness of the
+  canonical one-point stabilizer via the `SOComplex.firstColEqE0` model
+- `firstColEqVecCLG`, `isConnected_firstColEqVecCLG_of_nonempty`
+  (`Connectedness/ComplexInvariance/StabilizerI0.lean`) — connectedness of any
+  nonempty fixed-first-column fiber in `SO⁺(1,m+1;ℂ)` by translating the
+  connected `stabilizerI0` fiber
+- `wScalarE0`, `mem_stabilizer_wScalarE0_iff_firstColEqE0`,
+  `stabilizer_wScalarE0_eq_stabilizerI0`,
+  `isConnected_stabilizer_wScalarE0`,
+  `isConnected_stabilizer_of_eq_action_wScalarE0`
+  (`Connectedness/ComplexInvariance/StabilizerI0.lean`) — scaled one-point
+  stabilizer connectedness transport (`c e₀`, `c ≠ 0`)
 - `rapidityElementD1`, `rapidityElementD1_mul`,
   `d1_exists_rapidityElement_principal_im_repr`,
   `d1_exists_rapidityElement_principal_im_strict_of_forwardTube`,
@@ -119,6 +152,11 @@ New infrastructure (2026-02-22):
   (`Connectedness/BHWPermutation/PermutationFlow.lean`) — local-Jost-witness
   ET-overlap identity-theorem infrastructure that avoids assuming global
   `JostSet ⊆ ExtendedTube`
+- `eow_chain_adj_swap_of_midpoint`,
+  `eow_chain_adj_swap_of_midCond`
+  (`Connectedness/BHWPermutation/PermutationFlow.lean`) — right-adjacent
+  midpoint-step infrastructure isolating the remaining geometric midpoint
+  obligation in permutation-chain arguments
 
 Previously proved infrastructure:
 - ForwardTube, complexLorentzAction, PermutedExtendedTube definitions
@@ -131,7 +169,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 2 sorrys across 2 files** (`Core.lean`: 1, `PermutationFlow.lean`: 1)
+**Total: 1 sorry across 1 file** (`PermutationFlow.lean`: 1)
 
 ---
 
@@ -153,13 +191,25 @@ Previously proved infrastructure:
 **Update (2026-02-26):**
 - The theorem is now resolved for `d = 0` (trivial group case) and `d = 1`
   (via `ComplexLieGroups/D1OrbitSet.lean`).
-- The remaining open branch is `d ≥ 2` with `n > 0`.
+- The remaining open branch is `d ≥ 2` on the one-point orbit theorem (`n = 1`).
 - `nonemptyDomain_isPreconnected` has been refactored with a proved reduction
   `n > 0 → n = 1` (`nonemptyDomain_eq_n1`), so only the one-point orbit geometry
   is now needed in downstream use (the `n`-dependence has been eliminated there).
-- The previous two local placeholders (`hstab_conn`, `PreconnectedSpace (orbitQuotTube w)`)
-  were refactored into one equivalent geometric obligation:
-  global orbit-set joinability `hjoin`.
+- The previous placeholders were refactored into a single one-point geometric
+  obligation in `Core.lean`: preconnectedness of canonical quadric-cone slices.
+  This is now reduced to the nontrivial branch
+  (`hquad_nonreal : ∀ c ≠ 0, c.im ≠ 0 → IsPreconnected (quadricConeSet_wScalarE0 c)`),
+  with the `c.im = 0` branch proved by emptiness.
+- `Connectedness/ComplexInvariance/OrbitSetN1Geometry.lean` now provides:
+  - `quadricConeSet_wScalarE0_empty_of_c_im_zero`,
+  - `quadricConeSet_wScalarE0_isPreconnected_of_c_im_zero`,
+  - normalization lemma `quadricConeSet_wScalarE0_eq_scale_to_im_with_value`
+    (scaling by `c` rewrites to a plain-imaginary cone condition at value `-(c^2)`).
+- `test/orbitset_n1_infra_probe.lean` now records the exact `n = 1` closure
+  packages that are sufficient:
+  1) `IsConnected (stabilizer w)` + `PreconnectedSpace (orbitQuotTube w)`, or
+  2) `IsConnected (stabilizer w)` + `IsOpenMap (orbitMap w)` +
+     preconnected restricted orbit-image.
 
 **New infrastructure (2026-02-25):**
 - `ComplexLorentzGroup` now has:
@@ -167,6 +217,24 @@ Previously proved infrastructure:
   - `SigmaCompactSpace` (via closed embedding into matrix space).
 - This unlocks use of sigma-compact/open-mapping and quotient-space tools in
   future orbit-map proofs (previously blocked by missing typeclass instances).
+- `Connectedness/OrbitSetQuotient.lean` now includes
+  `orbitSet_restricted_orbitMap_isQuotient_of_baireOrbit` and
+  `orbitSet_isPreconnected_of_stabilizer_connected_and_baireOrbit`, giving a
+  reusable Baire-orbit route from stabilizer connectedness to orbit-set
+  preconnectedness once a `BaireSpace` instance on the orbit subtype is supplied.
+
+**Open-mapping probe update (2026-02-26):**
+- `test/orbit_open_mapping_transitive_probe.lean` now compiles a concrete
+  `OrbitType` action model and confirms:
+  - `isOpenMap_smul_of_sigmaCompact` applies on orbit subtypes once
+    `BaireSpace OrbitType` is available.
+  - `BaireSpace (G ⧸ stabilizer w)` is derivable from
+    `QuotientGroup.isOpenQuotientMap_mk` via
+    `IsOpenQuotientMap.baireSpace`.
+- Remaining gap for this lane: a **topological bridge** (not just set-level
+  equivalence) between orbit subtypes and quotient-by-stabilizer spaces, i.e.
+  continuity/homeomorphism infrastructure around
+  `MulAction.orbitEquivQuotientStabilizer`.
 
 **Approaches:** See Proofideas/complex_lorentz_invariance.lean for detailed analysis.
 
@@ -213,9 +281,27 @@ permutations σ, so `eow_chain_adj_swap` can close the induction step.
   `extendF_perm_overlap_of_adjSwap_connected_and_midCond_hd2`), so the
   remaining gap is purely geometric (global ET-overlap control), not
   permutation-chain boilerplate.
+- `test/proofideas_connectedness_blockers_2026_02_26.lean` formally isolates
+  why the `midCond` route is not a standalone proof: it would be immediate
+  under global permutation-invariance of `ExtendedTube`, which is exactly the
+  behavior we cannot assume in the BHW setting.
 - The `hJostET` route is now isolated as a strong wrapper layered over the
   new local-witness theorem; remaining obligations are reduced to geometric
   witness/connectedness inputs rather than global `JostSet` inclusion.
+
+**Update (2026-02-28):**
+- Added reusable seed-slice infrastructure in
+  `Connectedness/BHWPermutation/SeedSlices.lean`:
+  - `permSeedSet`, `permSeedSlice`
+  - `permSeedSet_eq_iUnion_seedSlice`
+  - `permSeedSlice_nonempty_iff_inv_mem_permForwardOverlapIndexSet`
+  - `permSeedSet_eq_image_permForwardOverlapSet`
+  - `permForwardOverlapSet_eq_image_permSeedSet`
+  - `isConnected_permSeedSet_iff_permForwardOverlapSet`
+- This formalizes the geometric decomposition
+  `permOrbitSeedSet = ⋃_Λ (σFT ∩ ΛFT)` and pins down the remaining gap to
+  connectedness of the corresponding nonempty-slice index set (not to basic set
+  decomposition).
 
 **Independent status check (2026-02-25):**
 - Branch/history scan did not find a completed non-`sorry` version of this
@@ -257,8 +343,7 @@ LorentzLieGroup.lean ✓                       Complexification.lean ✓
             forward-cone / real-Lorentz infrastructure
                      │
                      ▼
-          Connectedness/* (2 sorrys)
-            orbitSet_isPreconnected [geometric — needs orbit-set joinability in `d ≥ 2`]
+          Connectedness/* (1 sorry)
             iterated_eow_permutation_extension [EOW iteration; `hExtPerm` gap]
                      │
                      ▼
@@ -272,9 +357,9 @@ LorentzLieGroup.lean ✓                       Complexification.lean ✓
 
 ## Execution Order
 
-1. **Connectedness/ComplexInvariance/Core.lean / geometric lane** — close `orbitSet_isPreconnected` by
-   proving the remaining `d ≥ 2`, `n > 0` orbit-set joinability goal
-   `hjoin : ∀ Λ ∈ orbitSet w, JoinedIn (orbitSet w) 1 Λ`.
+1. **Connectedness/ComplexInvariance/Core.lean / geometric lane** — close `orbitSet_onePoint_isPreconnected` by
+   proving the remaining `d ≥ 2` one-point quadric-cone preconnectedness nontrivial branch
+   `hquad_nonreal : ∀ c ≠ 0, c.im ≠ 0 → IsPreconnected (quadricConeSet_wScalarE0 c)`.
 2. **Connectedness/BHWPermutation/PermutationFlow.lean / EOW lane** — close `iterated_eow_permutation_extension`
    by proving `hExtPerm` for nontrivial `σ`, then discharge the theorem via
    `iterated_eow_permutation_extension_of_extendF_perm`.

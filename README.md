@@ -38,18 +38,18 @@ This will fetch Mathlib and all dependencies automatically. The first build may 
 
 ## Project Status
 
-The project builds cleanly with **zero named axioms**. Remaining work is tracked via direct
+The project builds cleanly with **zero `axiom` declarations**. Remaining work is tracked via direct
 `sorry` placeholders.
 
-Snapshot (2026-02-25, counted with `rg -n '^\s*sorry\b' OSReconstruction`):
+Snapshot (2026-02-27, counted with `rg -n '^\s*sorry\b' OSReconstruction`):
 
 | Module | Direct `sorry` lines |
 |--------|-----------------------|
 | `Wightman/` | 43 |
 | `SCV/` | 14 |
-| `ComplexLieGroups/` | 5 |
+| `ComplexLieGroups/` | 2 |
 | `vNA/` | 40 |
-| **Total** | **102** |
+| **Total** | **99** |
 
 ### OS-Critical Sorry Flow Toward Reconstruction
 
@@ -66,8 +66,7 @@ flowchart TD
   BT --> BE["WickRotation/BHWExtension (2)"]
   BE --> FL["WickRotation/ForwardTubeLorentz (2)"]
   FL --> AC["Reconstruction/AnalyticContinuation (0)"]
-  AC --> CL["ComplexLieGroups/Connectedness (2)"]
-  CL --> GC["ComplexLieGroups/GeodesicConvexity (3)"]
+  AC --> CL["ComplexLieGroups/Connectedness/* (2)"]
   AC --> JP["ComplexLieGroups/JostPoints (0)"]
 
   ER --> OW["WickRotation/OSToWightman (14 sorrys)"]
@@ -91,10 +90,10 @@ flowchart TD
 | `SCV/PaleyWiener.lean` | 6 | one-step extension infrastructure |
 | `SCV/LaplaceSchwartz.lean` | 6 | boundary growth/continuity/convergence |
 | `SCV/BochnerTubeTheorem.lean` | 2 | local-to-global tube extension |
-| `ComplexLieGroups/Connectedness.lean` | 2 | EOW permutation gluing/orbit overlap |
-| `ComplexLieGroups/GeodesicConvexity.lean` | 3 | Cartan/polar decomposition infrastructure |
+| `ComplexLieGroups/Connectedness/ComplexInvariance/Core.lean` | 1 | orbit-set preconnectedness (`hjoin` branch) |
+| `ComplexLieGroups/Connectedness/BHWPermutation/PermutationFlow.lean` | 1 | permutation overlap extension (`hExtPerm` branch) |
 
-See also [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md) and [`OSReconstruction/ComplexLieGroups/TODO.md`](OSReconstruction/ComplexLieGroups/TODO.md) for detailed execution plans.
+See also [`docs/development_plan_systematic.md`](docs/development_plan_systematic.md), [`OSReconstruction/Wightman/TODO.md`](OSReconstruction/Wightman/TODO.md), and [`OSReconstruction/ComplexLieGroups/TODO.md`](OSReconstruction/ComplexLieGroups/TODO.md) for the synchronized execution plan.
 
 ## File Structure
 
@@ -157,7 +156,7 @@ OSReconstruction/
 │   ├── Complexification.lean     # Complex Lorentz group SO+(1,d;C)
 │   ├── LorentzLieGroup.lean      # Real Lorentz group infrastructure
 │   ├── JostPoints.lean           # Jost's lemma, Wick rotation, extendF
-│   └── Connectedness.lean        # BHW theorem: extended tube, properties 1-5
+│   └── Connectedness/            # BHW connectedness/permutation submodules
 └── Reconstruction.lean           # Top-level reconstruction theorems
 ```
 

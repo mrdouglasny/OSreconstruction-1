@@ -1,5 +1,8 @@
 # Sorry Analysis: OS Reconstruction Bridge Theorems
 
+> Status note (2026-02-27): This analysis is stale and kept for history.
+> Canonical current plan and counts: `docs/development_plan_systematic.md`.
+
 *Updated 2026-02-20. Covers WickRotation.lean (18 sorrys), Reconstruction.lean (4 sorrys), and axioms.*
 
 ## Current Status

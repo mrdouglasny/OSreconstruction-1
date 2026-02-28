@@ -107,6 +107,22 @@ instance instTopologicalSpace : TopologicalSpace (SOComplex n) :=
 theorem continuous_val : Continuous (SOComplex.val : SOComplex n → Matrix (Fin n) (Fin n) ℂ) :=
   continuous_induced_dom
 
+instance instContinuousMul : ContinuousMul (SOComplex n) where
+  continuous_mul := by
+    apply continuous_induced_rng.mpr
+    change Continuous (fun p : SOComplex n × SOComplex n => p.1.val * p.2.val)
+    exact (continuous_val.comp continuous_fst).mul
+      (continuous_val.comp continuous_snd)
+
+instance instContinuousInv : ContinuousInv (SOComplex n) where
+  continuous_inv := by
+    apply continuous_induced_rng.mpr
+    change Continuous (fun a : SOComplex n => a.val.transpose)
+    exact continuous_val.matrix_transpose
+
+instance instIsTopologicalGroup : IsTopologicalGroup (SOComplex n) :=
+  { instContinuousMul, instContinuousInv with }
+
 /-! ### Exponential map -/
 
 /-- A matrix is skew-symmetric if X^T = -X. -/
@@ -528,6 +544,402 @@ theorem rotMatrix_mul_row_other (i j : Fin n) (_hij : i ≠ j) (c s : ℂ)
 
 /-! ### Column-related infrastructure -/
 
+/-- Sum of squares in the first column equals `(Mᵀ M)₀₀`. -/
+theorem firstColSqSum_eq_entry00 {n : ℕ}
+    (M : Matrix (Fin (n + 1)) (Fin (n + 1)) ℂ) :
+    (∑ k : Fin (n + 1), M k 0 ^ 2) = (M.transpose * M) 0 0 := by
+  simp [Matrix.mul_apply, sq]
+
+/-- Left multiplication by an element of `SOComplex` preserves first-column
+sum-of-squares. -/
+theorem firstColSqSum_mul_left_SO {n : ℕ}
+    (R : SOComplex (n + 1))
+    (M : Matrix (Fin (n + 1)) (Fin (n + 1)) ℂ) :
+    (∑ k : Fin (n + 1), (R.val * M) k 0 ^ 2) =
+      (∑ k : Fin (n + 1), M k 0 ^ 2) := by
+  calc
+    (∑ k : Fin (n + 1), (R.val * M) k 0 ^ 2)
+        = (((R.val * M).transpose * (R.val * M)) 0 0) := by
+            exact firstColSqSum_eq_entry00 (R.val * M)
+    _ = ((M.transpose * (R.val.transpose * R.val) * M) 0 0) := by
+          simp [Matrix.transpose_mul, Matrix.mul_assoc]
+    _ = ((M.transpose * M) 0 0) := by
+          simp [R.orthogonal]
+    _ = (∑ k : Fin (n + 1), M k 0 ^ 2) := by
+          exact (firstColSqSum_eq_entry00 M).symm
+
+/-- Matrix with first column `v` and all other columns zero. -/
+def colMatrix {n : ℕ} (v : Fin (n + 1) → ℂ) :
+    Matrix (Fin (n + 1)) (Fin (n + 1)) ℂ :=
+  fun i j => if j = 0 then v i else 0
+
+@[simp] theorem colMatrix_apply_zero {n : ℕ} (v : Fin (n + 1) → ℂ) (i : Fin (n + 1)) :
+    colMatrix v i 0 = v i := by
+  simp [colMatrix]
+
+@[simp] theorem colMatrix_apply_succ {n : ℕ} (v : Fin (n + 1) → ℂ)
+    (i : Fin (n + 1)) (j : Fin n) :
+    colMatrix v i j.succ = 0 := by
+  simp [colMatrix]
+
+/-- First column of `A * colMatrix v` equals `A *ᵥ v`. -/
+theorem mul_colMatrix_col0_eq_mulVec {n : ℕ}
+    (A : Matrix (Fin (n + 1)) (Fin (n + 1)) ℂ) (v : Fin (n + 1) → ℂ) :
+    (fun i => (A * colMatrix v) i 0) = (A *ᵥ v) := by
+  ext i
+  simp [Matrix.mul_apply, Matrix.mulVec, dotProduct, colMatrix]
+
+/-- First-column sum-of-squares for `colMatrix v` is exactly `∑ vᵢ²`. -/
+theorem firstColSqSum_colMatrix {n : ℕ} (v : Fin (n + 1) → ℂ) :
+    (∑ k : Fin (n + 1), (colMatrix v) k 0 ^ 2) = (∑ k : Fin (n + 1), v k ^ 2) := by
+  simp [colMatrix]
+
+/-- Vector action formula for the `i`-row of `rotMatrix`. -/
+theorem rotMatrix_mulVec_i {n : ℕ}
+    (i j : Fin (n + 1)) (hij : i ≠ j) (c s : ℂ)
+    (v : Fin (n + 1) → ℂ) :
+    (rotMatrix i j c s *ᵥ v) i = c * v i + s * v j := by
+  have hrow :=
+    rotMatrix_mul_row_i i j hij c s (colMatrix v) (0 : Fin (n + 1))
+  have hcol : (rotMatrix i j c s * colMatrix v) i 0 = c * v i + s * v j := by
+    simpa [colMatrix] using hrow
+  have hmul := congrArg (fun f => f i) (mul_colMatrix_col0_eq_mulVec (rotMatrix i j c s) v)
+  simpa [hcol] using hmul.symm
+
+/-- Vector action formula for the `j`-row of `rotMatrix`. -/
+theorem rotMatrix_mulVec_j {n : ℕ}
+    (i j : Fin (n + 1)) (hij : i ≠ j) (c s : ℂ)
+    (v : Fin (n + 1) → ℂ) :
+    (rotMatrix i j c s *ᵥ v) j = -s * v i + c * v j := by
+  have hrow :=
+    rotMatrix_mul_row_j i j hij c s (colMatrix v) (0 : Fin (n + 1))
+  have hcol : (rotMatrix i j c s * colMatrix v) j 0 = -s * v i + c * v j := by
+    simpa [colMatrix] using hrow
+  have hmul := congrArg (fun f => f j) (mul_colMatrix_col0_eq_mulVec (rotMatrix i j c s) v)
+  simpa [hcol] using hmul.symm
+
+/-- Vector action formula for rows other than `i` and `j`. -/
+theorem rotMatrix_mulVec_other {n : ℕ}
+    (i j : Fin (n + 1)) (hij : i ≠ j) (c s : ℂ)
+    (v : Fin (n + 1) → ℂ) (k : Fin (n + 1))
+    (hki : k ≠ i) (hkj : k ≠ j) :
+    (rotMatrix i j c s *ᵥ v) k = v k := by
+  have hrow :=
+    rotMatrix_mul_row_other i j hij c s (colMatrix v) (0 : Fin (n + 1)) k hki hkj
+  have hcol : (rotMatrix i j c s * colMatrix v) k 0 = v k := by
+    simpa [colMatrix] using hrow
+  have hmul := congrArg (fun f => f k) (mul_colMatrix_col0_eq_mulVec (rotMatrix i j c s) v)
+  simpa [hcol] using hmul.symm
+
+/-- `rotMatrix` preserves the quadratic sum `∑ vᵢ²` on vectors. -/
+theorem sumSq_rotMatrix_mulVec_eq {n : ℕ}
+    (i j : Fin (n + 1)) (hij : i ≠ j) (c s : ℂ)
+    (hcs : c ^ 2 + s ^ 2 = 1)
+    (v : Fin (n + 1) → ℂ) :
+    (∑ k : Fin (n + 1), (rotMatrix i j c s *ᵥ v) k ^ 2) =
+      (∑ k : Fin (n + 1), v k ^ 2) := by
+  let R : SOComplex (n + 1) := rotElement i j hij c s hcs
+  have hcolfun : (fun k : Fin (n + 1) => (R.val * colMatrix v) k 0) = R.val *ᵥ v := by
+    simpa [R] using (mul_colMatrix_col0_eq_mulVec (rotMatrix i j c s) v)
+  have hsumfun :
+      (∑ k : Fin (n + 1), (R.val *ᵥ v) k ^ 2) =
+        (∑ k : Fin (n + 1), (R.val * colMatrix v) k 0 ^ 2) := by
+    exact congrArg (fun f : Fin (n + 1) → ℂ => ∑ k : Fin (n + 1), f k ^ 2) hcolfun.symm
+  calc
+    (∑ k : Fin (n + 1), (rotMatrix i j c s *ᵥ v) k ^ 2)
+        = (∑ k : Fin (n + 1), (R.val * colMatrix v) k 0 ^ 2) := by
+            simpa [R] using hsumfun
+    _ = (∑ k : Fin (n + 1), (colMatrix v) k 0 ^ 2) := firstColSqSum_mul_left_SO R (colMatrix v)
+    _ = (∑ k : Fin (n + 1), v k ^ 2) := firstColSqSum_colMatrix v
+
+/-- Number of nonzero entries below index `0` in a vector. -/
+def nonzeroBelowCount {m : ℕ} (v : Fin (m + 2) → ℂ) : ℕ :=
+  (Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ v k ≠ 0)).card
+
+/-- Base case of vector column-reduction: if all entries below `0` vanish and
+`∑ vᵢ² = 1`, then a rotation joined to identity sends `v` to `e₀`. -/
+theorem reduceVector_count_zero {m : ℕ}
+    (v : Fin (m + 2) → ℂ)
+    (hcnt : nonzeroBelowCount v = 0)
+    (hsum : ∑ k : Fin (m + 2), v k ^ 2 = 1) :
+    ∃ R : SOComplex (m + 2), Joined SOComplex.one R ∧
+      (∀ k : Fin (m + 2), (R.val *ᵥ v) k = if k = 0 then 1 else 0) := by
+  have hzero : ∀ k : Fin (m + 2), k ≠ 0 → v k = 0 := by
+    intro k hk
+    by_contra hvk
+    have hmem : k ∈ Finset.univ.filter (fun x : Fin (m + 2) => x ≠ 0 ∧ v x ≠ 0) :=
+      Finset.mem_filter.mpr ⟨Finset.mem_univ _, hk, hvk⟩
+    have hpos : 0 < nonzeroBelowCount v := by
+      unfold nonzeroBelowCount
+      exact Finset.card_pos.mpr ⟨k, hmem⟩
+    have hnot : ¬ 0 < nonzeroBelowCount v := by simp [hcnt]
+    exact hnot hpos
+  have hv0_sq : v 0 ^ 2 = 1 := by
+    rw [Fin.sum_univ_succ] at hsum
+    have hrest : ∑ x : Fin (m + 1), v x.succ ^ 2 = 0 := by
+      apply Finset.sum_eq_zero
+      intro x _
+      rw [hzero x.succ (Fin.succ_ne_zero _), zero_pow (by norm_num : (2:ℕ) ≠ 0)]
+    simpa [hrest] using hsum
+  have hv0_pm : v 0 = 1 ∨ v 0 = -1 := by
+    have hsplit : (v 0 - 1) * (v 0 + 1) = 0 := by
+      linear_combination hv0_sq
+    rcases mul_eq_zero.mp hsplit with h1 | h2
+    · exact Or.inl (sub_eq_zero.mp h1)
+    · exact Or.inr (eq_neg_of_add_eq_zero_left h2)
+  rcases hv0_pm with hv0_one | hv0_neg_one
+  · refine ⟨SOComplex.one, Joined.refl SOComplex.one, ?_⟩
+    intro k
+    simpa [SOComplex.one] using (show v k = if k = 0 then 1 else 0 from by
+      by_cases hk : k = 0
+      · simp [hk, hv0_one]
+      · simp [hk, hzero k hk])
+  · have h01 : (0 : Fin (m + 2)) ≠ 1 := Fin.zero_ne_one
+    have hcs : (-1 : ℂ) ^ 2 + (0 : ℂ) ^ 2 = 1 := by norm_num
+    refine ⟨SOComplex.rotElement 0 1 h01 (-1) 0 hcs,
+      SOComplex.joined_one_rotElement 0 1 h01 (-1) 0 hcs, ?_⟩
+    intro k
+    refine Fin.cases ?_ (fun i => ?_) k
+    · have h0 :=
+        rotMatrix_mulVec_i (i := 0) (j := 1) h01 (-1) 0 v
+      have h10idx : (1 : Fin (m + 2)) ≠ 0 := by
+        intro h
+        have hval : (1 : ℕ) = 0 := by exact congrArg Fin.val h
+        omega
+      have h10 : v 1 = 0 := hzero 1 h10idx
+      simpa [hv0_neg_one, h10] using h0
+    ·
+      by_cases hi : i = 0
+      · subst hi
+        have h1 :=
+          rotMatrix_mulVec_j (i := 0) (j := 1) h01 (-1) 0 v
+        have h10idx : (1 : Fin (m + 2)) ≠ 0 := by
+          intro h
+          have hval : (1 : ℕ) = 0 := by exact congrArg Fin.val h
+          omega
+        have h10 : v 1 = 0 := hzero 1 h10idx
+        simpa [h10] using h1
+      · have hs : i.succ ≠ 1 := by
+          intro his
+          have hi0 : i = 0 := by
+            apply Fin.ext
+            have hval : i.val + 1 = 1 := by
+              exact congrArg Fin.val his
+            have hval0 : i.val = 0 := by
+              exact Nat.succ.inj (by simpa [Nat.succ_eq_add_one] using hval)
+            exact hval0
+          exact hi hi0
+        have hother :=
+          rotMatrix_mulVec_other (i := 0) (j := 1) h01 (-1) 0 v i.succ
+            (Fin.succ_ne_zero i) hs
+        have hz : v i.succ = 0 := hzero i.succ (Fin.succ_ne_zero i)
+        simpa [hz, Fin.succ_ne_zero i] using hother
+
+/-- Full vector reduction: if `∑ vᵢ² = 1`, there is `R ∈ SO(m+2;ℂ)` joined to
+the identity with `R *ᵥ v = e₀`. -/
+theorem reduceVector_full {m : ℕ}
+    (v : Fin (m + 2) → ℂ)
+    (hv : ∑ k : Fin (m + 2), v k ^ 2 = 1) :
+    ∃ R : SOComplex (m + 2), Joined SOComplex.one R ∧
+      (∀ k : Fin (m + 2), (R.val *ᵥ v) k = if k = 0 then 1 else 0) := by
+  suffices h : ∀ N (B : Fin (m + 2) → ℂ), nonzeroBelowCount B ≤ N →
+      (∑ k : Fin (m + 2), B k ^ 2 = 1) →
+      ∃ R : SOComplex (m + 2), Joined SOComplex.one R ∧
+        (∀ k : Fin (m + 2), (R.val *ᵥ B) k = if k = 0 then 1 else 0) by
+    exact h (nonzeroBelowCount v) v le_rfl hv
+  intro N
+  induction N with
+  | zero =>
+      intro B hB hsumB
+      have hcnt0 : nonzeroBelowCount B = 0 := by
+        exact Nat.eq_zero_of_le_zero hB
+      exact reduceVector_count_zero B hcnt0 hsumB
+  | succ n ih =>
+      intro B hB hsumB
+      by_cases hle : nonzeroBelowCount B ≤ n
+      · exact ih B hle hsumB
+      · have hgt : n < nonzeroBelowCount B := Nat.lt_of_not_ge hle
+        have hcnt_pos : 0 < nonzeroBelowCount B := lt_of_le_of_lt (Nat.zero_le n) hgt
+        obtain ⟨k₁, hk₁_mem⟩ := Finset.card_pos.mp (by
+          simpa [nonzeroBelowCount] using hcnt_pos)
+        rw [Finset.mem_filter] at hk₁_mem
+        obtain ⟨_, hk₁0, hvk₁⟩ := hk₁_mem
+        suffices
+            ∃ (a b : Fin (m + 2)), a ≠ b ∧ b ≠ 0 ∧ B b ≠ 0 ∧
+              B a ^ 2 + B b ^ 2 ≠ 0 ∧ (a = 0 ∨ B a ≠ 0) by
+          obtain ⟨a, b, hab, hb0, hvb, hsum, ha_good⟩ := this
+          obtain ⟨w, hw'⟩ := IsAlgClosed.exists_eq_mul_self (B a ^ 2 + B b ^ 2)
+          have hw : w ^ 2 = B a ^ 2 + B b ^ 2 := by
+            simpa [sq] using hw'.symm
+          have hw_ne : w ≠ 0 := by
+            intro h0
+            rw [h0, zero_pow (by norm_num : (2 : ℕ) ≠ 0)] at hw
+            exact hsum hw.symm
+          have hcs : (B a / w) ^ 2 + (B b / w) ^ 2 = 1 := by
+            rw [div_pow, div_pow, ← add_div, div_eq_one_iff_eq (pow_ne_zero 2 hw_ne)]
+            exact hw.symm
+          let R : SOComplex (m + 2) := SOComplex.rotElement a b hab (B a / w) (B b / w) hcs
+          let B' : Fin (m + 2) → ℂ :=
+            SOComplex.rotMatrix a b (B a / w) (B b / w) *ᵥ B
+          have hzero_b : B' b = 0 := by
+            have hbj : B' b = -(B b / w) * B a + (B a / w) * B b := by
+              simpa [B'] using
+                SOComplex.rotMatrix_mulVec_j (i := a) (j := b) hab (B a / w) (B b / w) B
+            calc
+              B' b = -(B b / w) * B a + (B a / w) * B b := hbj
+              _ = 0 := by
+                    field_simp [hw_ne]
+                    ring
+          have hunchanged : ∀ l : Fin (m + 2), l ≠ a → l ≠ b → B' l = B l := by
+            intro l hla hlb
+            dsimp [B']
+            exact SOComplex.rotMatrix_mulVec_other (i := a) (j := b) hab
+              (B a / w) (B b / w) B l hla hlb
+          have hsub :
+              Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B' k ≠ 0) ⊆
+                (Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0)).erase b := by
+            intro l hl
+            rw [Finset.mem_erase, Finset.mem_filter]
+            rw [Finset.mem_filter] at hl
+            obtain ⟨_, hl0, hlne⟩ := hl
+            have hlb : l ≠ b := by
+              intro hlb'
+              exact hlne (hlb' ▸ hzero_b)
+            refine ⟨hlb, Finset.mem_univ _, hl0, ?_⟩
+            by_cases hla : l = a
+            · subst hla
+              rcases ha_good with hA0 | hAne
+              · exact False.elim (hl0 hA0)
+              · exact hAne
+            · have hsame : B' l = B l := hunchanged l hla hlb
+              exact by
+                simpa [hsame] using hlne
+          have hb_in : b ∈ Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0) :=
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, hb0, hvb⟩
+          have hcnt_eq : nonzeroBelowCount B = n + 1 :=
+            Nat.le_antisymm hB (Nat.succ_le_of_lt hgt)
+          have hcnt_dec : nonzeroBelowCount B' ≤ n := by
+            calc
+              nonzeroBelowCount B' = (Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B' k ≠ 0)).card := rfl
+              _ ≤ ((Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0)).erase b).card :=
+                Finset.card_le_card hsub
+              _ = (Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0)).card - 1 :=
+                Finset.card_erase_of_mem hb_in
+              _ = nonzeroBelowCount B - 1 := rfl
+              _ = n := by simp [hcnt_eq]
+          have hsumB' : ∑ k : Fin (m + 2), B' k ^ 2 = 1 := by
+            dsimp [B']
+            calc
+              ∑ k : Fin (m + 2), (SOComplex.rotMatrix a b (B a / w) (B b / w) *ᵥ B) k ^ 2
+                  = ∑ k : Fin (m + 2), B k ^ 2 :=
+                    SOComplex.sumSq_rotMatrix_mulVec_eq (i := a) (j := b) hab
+                      (B a / w) (B b / w) hcs B
+              _ = 1 := hsumB
+          obtain ⟨R₂, hR₂_join, hR₂_col⟩ := ih B' hcnt_dec hsumB'
+          refine ⟨R₂ * R, SOComplex.joined_one_mul hR₂_join
+            (SOComplex.joined_one_rotElement a b hab (B a / w) (B b / w) hcs), ?_⟩
+          intro k
+          have hassoc :
+              ((R₂ * R).val *ᵥ B) k = (R₂.val *ᵥ B') k := by
+            change (((R₂.val * R.val) *ᵥ B) k = (R₂.val *ᵥ B') k)
+            simp [R, SOComplex.rotElement, B', Matrix.mulVec_mulVec]
+          simpa [hassoc] using hR₂_col k
+        by_cases h0k₁ : B 0 ^ 2 + B k₁ ^ 2 ≠ 0
+        · exact ⟨0, k₁, fun h => hk₁0 h.symm, hk₁0, hvk₁, h0k₁, Or.inl rfl⟩
+        · push_neg at h0k₁
+          have hcnt2 : 1 < nonzeroBelowCount B := by
+            by_contra hlt
+            push_neg at hlt
+            have hcnt1 : nonzeroBelowCount B = 1 := by
+              omega
+            have huniq : ∀ l : Fin (m + 2), l ≠ 0 → l ≠ k₁ → B l = 0 := by
+              intro l hl0 hlk
+              by_contra hvl
+              have : 1 < nonzeroBelowCount B := by
+                unfold nonzeroBelowCount
+                exact Finset.one_lt_card.mpr
+                  ⟨l, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hl0, hvl⟩,
+                   k₁, Finset.mem_filter.mpr ⟨Finset.mem_univ _, hk₁0, hvk₁⟩, hlk⟩
+              exact (not_lt_of_ge hlt) this
+            have hrest : ∀ l : Fin (m + 1), l.succ ≠ k₁ → B l.succ ^ 2 = 0 := by
+              intro l hlk
+              rw [huniq l.succ (Fin.succ_ne_zero _) hlk, zero_pow (by norm_num : (2 : ℕ) ≠ 0)]
+            have hsumbelow : ∑ l : Fin (m + 1), B l.succ ^ 2 = B k₁ ^ 2 := by
+              have hk₁_pos : 0 < k₁.val := Fin.pos_of_ne_zero hk₁0
+              set k₁' : Fin (m + 1) := ⟨k₁.val - 1, by omega⟩
+              have hk₁_eq : k₁ = k₁'.succ := Fin.ext (by simp [k₁']; omega)
+              rw [Finset.sum_eq_single k₁'
+                (fun l _ hlk => hrest l (fun h =>
+                  hlk (Fin.succ_injective _ (h.trans hk₁_eq))))]
+              · rw [hk₁_eq]
+              · simp [Finset.mem_univ]
+            rw [Fin.sum_univ_succ, hsumbelow] at hsumB
+            exact (one_ne_zero (h0k₁ ▸ hsumB).symm).elim
+          have hk₁_in : k₁ ∈ Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0) :=
+            Finset.mem_filter.mpr ⟨Finset.mem_univ _, hk₁0, hvk₁⟩
+          have hcard_erase :
+              0 < ((Finset.univ.filter (fun k : Fin (m + 2) => k ≠ 0 ∧ B k ≠ 0)).erase k₁).card := by
+            rw [Finset.card_erase_of_mem hk₁_in]
+            simpa [nonzeroBelowCount] using Nat.sub_pos_of_lt hcnt2
+          obtain ⟨k₂, hk₂_erase⟩ := Finset.card_pos.mp hcard_erase
+          rw [Finset.mem_erase] at hk₂_erase
+          obtain ⟨hk₂_ne_k₁, hk₂_in⟩ := hk₂_erase
+          rw [Finset.mem_filter] at hk₂_in
+          obtain ⟨_, hk₂0, hvk₂⟩ := hk₂_in
+          by_cases h0k₂ : B 0 ^ 2 + B k₂ ^ 2 ≠ 0
+          · exact ⟨0, k₂, fun h => hk₂0 h.symm, hk₂0, hvk₂, h0k₂, Or.inl rfl⟩
+          · push_neg at h0k₂
+            have hk₁k₂ : B k₁ ^ 2 + B k₂ ^ 2 ≠ 0 := by
+              have hv0_ne : B 0 ^ 2 ≠ 0 := by
+                intro h0
+                rw [sq, mul_self_eq_zero] at h0
+                rw [h0, zero_pow (by norm_num : (2 : ℕ) ≠ 0), zero_add] at h0k₁
+                rw [sq, mul_self_eq_zero] at h0k₁
+                exact hvk₁ h0k₁
+              intro h
+              have : B k₁ ^ 2 + B k₂ ^ 2 = -(2 * B 0 ^ 2) := by
+                linear_combination h0k₁ + h0k₂
+              rw [this] at h
+              rw [neg_eq_zero] at h
+              rcases mul_eq_zero.mp h with h2 | h0
+              · norm_num at h2
+              · exact hv0_ne h0
+            exact ⟨k₁, k₂, hk₂_ne_k₁.symm, hk₂0, hvk₂, hk₁k₂, Or.inr hvk₁⟩
+
+/-- Existence of an orthogonal matrix with prescribed first column on the unit quadric. -/
+theorem exists_so_with_firstCol {m : ℕ}
+    (v : Fin (m + 2) → ℂ)
+    (hv : ∑ k : Fin (m + 2), v k ^ 2 = 1) :
+    ∃ A : SOComplex (m + 2), ∀ k : Fin (m + 2), A.val k 0 = v k := by
+  obtain ⟨R, _hR_join, hRcol⟩ := reduceVector_full (m := m) v hv
+  let e0 : Fin (m + 2) → ℂ := Pi.single 0 (1 : ℂ)
+  have hRv : R.val *ᵥ v = e0 := by
+    funext k
+    simpa [e0, Pi.single_apply] using hRcol k
+  refine ⟨R⁻¹, ?_⟩
+  intro k
+  have hinv_mul : (R⁻¹).val * R.val = (1 : Matrix (Fin (m + 2)) (Fin (m + 2)) ℂ) := by
+    ext i j
+    change ((R⁻¹ * R).val i j = (1 : SOComplex (m + 2)).val i j)
+    exact congrArg (fun M : SOComplex (m + 2) => M.val i j) (inv_mul_cancel R)
+  have hv_eq : v = (R⁻¹).val *ᵥ e0 := by
+    calc
+      v = (1 : Matrix (Fin (m + 2)) (Fin (m + 2)) ℂ) *ᵥ v := by simp
+      _ = ((R⁻¹).val * R.val) *ᵥ v := by simp [hinv_mul]
+      _ = (R⁻¹).val *ᵥ (R.val *ᵥ v) := by
+            simp [Matrix.mulVec_mulVec]
+      _ = (R⁻¹).val *ᵥ e0 := by simp [hRv]
+  have hcol : ((R⁻¹).val *ᵥ e0) k = (R⁻¹).val k 0 := by
+    have hcol_fun :
+        (R⁻¹).val *ᵥ e0 = (R⁻¹).val.col (0 : Fin (m + 2)) := by
+      ext i
+      simp [e0]
+    exact congrFun hcol_fun k
+  have hv_eq_k : v k = ((R⁻¹).val *ᵥ e0) k := congrArg (fun f => f k) hv_eq
+  calc
+    (R⁻¹).val k 0 = ((R⁻¹).val *ᵥ e0) k := hcol.symm
+    _ = v k := hv_eq_k.symm
+
 /-- The first column of A ∈ SO(n+1;ℂ) satisfies ∑ᵢ (A i 0)² = 1. -/
 theorem first_col_sq_sum (A : SOComplex (n + 1)) :
     ∑ k : Fin (n + 1), A.val k 0 ^ 2 = 1 := by
@@ -898,6 +1310,32 @@ private theorem of_first_col_e0 {m : ℕ} (A : SOComplex (m + 2))
     · simp [embed, embedVal, Matrix.submatrix]
   ⟩
 
+/-- In `SO(m+2;ℂ)`, the first column equals `e₀`. -/
+def firstColEqE0 {m : ℕ} (A : SOComplex (m + 2)) : Prop :=
+  ∀ k : Fin (m + 2), A.val k 0 = if k = 0 then 1 else 0
+
+/-- In `SO(m+2;ℂ)`, the first column equals a prescribed vector `v`. -/
+def firstColEqVec {m : ℕ} (v : Fin (m + 2) → ℂ) (A : SOComplex (m + 2)) : Prop :=
+  ∀ k : Fin (m + 2), A.val k 0 = v k
+
+/-- Basepoint-join criterion for preconnectedness. -/
+private theorem isPreconnected_of_joinedIn_base
+    {X : Type*} [TopologicalSpace X]
+    {S : Set X} {x0 : X}
+    (hx0 : x0 ∈ S)
+    (hjoined : ∀ y ∈ S, JoinedIn S x0 y) :
+    IsPreconnected S := by
+  let x0S : S := ⟨x0, hx0⟩
+  have h_joined_subtype : ∀ y : S, Joined x0S y := by
+    intro y
+    exact (joinedIn_iff_joined (x_in := hx0) (y_in := y.2)).mp (hjoined y y.2)
+  haveI : PathConnectedSpace S := by
+    refine PathConnectedSpace.mk ?_ ?_
+    · exact ⟨x0S⟩
+    · intro x y
+      exact (h_joined_subtype x).symm.trans (h_joined_subtype y)
+  exact (isPreconnected_iff_preconnectedSpace).2 (inferInstance : PreconnectedSpace S)
+
 /-- **SO(n;ℂ) is path-connected.** -/
 theorem isPathConnected (m : ℕ) :
     IsPathConnected (Set.univ : Set (SOComplex m)) := by
@@ -946,6 +1384,124 @@ theorem isPathConnected (m : ℕ) :
         rw [← Matrix.mul_assoc, R.orthogonal, Matrix.one_mul]
       rw [hA_eq]
       exact joined_one_mul (joined_one_inv hR_joined) hEmbed_joined
+
+/-- The complex unit quadric `∑ᵢ vᵢ² = 1` is connected. -/
+theorem isConnected_unitQuadric {m : ℕ} :
+    IsConnected {v : Fin (m + 2) → ℂ | ∑ k : Fin (m + 2), v k ^ 2 = (1 : ℂ)} := by
+  let f : SOComplex (m + 2) → (Fin (m + 2) → ℂ) :=
+    fun A k => A.val k 0
+  have hf_cont : Continuous f := by
+    apply continuous_pi
+    intro k
+    exact (continuous_apply 0).comp ((continuous_apply k).comp SOComplex.continuous_val)
+  have hIm_conn : IsConnected (Set.range f) := by
+    haveI : PathConnectedSpace (SOComplex (m + 2)) :=
+      pathConnectedSpace_iff_univ.mpr (SOComplex.isPathConnected (m + 2))
+    simpa [f] using (isConnected_univ.image f hf_cont.continuousOn)
+  have hIm_eq : Set.range f = {v : Fin (m + 2) → ℂ | ∑ k : Fin (m + 2), v k ^ 2 = (1 : ℂ)} := by
+    ext v
+    constructor
+    · rintro ⟨A, rfl⟩
+      change ∑ k : Fin (m + 2), A.val k 0 ^ 2 = (1 : ℂ)
+      calc
+        ∑ k : Fin (m + 2), A.val k 0 ^ 2
+            = (A.val.transpose * A.val) 0 0 := SOComplex.firstColSqSum_eq_entry00 A.val
+        _ = (1 : Matrix (Fin (m + 2)) (Fin (m + 2)) ℂ) 0 0 := by simp [A.orthogonal]
+        _ = (1 : ℂ) := by simp
+    · intro hv
+      rcases SOComplex.exists_so_with_firstCol (m := m) v hv with ⟨A, hAcol⟩
+      exact ⟨A, funext hAcol⟩
+  simpa [hIm_eq] using hIm_conn
+
+/-- The subset of `SO(m+2;ℂ)` fixing the first column to `e₀` is connected. -/
+theorem isConnected_firstColEqE0_set {m : ℕ} :
+    IsConnected {A : SOComplex (m + 2) | firstColEqE0 A} := by
+  refine ⟨⟨(one : SOComplex (m + 2)), ?_⟩, ?_⟩
+  · intro k
+    simp [one, Matrix.one_apply]
+  · refine isPreconnected_of_joinedIn_base
+      (S := {A : SOComplex (m + 2) | firstColEqE0 A})
+      (x0 := (one : SOComplex (m + 2))) ?_ ?_
+    · intro k
+      simp [one, Matrix.one_apply]
+    · intro A hA
+      rcases of_first_col_e0 A hA with ⟨B, rfl⟩
+      have hB_joinedIn :
+          JoinedIn (Set.univ : Set (SOComplex (m + 1))) one B :=
+        (isPathConnected (m + 1)).joinedIn one (Set.mem_univ _) B (Set.mem_univ _)
+      rcases joinedIn_univ.mp hB_joinedIn with ⟨γ⟩
+      refine ⟨
+        { toFun := fun t => embed (γ t)
+          continuous_toFun := embed_continuous.comp γ.continuous_toFun
+          source' := by
+            rw [γ.source]
+            simpa using (embed_one (m := m + 1))
+          target' := by
+            rw [γ.target] },
+        ?_⟩
+      intro t k
+      refine Fin.cases ?_ ?_ k
+      · simp [embed]
+      · intro i
+        simp [embed, Fin.succ_ne_zero]
+
+/-- Connectedness of the first-column fiber over any unit-quadric point. -/
+theorem isConnected_firstColEqVec_set {m : ℕ}
+    (v : Fin (m + 2) → ℂ)
+    (hv : ∑ k : Fin (m + 2), v k ^ 2 = (1 : ℂ)) :
+    IsConnected {A : SOComplex (m + 2) | firstColEqVec v A} := by
+  rcases SOComplex.exists_so_with_firstCol (m := m) v hv with ⟨B, hBcol⟩
+  let S0 : Set (SOComplex (m + 2)) := {A | SOComplex.firstColEqE0 A}
+  let Sv : Set (SOComplex (m + 2)) := {A | firstColEqVec v A}
+  have hS0_conn : IsConnected S0 := by
+    simpa [S0] using (SOComplex.isConnected_firstColEqE0_set (m := m))
+  let φ : SOComplex (m + 2) → SOComplex (m + 2) := fun A => B * A
+  have hφ_cont : Continuous φ := continuous_const.mul continuous_id
+  have hφ_map : φ '' S0 = Sv := by
+    ext A
+    constructor
+    · rintro ⟨A0, hA0, rfl⟩
+      intro k
+      have hA0col : ∀ t : Fin (m + 2), A0.val t 0 = if t = 0 then 1 else 0 := hA0
+      calc
+        (B * A0).val k 0 = ∑ j : Fin (m + 2), B.val k j * A0.val j 0 := by
+            change ((B.val * A0.val) k 0) = _
+            rw [Matrix.mul_apply]
+        _ = B.val k 0 := by
+            rw [Finset.sum_eq_single 0]
+            · simp [hA0col]
+            · intro j _ hj
+              simp [hA0col, hj]
+            · simp [hA0col]
+        _ = v k := hBcol k
+    · intro hA
+      refine ⟨B⁻¹ * A, ?_, ?_⟩
+      · intro k
+        have hmulkM : (B⁻¹ * B).val = (1 : SOComplex (m + 2)).val := by
+          exact congrArg SOComplex.val (inv_mul_cancel B)
+        have hmulk : ((B⁻¹).val * B.val) k 0 = ((1 : SOComplex (m + 2)).val) k 0 := by
+          exact congrArg (fun M : Matrix (Fin (m + 2)) (Fin (m + 2)) ℂ => M k 0) hmulkM
+        calc
+          (B⁻¹ * A).val k 0 = ∑ j : Fin (m + 2), (B⁻¹).val k j * A.val j 0 := by
+              change (((B⁻¹).val * A.val) k 0) = _
+              rw [Matrix.mul_apply]
+          _ = ∑ j : Fin (m + 2), (B⁻¹).val k j * B.val j 0 := by
+              apply Finset.sum_congr rfl
+              intro j _
+              simp [hA j, hBcol j]
+          _ = ((B⁻¹).val * B.val) k 0 := by
+              rw [Matrix.mul_apply]
+          _ = ((1 : SOComplex (m + 2)).val) k 0 := hmulk
+          _ = if k = 0 then 1 else 0 := by
+              change ((1 : Matrix (Fin (m + 2)) (Fin (m + 2)) ℂ) k 0) = _
+              simp [Matrix.one_apply]
+      · calc
+          B * (B⁻¹ * A) = (B * B⁻¹) * A := by exact (mul_assoc B B⁻¹ A).symm
+          _ = A := by simp
+  have hSv_conn : IsConnected Sv := by
+    have hIm_conn : IsConnected (φ '' S0) := hS0_conn.image φ hφ_cont.continuousOn
+    simpa [hφ_map] using hIm_conn
+  simpa [Sv] using hSv_conn
 
 end SOComplex
 

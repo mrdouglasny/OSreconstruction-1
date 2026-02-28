@@ -1,5 +1,9 @@
 # Osterwalder-Schrader Reconstruction: Formal Proof Outline
 
+> Status note (2026-02-27): This file contains historical snapshots and stale counts.
+> For current blocker status, use `docs/development_plan_systematic.md`,
+> `OSReconstruction/Wightman/TODO.md`, and `OSReconstruction/ComplexLieGroups/TODO.md`.
+
 A complete outline of the Lean 4 formalization of the OS reconstruction theorems,
 mapping the mathematical proof structure to the codebase.
 
