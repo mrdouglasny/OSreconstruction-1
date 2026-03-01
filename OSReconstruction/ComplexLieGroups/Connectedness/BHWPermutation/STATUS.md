@@ -12,11 +12,13 @@ Last updated: 2026-03-02
 ```
 propext, Classical.choice, Quot.sound          -- standard Lean
 BHW.complexLorentzGroup_KAK                    -- Cartan/KAK decomposition (d ≥ 2)
-BHW.isConnected_boostStrip_inter_sliceIndexSet -- boost restriction connected (d ≥ 2)
+BHW.isConnected_boostParameterOverlap          -- 1D parameter overlap connected (d ≥ 2)
 BHW.hExtPerm_of_d1                             -- dimension reduction (d = 1)
 ```
 
-`isConnected_sliceIndexSet` is now a **theorem** derived from axioms 1a and 1b.
+`isConnected_sliceIndexSet` and `isConnected_boostStrip_inter_sliceIndexSet` are
+both **theorems**. The boost strip result is derived from the 1D parameter axiom
+via the continuous image of the boost exponential map.
 
 ### Files (zero sorrys across all 6)
 
@@ -55,20 +57,21 @@ direct polar decomposition argument for SO₊(1,d;ℂ).
 
 **No QFT dependencies**: Pure Lie group geometry.
 
-### Axiom 1b: `isConnected_boostStrip_inter_sliceIndexSet` (boost restriction)
+### Axiom 1b: `isConnected_boostParameterOverlap` (1D parameter connectedness)
 
 ```lean
-axiom isConnected_boostStrip_inter_sliceIndexSet {d : ℕ}
+axiom isConnected_boostParameterOverlap {d : ℕ}
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
-    IsConnected (complexBoostStrip d ∩
-      {Λ : ComplexLorentzGroup d |
-        (permForwardOverlapSlice (d := d) n σ Λ).Nonempty})
+    IsConnected (boostParameterOverlap d n σ)
 ```
 
-**Mathematical content**: The boost strip intersected with the slice index set
-is connected.
+where `boostParameterOverlap d n σ = {t ∈ ℂ | slice at exp(tK) is nonempty}`.
 
-**Why it's true**: The boost strip B ≅ ℂ/2πiℤ is a cylinder. The bad set (boosts
+**Mathematical content**: The set of complex boost parameters yielding a nonempty
+forward-overlap slice is connected. This is a purely 1-dimensional statement
+about a subset of ℂ.
+
+**Why it's true**: The boost strip B ≅ ℂ/2πiℤ is a cylinder. The bad set (parameters
 with empty slice) is the meridian {Im(t) = 0 mod 2π} — real Lorentz boosts,
 which preserve V⁺ and cannot perform the V⁻ → V⁺ mapping required by non-trivial
 permutations. For complex boosts with Im(t) ≠ 0, witnesses exist using large
@@ -79,11 +82,13 @@ space. See "Boost strip analysis" below for the full argument.
 hyperbolic/trigonometric estimates for general permutations, plus cylinder
 topology. Estimated ~300-500 lines of Lean.
 
-### Derived theorem: `isConnected_sliceIndexSet`
+### Derived theorems
 
-Proved from axioms 1a and 1b by mapping K × (A∩I) × K → I via group
-multiplication, using KAK for surjectivity and bi-invariance for membership.
-The image of a connected set under a continuous map is connected.
+- `isConnected_boostStrip_inter_sliceIndexSet` — proved from axiom 1b via the
+  continuous image of the boost exponential map `t ↦ exp(tK)`.
+- `isConnected_sliceIndexSet` — proved from axioms 1a and 1b by mapping
+  K × (A∩I) × K → I via group multiplication, using KAK for surjectivity
+  and bi-invariance for membership.
 
 ### Axiom 2: `hExtPerm_of_d1` (dimension reduction)
 
@@ -146,9 +151,10 @@ attempted and abandoned).
 
 ```
 Phase 1: Pure Lie Geometry
-    isConnected_sliceIndexSet ✓ (theorem, derived from 1a + 1b)
+    isConnected_sliceIndexSet ✓ (theorem)
+    ├── isConnected_boostStrip_inter_sliceIndexSet ✓ (theorem)
+    │   └── isConnected_boostParameterOverlap [AXIOM 1b]
     ├── complexLorentzGroup_KAK [AXIOM 1a]
-    ├── isConnected_boostStrip_inter_sliceIndexSet [AXIOM 1b]
     ├── sliceIndexSet_bi_invariant ✓
     ├── sliceIndexSet_bi_invariant_rev ✓
     └── RestrictedLorentzGroup.isPathConnected ✓
@@ -191,7 +197,8 @@ bargmann_hall_wightman_theorem [NeZero d]
     │   │   ├── isConnected_iUnion_of_open_membership ✓
     │   │   └── isConnected_sliceIndexSet ✓ (theorem)
     │   │       ├── complexLorentzGroup_KAK [AXIOM 1a]
-    │   │       ├── isConnected_boostStrip_inter_sliceIndexSet [AXIOM 1b]
+    │   │       ├── isConnected_boostStrip_inter_sliceIndexSet ✓ (theorem)
+    │   │       │   └── isConnected_boostParameterOverlap [AXIOM 1b]
     │   │       ├── sliceIndexSet_bi_invariant ✓
     │   │       └── sliceIndexSet_bi_invariant_rev ✓
     │   └── ComplexLorentzGroup.isPathConnected ✓
@@ -330,10 +337,11 @@ then Route B uses the connected overlap domain for the identity theorem.
    on the symmetric space L₊(ℂ)/L₊↑(ℝ), or a direct polar decomposition for
    SO₊(1,d;ℂ).
 
-2. **`isConnected_boostStrip_inter_sliceIndexSet`** — The bad set (empty-slice
-   boosts) is the real-axis meridian on the cylinder ℂ/2πiℤ. Proof requires:
-   (a) explicit witness for each complex boost with Im(t) ≠ 0, (b) V⁺ estimates,
-   (c) cylinder minus meridian is connected. See "Boost strip analysis" above.
+2. **`isConnected_boostParameterOverlap`** — 1D statement: the set
+   `{t ∈ ℂ | slice at exp(tK) nonempty}` is connected. The bad set is the
+   real-axis meridian on ℂ/2πiℤ. Proof requires: (a) explicit witness for each
+   boost with Im(t) ≠ 0, (b) V⁺ estimates, (c) cylinder minus meridian is
+   connected. See "Boost strip analysis" above.
 
 3. **`hExtPerm_of_d1`** — Depends on (1) and (2) being done (via `hExtPerm_of_d2`).
    New files: `ComplexLieGroups/LightconeInvariantTheory.lean` (d=1 algebraic

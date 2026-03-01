@@ -747,25 +747,66 @@ axiom complexLorentzGroup_KAK {d : ℕ} (hd2 : 2 ≤ d)
       a ∈ complexBoostStrip d ∧
       Λ = ComplexLorentzGroup.ofReal k₁ * a * ComplexLorentzGroup.ofReal k₂
 
-/-- **Boost-strip restriction connectedness** (textbook axiom): The intersection
-    of the complex boost strip with the slice index set is connected for `d ≥ 2`.
+/-- The set of complex boost parameters `t ∈ ℂ` for which `exp(tK)` yields
+    a nonempty forward-overlap slice. This is the preimage of the slice index
+    set under the boost exponential map `t ↦ exp(tK)`. -/
+private def boostParameterOverlap (d n : ℕ) (σ : Equiv.Perm (Fin n)) : Set ℂ :=
+  { t : ℂ | (permForwardOverlapSlice (d := d) n σ
+      (ComplexLorentzGroup.expLieAlg (t • boostGen d)
+        (ComplexLorentzGroup.isInLieAlgebra_smul t boostGen_isInLieAlgebra))).Nonempty }
 
-    The boost strip `A = {exp(tK) | t ∈ ℂ}` is isomorphic to `ℂ`, and the
-    slice index set is open (from `isOpen_permForwardOverlapIndexSet`). The
-    intersection `A ∩ I` is therefore open in `ℂ`. Its connectedness follows
-    from the specific geometry of the forward light cone and boost action:
-    the set of boost parameters `t` for which `exp(tK)` has a nonempty slice
-    forms a connected open region in `ℂ` (a horizontal strip `|Im(t)| < π`
-    in suitable coordinates).
+/-- **Core geometric seed axiom**: The set of complex boost parameters yielding
+    a nonempty slice is connected.
+
+    Geometrically, evaluating the action of `exp(tK)` on the forward light cone
+    constrains the parameter `t` to a region in `ℂ` whose complement is the
+    real axis `{Im(t) = 0 mod 2π}` (a single meridian on the cylinder `ℂ/2πiℤ`).
+    Real boosts preserve `V⁺` and cannot map `V⁻ → V⁺`, so the slice is empty.
+    For `Im(t) ≠ 0`, witnesses exist using large real spatial components — the
+    imaginary part of the boost mixes real/imaginary components, generating
+    timelike imaginary parts.
+
+    The complement of a meridian on a cylinder is connected, so the parameter
+    overlap is connected.
 
     **References**:
     - R.F. Streater and A.S. Wightman, "PCT, Spin and Statistics, and All That"
       (1964, 2000), Section 2-5, Lemma 2 -/
-axiom isConnected_boostStrip_inter_sliceIndexSet {d : ℕ}
+axiom isConnected_boostParameterOverlap {d : ℕ}
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    IsConnected (boostParameterOverlap d n σ)
+
+/-- **Boost-strip restriction connectedness**: The intersection of the complex
+    boost strip with the slice index set is connected for `d ≥ 2`.
+
+    **Proof**: The intersection on the Lie group is exactly the continuous image
+    of the 1D parameter set `boostParameterOverlap` under the boost exponential
+    map `t ↦ exp(tK)`. Since the parameter set is connected (by the seed axiom),
+    its continuous image is connected. -/
+private theorem isConnected_boostStrip_inter_sliceIndexSet {d : ℕ}
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
     IsConnected (complexBoostStrip d ∩
       {Λ : ComplexLorentzGroup d |
-        (permForwardOverlapSlice (d := d) n σ Λ).Nonempty})
+        (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}) := by
+  let f : ℂ → ComplexLorentzGroup d := fun t =>
+    ComplexLorentzGroup.expLieAlg (t • boostGen d)
+      (ComplexLorentzGroup.isInLieAlgebra_smul t boostGen_isInLieAlgebra)
+  have hf_cont : Continuous f := by
+    have hind : IsInducing (ComplexLorentzGroup.val : ComplexLorentzGroup d → _) := ⟨rfl⟩
+    rw [hind.continuous_iff]
+    show Continuous (fun t : ℂ => exp (t • boostGen d))
+    exact NormedSpace.exp_continuous.comp (continuous_id.smul continuous_const)
+  have h_eq : complexBoostStrip d ∩
+      {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} =
+      f '' boostParameterOverlap d n σ := by
+    ext Λ
+    simp only [complexBoostStrip, boostParameterOverlap, Set.mem_inter_iff,
+               Set.mem_range, Set.mem_setOf_eq, Set.mem_image]
+    constructor
+    · rintro ⟨⟨t, rfl⟩, hΛ⟩; exact ⟨t, hΛ, rfl⟩
+    · rintro ⟨t, ht, rfl⟩; exact ⟨⟨t, rfl⟩, ht⟩
+  rw [h_eq]
+  exact (isConnected_boostParameterOverlap n σ hd2).image f hf_cont.continuousOn
 
 /-- The slice index set is connected for `d ≥ 2`.
 
