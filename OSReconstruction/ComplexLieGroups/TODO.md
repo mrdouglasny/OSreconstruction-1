@@ -42,10 +42,12 @@ All `sorry`s removed in `JostPoints.lean`.
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness/* — 1 sorry
-| # | File | Line | Name | Status |
-|---|------|------|------|--------|
-| 1 | `Connectedness/BHWPermutation/PermutationFlow.lean` | 2156 | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
+### Connectedness/* — 0 sorrys, 2 axioms ✓
+All sorrys eliminated. The BHW theorem depends on two textbook axioms:
+1. `isConnected_sliceIndexSet` — Lie group topology (KAK polar decomposition)
+2. `hExtPerm_of_d1` — dimension reduction for d=1 (via BHW invariant theory)
+
+See `Connectedness/BHWPermutation/STATUS.md` for full analysis and elimination plan.
 
 ### GeodesicConvexity.lean — 0 sorrys ✓
 The prior placeholder theorems (`cartan_exp_embedding`, `polar_decomposition`)
@@ -169,7 +171,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 1 sorry across 1 file** (`PermutationFlow.lean`: 1)
+**Total: 0 sorrys, 2 axioms across `OverlapConnected.lean`**
 
 ---
 
@@ -357,12 +359,14 @@ LorentzLieGroup.lean ✓                       Complexification.lean ✓
 
 ## Execution Order
 
-1. **Connectedness/ComplexInvariance/Core.lean / geometric lane** — close `orbitSet_onePoint_isPreconnected` by
-   proving the remaining `d ≥ 2` one-point quadric-cone preconnectedness nontrivial branch
-   `hquad_nonreal : ∀ c ≠ 0, c.im ≠ 0 → IsPreconnected (quadricConeSet_wScalarE0 c)`.
-2. **Connectedness/BHWPermutation/PermutationFlow.lean / EOW lane** — close `iterated_eow_permutation_extension`
-   by proving `hExtPerm` for nontrivial `σ`, then discharge the theorem via
-   `iterated_eow_permutation_extension_of_extendF_perm`.
+1. **Axiom 1: `isConnected_sliceIndexSet`** — Pure Lie group geometry (no QFT).
+   Prove KAK polar decomposition for L₊(ℂ). Existing infrastructure:
+   `sliceIndexSet_bi_invariant` ✓, `isConnected_complexBoostStrip` ✓.
+   Missing: matrix logarithm on L₊(ℂ)/L₊↑(ℝ).
+2. **Axiom 2: `hExtPerm_of_d1`** — Dimension reduction via d=1 algebraic
+   invariant theory (SO₊(1,1;ℂ) ≅ ℂˣ, lightcone coordinates). Depends on (1).
+   Alternative: restrict BHW to d ≥ 2 to eliminate this axiom entirely.
 3. Build: `lake build OSReconstruction.ComplexLieGroups`
-4. Only after (1)-(3): continue into `Wightman/Reconstruction/WickRotation/*`
-   blockers that depend on BHW closure.
+4. Continue into `Wightman/Reconstruction/WickRotation/*` blockers.
+
+See `Connectedness/BHWPermutation/STATUS.md` for detailed analysis.
