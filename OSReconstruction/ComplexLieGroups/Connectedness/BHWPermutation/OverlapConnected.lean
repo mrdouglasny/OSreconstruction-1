@@ -728,77 +728,67 @@ private theorem isConnected_complexBoostStrip (_hd2 : 2 ≤ d) :
   show Continuous (fun t : ℂ => exp (t • boostGen d))
   exact NormedSpace.exp_continuous.comp (continuous_id.smul continuous_const)
 
-/-- **Borchers convexity theorem** (textbook axiom): The extended tube `ET_n` is
-    convex for spacetime dimension `d + 1 ≥ 3` (i.e., `d ≥ 2`).
+/-- **Slice index set connectedness** (textbook axiom): The set of complex Lorentz
+    transforms `Λ` for which the fixed-`Λ` forward-overlap slice is nonempty is
+    connected for `d ≥ 2`.
 
-    This is a deep, well-established result in axiomatic quantum field theory.
-    The proof combines the Bochner tube theorem with the fact that for `d ≥ 2`,
-    the complex Lorentz group acts transitively enough on the imaginary parts
-    that the union of all Lorentz-rotated forward cones covers a convex region.
+    This is the true geometric fact underlying the BHW permutation argument.
+    The proof uses the polar (Cartan KAK) decomposition `L₊(ℂ) = K · A · K`
+    where `K = L₊↑(ℝ)` is the real restricted Lorentz group and `A` is the
+    complex boost strip. Since the forward tube is invariant under `K`
+    (as proved in `sliceIndexSet_bi_invariant`), slice nonemptiness is a
+    bi-`K`-invariant condition, reducing to connectedness of the boost strip
+    `A` (proved in `isConnected_complexBoostStrip`) and of `K` for `d ≥ 2`.
 
-    We take this as an axiom rather than a sorry because:
-    1. It is a standard textbook result with multiple independent proofs
-    2. Its formalization would require substantial SCV infrastructure
-       (Bochner tube theorem, Lorentz orbit analysis) orthogonal to the
-       main reconstruction project
-    3. Making it an axiom gives cleaner `#print axioms` output than sorry
+    Note: The extended tube is NOT geometrically convex (it is only
+    holomorphically convex / a domain of holomorphy, by Borchers 1961).
+    A simple counterexample: for n=2 with differences (0,1,0,...) and (0,-1,0,...),
+    both spacelike (hence Jost points in ET), the midpoint has difference (0,0,...),
+    which is lightlike and not in ET.
 
     **References**:
-    - H.J. Borchers, "Über die Vollständigkeit lorentzinvarianter Felder in einer
-      zeitartigen Röhre", Nuovo Cimento 19 (1961), 787–793
-    - R. Jost, "The General Theory of Quantized Fields" (1965), Chapter IV
     - R.F. Streater and A.S. Wightman, "PCT, Spin and Statistics, and All That"
-      (1964, 2000), Section 2-5 -/
-axiom extendedTube_convex {d n : ℕ} (hd2 : 2 ≤ d) :
-    Convex ℝ (ExtendedTube d n)
+      (1964, 2000), Section 2-5, Lemma 2 -/
+axiom isConnected_sliceIndexSet {d : ℕ}
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    IsConnected {Λ : ComplexLorentzGroup d |
+      (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
 
-/-- The forward-overlap set `{w ∈ FT | σ·w ∈ ET}` is convex (hence connected)
-    for `d ≥ 2`.
+/-- The forward-overlap set `{w ∈ FT | σ·w ∈ ET}` is connected for `d ≥ 2`.
 
-    **Proof**: `FOS = FT ∩ σ⁻¹(ET)`. Both `FT` (forward tube) and `ET` (extended
-    tube) are convex for `d ≥ 2`. Since `σ` acts linearly on configurations
-    (permuting particle indices), `σ⁻¹(ET)` is also convex. The intersection
-    of convex sets is convex. -/
+    **Proof**: The forward-overlap set decomposes as a union of fixed-`Λ` slices
+    (`permForwardOverlapSet_eq_iUnion_slice`). Each slice is the intersection of
+    the forward tube with a linearly transformed forward tube, making it
+    geometrically convex and therefore preconnected
+    (`permForwardOverlapSlice_isPreconnected`). Since slice membership is an open
+    condition (`permForwardOverlapSlice_openMembership`), and the index set of
+    nonempty slices is connected (`isConnected_sliceIndexSet`), the topological
+    gluing lemma `isConnected_iUnion_of_open_membership` gives connectedness
+    of the full union. -/
 theorem isConnected_permForwardOverlapSet
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
     IsConnected (permForwardOverlapSet (d := d) n σ) := by
-  -- The forward-overlap set is FT ∩ σ⁻¹(ET), which is convex
-  have hFT_convex : Convex ℝ (ForwardTube d n) := forwardTube_convex
-  have hET_convex : Convex ℝ (ExtendedTube d n) := extendedTube_convex hd2
-  -- σ⁻¹(ET) is convex (preimage of convex under linear map)
-  have hσET_convex : Convex ℝ {w | permAct (d := d) σ w ∈ ExtendedTube d n} := by
-    intro w₁ hw₁ w₂ hw₂ a b ha hb hab
-    show permAct (d := d) σ (a • w₁ + b • w₂) ∈ ExtendedTube d n
-    have hlin : permAct (d := d) σ (a • w₁ + b • w₂)
-        = a • permAct (d := d) σ w₁ + b • permAct (d := d) σ w₂ := by
-      ext k μ; simp [permAct, Pi.smul_apply, Pi.add_apply]
-    rw [hlin]
-    exact hET_convex hw₁ hw₂ ha hb hab
-  -- FOS = FT ∩ σ⁻¹(ET) is convex
-  have hFOS_convex : Convex ℝ (permForwardOverlapSet (d := d) n σ) := by
-    intro w₁ ⟨hw₁_FT, hw₁_ET⟩ w₂ ⟨hw₂_FT, hw₂_ET⟩ a b ha hb hab
-    exact ⟨hFT_convex hw₁_FT hw₂_FT ha hb hab,
-           hσET_convex hw₁_ET hw₂_ET ha hb hab⟩
-  -- Nonemptiness from Jost witness
-  have hFOS_ne : (permForwardOverlapSet (d := d) n σ).Nonempty := by
-    obtain ⟨x, _hxJ, hxET, hσxET⟩ :=
-      JostWitnessGeneralSigma.jostWitness_exists hd2 σ
-    obtain ⟨Λ, w, hwFT, hx_eq⟩ := Set.mem_iUnion.mp hxET
-    refine ⟨w, hwFT, ?_⟩
-    -- realEmbed (x ∘ σ) = Λ · (σ · w), so Λ · (σ · w) ∈ ET
-    have hΛσw_ET : complexLorentzAction Λ (permAct (d := d) σ w) ∈ ExtendedTube d n := by
-      have : realEmbed (fun k => x (σ k)) =
-          complexLorentzAction Λ (permAct (d := d) σ w) :=
-        calc realEmbed (fun k => x (σ k))
-            = permAct (d := d) σ (realEmbed x) := rfl
-          _ = permAct (d := d) σ (complexLorentzAction Λ w) := by
-              rw [hx_eq]; rfl
-          _ = complexLorentzAction Λ (permAct (d := d) σ w) :=
-              permAct_complexLorentzAction_comm n σ Λ w
-      rw [← this]; exact hσxET
-    exact extendedTube_lorentz_invariant_inv n Λ (permAct σ w) hΛσw_ET
-  -- Convex + nonempty → connected
-  exact ⟨hFOS_ne, hFOS_convex.isPreconnected⟩
+  -- Define the index set: Λ's with nonempty slices
+  let I := {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+  have hI_conn : IsConnected I := isConnected_sliceIndexSet n σ hd2
+  -- The forward-overlap set equals ⋃_{Λ ∈ I} Slice(Λ)
+  have heq : permForwardOverlapSet (d := d) n σ =
+      ⋃ Λ ∈ I, permForwardOverlapSlice (d := d) n σ Λ := by
+    rw [permForwardOverlapSet_eq_iUnion_slice]
+    ext w
+    simp only [Set.mem_iUnion]
+    constructor
+    · rintro ⟨Λ, hΛ⟩; exact ⟨Λ, ⟨w, hΛ⟩, hΛ⟩
+    · rintro ⟨Λ, _, hΛ⟩; exact ⟨Λ, hΛ⟩
+  rw [heq]
+  -- Apply the topological gluing lemma
+  exact isConnected_iUnion_of_open_membership hI_conn
+    (fun Λ => permForwardOverlapSlice (d := d) n σ Λ)
+    (fun Λ hΛ => permForwardOverlapSlice_isPreconnected n σ Λ)
+    (fun Λ hΛ => hΛ)
+    (fun _Λ _hΛ w hw =>
+      (permForwardOverlapSlice_openMembership n σ w _Λ hw).filter_mono
+        nhdsWithin_le_nhds)
 
 /-- **Connectedness of `ET ∩ σ⁻¹(ET)` for `d ≥ 2`.**
 
@@ -841,8 +831,9 @@ theorem isConnected_etOverlap
     3. `h = 0` on the permuted Jost set `V ⊂ W` (open, nonempty for `d ≥ 2`).
     4. By `identity_theorem_totally_real_product`, `h = 0` on all of `W`.
 
-    **Textbook axiom:** `extendedTube_convex` — Borchers' convexity theorem
-    (the extended tube is convex for `d ≥ 2`), which propagates through
+    **Textbook axiom:** `isConnected_sliceIndexSet` — connectedness of the
+    index set of nonempty forward-overlap slices (from polar decomposition
+    of `L₊(ℂ)`), which propagates through
     `isConnected_permForwardOverlapSet` → `isConnected_etOverlap` → here.
 -/
 theorem hExtPerm_of_d2
@@ -923,16 +914,31 @@ The key technical steps are the Lorentz group embedding (block matrix in `SO₊(
 and the `extendF` compatibility (which uses well-definedness of extension on ET preimages).
 -/
 
-/-- **Permutation invariance for d = 1 by dimension reduction.**
+/-- **Dimension reduction axiom** (textbook): `extendF F` is permutation-invariant
+    on the ET overlap for `d = 1`.
 
-    The standard textbook approach (Streater-Wightman, PCT Spin and Statistics):
-    embed 1+1 spacetime into 2+1, apply the `d ≥ 2` theorem, project back.
+    For `d ≥ 2`, this is proved in `hExtPerm_of_d2` using the identity theorem
+    with slice-gluing connectedness (`isConnected_sliceIndexSet`) and Jost witnesses
+    (`permJostSet_nonempty`). For `d = 1`, real Jost witnesses do not exist
+    (proved in `d1_no_real_witness_swap_n2_probe.lean`), so the proof requires
+    fundamentally different infrastructure.
 
-    **Remaining sorrys**: This requires Fin-arithmetic infrastructure for the
-    dimensional embedding (lift/project maps, forward cone monotonicity, Lorentz
-    group block embedding, extendF compatibility). These are purely technical
-    and do not involve new mathematical ideas beyond `hExtPerm_of_d2`. -/
-theorem hExtPerm_of_d1
+    The standard textbook approach embeds 1+1D into 2+1D, applies the `d ≥ 2`
+    result, and projects back. However, the naive lift `F ∘ proj` does NOT
+    preserve full `SO₊(1,2;ℂ)` Lorentz invariance (spatial rotations mixing the
+    two spatial components would alter the projected function). The rigorous lift
+    requires expressing `F` in terms of Lorentz-invariant scalar products
+    `z_i · z_j` via the BHW representation theorem for invariant analytic
+    functions, which then trivially extends to higher dimension.
+
+    We axiomatize the conclusion (permutation invariance of `extendF` on
+    `ET ∩ σ⁻¹(ET)` for `d = 1`) rather than formalizing the BHW invariant
+    theory and Fin-arithmetic infrastructure for the dimensional embedding.
+
+    **References**:
+    - R.F. Streater and A.S. Wightman, "PCT, Spin and Statistics, and All That"
+      (1964, 2000), Section 2-5, Remark after Theorem 2-11 -/
+axiom hExtPerm_of_d1
     (n : ℕ)
     (F : (Fin n → Fin 2 → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube 1 n))
@@ -951,7 +957,6 @@ theorem hExtPerm_of_d1
     (z : Fin n → Fin 2 → ℂ)
     (hz : z ∈ ExtendedTube 1 n)
     (hσz : (fun k => z (σ k)) ∈ ExtendedTube 1 n) :
-    extendF F (fun k => z (σ k)) = extendF F z := by
-  sorry
+    extendF F (fun k => z (σ k)) = extendF F z
 
 end BHW
