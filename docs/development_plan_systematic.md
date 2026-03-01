@@ -7,9 +7,11 @@ This document is the active execution plan for closing `sorry`s on the OS recons
 ## 1. Baseline Facts
 
 - `bargmann_hall_wightman` is now a theorem (not an axiom), delegated through `Bridge/AxiomBridge.lean`.
-- Project-wide `axiom` declarations: `2` (in `ComplexLieGroups/Connectedness/BHWPermutation/OverlapConnected.lean`).
-  - `isConnected_sliceIndexSet` — Lie group topology (KAK polar decomposition, d ≥ 2)
+- Project-wide `axiom` declarations: `3` (in `ComplexLieGroups/Connectedness/BHWPermutation/OverlapConnected.lean`).
+  - `complexLorentzGroup_KAK` — Cartan/KAK decomposition for L₊(ℂ) (d ≥ 2)
+  - `isConnected_boostStrip_inter_sliceIndexSet` — boost restriction connected (d ≥ 2)
   - `hExtPerm_of_d1` — dimension reduction for d=1 (via BHW invariant theory)
+- `isConnected_sliceIndexSet` is now a **theorem** derived from axioms 1a + 1b.
 - BHW-critical sorrys in `ComplexLieGroups`: **0** (all eliminated 2026-03-01).
 - See `ComplexLieGroups/Connectedness/BHWPermutation/STATUS.md` for axiom elimination plan.
 
@@ -22,11 +24,11 @@ Counts verified on 2026-02-27 with:
 |---|---:|
 | `OSReconstruction/Wightman` | 43 |
 | `OSReconstruction/SCV` | 14 |
-| `OSReconstruction/ComplexLieGroups` | 0 (+ 2 axioms) |
+| `OSReconstruction/ComplexLieGroups` | 0 (+ 3 axioms) |
 | `OSReconstruction/vNA` | 40 |
 | **Total** | **99** |
 
-Critical path total: **48** (`Wightman` critical subset 34 + `SCV` 14 + `ComplexLieGroups` 0 sorrys/2 axioms).
+Critical path total: **48** (`Wightman` critical subset 34 + `SCV` 14 + `ComplexLieGroups` 0 sorrys/3 axioms).
 
 ## 3. Phase Plan
 
@@ -35,12 +37,15 @@ Critical path total: **48** (`Wightman` critical subset 34 + `SCV` 14 + `Complex
 **Status (2026-03-01):** All sorrys eliminated. BHW theorem compiles with 2 axioms.
 
 Remaining axioms (see `ComplexLieGroups/Connectedness/BHWPermutation/STATUS.md`):
-1. `isConnected_sliceIndexSet` — pure Lie group topology (KAK decomposition)
+1a. `complexLorentzGroup_KAK` — Cartan/KAK decomposition (pure Lie theory)
+1b. `isConnected_boostStrip_inter_sliceIndexSet` — boost restriction connected
 2. `hExtPerm_of_d1` — dimension reduction (d=1 algebraic invariant theory)
+
+`isConnected_sliceIndexSet` is now a theorem (derived from 1a + 1b + bi-invariance).
 
 Checklist:
 - [ ] Prove KAK polar decomposition for L₊(ℂ) (matrix logarithm on symmetric space).
-- [ ] Prove `isConnected_sliceIndexSet` from polar decomposition + existing bi-invariance.
+- [ ] Prove boost strip intersection connectedness (likely follows from path-connectedness + openness).
 - [ ] (Optional) Prove d=1 algebraic invariant theory (SO₊(1,1;ℂ) ≅ ℂˣ, lightcone coordinates).
 - [ ] (Optional) Prove `hExtPerm_of_d1` via dimensional embedding + `hExtPerm_of_d2`.
 - [ ] (Alternative) Restrict BHW theorem to d ≥ 2, eliminating axiom 2 entirely.

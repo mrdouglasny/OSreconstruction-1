@@ -22,11 +22,11 @@ Count convention in this file: direct tactic holes only, i.e.
 |-------|-----------------------|
 | `OSReconstruction/Wightman` | 43 |
 | `OSReconstruction/SCV` | 14 |
-| `OSReconstruction/ComplexLieGroups` | 0 (+ 2 axioms) |
+| `OSReconstruction/ComplexLieGroups` | 0 (+ 3 axioms) |
 | `OSReconstruction/vNA` | 40 |
 | **Whole project** | **99** |
 
-Critical-path (OS theorem path + immediate prerequisites) direct total: **48** (+ 2 axioms in ComplexLieGroups).
+Critical-path (OS theorem path + immediate prerequisites) direct total: **48** (+ 3 axioms in ComplexLieGroups).
 
 ## Flow Chart Toward OS Reconstruction
 

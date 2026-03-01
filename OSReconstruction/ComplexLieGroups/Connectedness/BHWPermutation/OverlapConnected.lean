@@ -728,31 +728,106 @@ private theorem isConnected_complexBoostStrip (_hd2 : 2 ≤ d) :
   show Continuous (fun t : ℂ => exp (t • boostGen d))
   exact NormedSpace.exp_continuous.comp (continuous_id.smul continuous_const)
 
-/-- **Slice index set connectedness** (textbook axiom): The set of complex Lorentz
-    transforms `Λ` for which the fixed-`Λ` forward-overlap slice is nonempty is
-    connected for `d ≥ 2`.
+/-- **Cartan KAK decomposition** (textbook axiom): Every element of the complex
+    Lorentz group `L₊(ℂ)` factors as `k₁ · a · k₂` where `k₁, k₂` are real
+    restricted Lorentz transforms and `a` is a complex boost.
 
-    This is the true geometric fact underlying the BHW permutation argument.
-    The proof uses the polar (Cartan KAK) decomposition `L₊(ℂ) = K · A · K`
-    where `K = L₊↑(ℝ)` is the real restricted Lorentz group and `A` is the
-    complex boost strip. Since the forward tube is invariant under `K`
-    (as proved in `sliceIndexSet_bi_invariant`), slice nonemptiness is a
-    bi-`K`-invariant condition, reducing to connectedness of the boost strip
-    `A` (proved in `isConnected_complexBoostStrip`) and of `K` for `d ≥ 2`.
+    This is the polar decomposition for the symmetric space
+    `L₊(ℂ) / L₊↑(ℝ)`, a standard result in Lie group theory. The proof
+    requires matrix logarithm on the symmetric space, or equivalently the
+    Cartan involution / Iwasawa decomposition for semisimple Lie groups.
 
-    Note: The extended tube is NOT geometrically convex (it is only
-    holomorphically convex / a domain of holomorphy, by Borchers 1961).
-    A simple counterexample: for n=2 with differences (0,1,0,...) and (0,-1,0,...),
-    both spacelike (hence Jost points in ET), the midpoint has difference (0,0,...),
-    which is lightlike and not in ET.
+    **References**:
+    - S. Helgason, "Differential Geometry, Lie Groups, and Symmetric Spaces"
+      (1978), Chapter VI, Theorem 1.1
+    - A.W. Knapp, "Lie Groups Beyond an Introduction" (2002), §VII.3 -/
+axiom complexLorentzGroup_KAK {d : ℕ} (hd2 : 2 ≤ d)
+    (Λ : ComplexLorentzGroup d) :
+    ∃ (k₁ k₂ : RestrictedLorentzGroup d) (a : ComplexLorentzGroup d),
+      a ∈ complexBoostStrip d ∧
+      Λ = ComplexLorentzGroup.ofReal k₁ * a * ComplexLorentzGroup.ofReal k₂
+
+/-- **Boost-strip restriction connectedness** (textbook axiom): The intersection
+    of the complex boost strip with the slice index set is connected for `d ≥ 2`.
+
+    The boost strip `A = {exp(tK) | t ∈ ℂ}` is isomorphic to `ℂ`, and the
+    slice index set is open (from `isOpen_permForwardOverlapIndexSet`). The
+    intersection `A ∩ I` is therefore open in `ℂ`. Its connectedness follows
+    from the specific geometry of the forward light cone and boost action:
+    the set of boost parameters `t` for which `exp(tK)` has a nonempty slice
+    forms a connected open region in `ℂ` (a horizontal strip `|Im(t)| < π`
+    in suitable coordinates).
 
     **References**:
     - R.F. Streater and A.S. Wightman, "PCT, Spin and Statistics, and All That"
       (1964, 2000), Section 2-5, Lemma 2 -/
-axiom isConnected_sliceIndexSet {d : ℕ}
+axiom isConnected_boostStrip_inter_sliceIndexSet {d : ℕ}
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    IsConnected (complexBoostStrip d ∩
+      {Λ : ComplexLorentzGroup d |
+        (permForwardOverlapSlice (d := d) n σ Λ).Nonempty})
+
+/-- The slice index set is connected for `d ≥ 2`.
+
+    **Proof**: By the KAK decomposition (`complexLorentzGroup_KAK`), every
+    element of the index set `I` factors as `k₁ · a · k₂`. By bi-invariance
+    (`sliceIndexSet_bi_invariant_rev`), the boost part `a` is also in `I`.
+    So `I` is the image of `K × (A ∩ I) × K` under the continuous
+    multiplication map `(k₁, a, k₂) ↦ ofReal(k₁) * a * ofReal(k₂)`.
+    Since `K` is path-connected (`RestrictedLorentzGroup.isPathConnected`)
+    and `A ∩ I` is connected (`isConnected_boostStrip_inter_sliceIndexSet`),
+    the product is connected, and so is its continuous image.
+
+    Note: The extended tube is NOT geometrically convex (only holomorphically
+    convex). Counterexample: spacelike differences (0,1,0,...) and (0,-1,0,...),
+    midpoint (0,0,...) is lightlike and not in ET. -/
+theorem isConnected_sliceIndexSet {d : ℕ}
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
     IsConnected {Λ : ComplexLorentzGroup d |
-      (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+      (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} := by
+  -- Abbreviations
+  let I := {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+  let B := complexBoostStrip d ∩ I
+  -- Step 1: B is connected (axiom 2)
+  have hB_conn : IsConnected B := isConnected_boostStrip_inter_sliceIndexSet n σ hd2
+  -- Step 2: K is path-connected
+  haveI : PathConnectedSpace (RestrictedLorentzGroup d) :=
+    pathConnectedSpace_iff_univ.mpr (RestrictedLorentzGroup.isPathConnected d)
+  -- Step 3: The multiplication map
+  --   f : K × {a // a ∈ B} × K → ComplexLorentzGroup d
+  --   f(k₁, a, k₂) = ofReal(k₁) * a * ofReal(k₂)
+  -- is continuous
+  let f : RestrictedLorentzGroup d × {a : ComplexLorentzGroup d // a ∈ B} ×
+      RestrictedLorentzGroup d → ComplexLorentzGroup d :=
+    fun p => ComplexLorentzGroup.ofReal p.1 * p.2.1.val * ComplexLorentzGroup.ofReal p.2.2
+  have hf_cont : Continuous f := by
+    apply Continuous.mul
+    · apply Continuous.mul
+      · exact continuous_ofReal.comp continuous_fst
+      · exact continuous_subtype_val.comp (continuous_fst.comp continuous_snd)
+    · exact continuous_ofReal.comp (continuous_snd.comp continuous_snd)
+  -- Step 4: f maps into I (by sliceIndexSet_bi_invariant)
+  have hf_mem : ∀ p, f p ∈ I := by
+    intro ⟨k₁, ⟨a, haB⟩, k₂⟩
+    exact sliceIndexSet_bi_invariant n σ a k₁ k₂ haB.2
+  -- Step 5: f is surjective onto I (by KAK + bi_invariant_rev)
+  have hf_surj : ∀ Λ ∈ I, ∃ p, f p = Λ := by
+    intro Λ hΛ
+    obtain ⟨k₁, k₂, a, haA, rfl⟩ := complexLorentzGroup_KAK hd2 Λ
+    have ha_I : a ∈ I := sliceIndexSet_bi_invariant_rev n σ a k₁ k₂ hΛ
+    exact ⟨⟨k₁, ⟨a, haA, ha_I⟩, k₂⟩, rfl⟩
+  -- Step 6: The domain K × B × K is connected
+  --   K is connected (path-connected), B is connected, product is connected
+  haveI : ConnectedSpace {a : ComplexLorentzGroup d // a ∈ B} :=
+    isConnected_iff_connectedSpace.mp hB_conn
+  -- Step 7: I = range f, which is connected (continuous image of connected)
+  have hI_eq : Set.range f =
+      {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} := by
+    ext Λ; constructor
+    · rintro ⟨p, rfl⟩; exact hf_mem p
+    · intro hΛ; obtain ⟨p, hp⟩ := hf_surj Λ hΛ; exact ⟨p, hp⟩
+  rw [← hI_eq]
+  exact isConnected_range hf_cont
 
 /-- The forward-overlap set `{w ∈ FT | σ·w ∈ ET}` is connected for `d ≥ 2`.
 

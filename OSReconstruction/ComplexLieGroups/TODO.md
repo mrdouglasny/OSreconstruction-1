@@ -42,9 +42,11 @@ All `sorry`s removed in `JostPoints.lean`.
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness/* — 0 sorrys, 2 axioms ✓
-All sorrys eliminated. The BHW theorem depends on two textbook axioms:
-1. `isConnected_sliceIndexSet` — Lie group topology (KAK polar decomposition)
+### Connectedness/* — 0 sorrys, 3 axioms ✓
+All sorrys eliminated. `isConnected_sliceIndexSet` is now a theorem.
+The BHW theorem depends on three axioms:
+1a. `complexLorentzGroup_KAK` — Cartan/KAK decomposition (pure Lie theory, d ≥ 2)
+1b. `isConnected_boostStrip_inter_sliceIndexSet` — boost restriction connected (d ≥ 2)
 2. `hExtPerm_of_d1` — dimension reduction for d=1 (via BHW invariant theory)
 
 See `Connectedness/BHWPermutation/STATUS.md` for full analysis and elimination plan.
@@ -171,7 +173,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 0 sorrys, 2 axioms across `OverlapConnected.lean`**
+**Total: 0 sorrys, 3 axioms across `OverlapConnected.lean`**
 
 ---
 
