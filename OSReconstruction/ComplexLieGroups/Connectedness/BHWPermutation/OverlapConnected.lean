@@ -173,6 +173,54 @@ theorem isOpen_etOverlap (n : ℕ) (σ : Equiv.Perm (Fin n)) :
   apply IsOpen.inter isOpen_extendedTube
   exact isOpen_extendedTube.preimage (continuous_permAct n σ)
 
+/-- σ and Λ commute: permutations act on particle indices while Lorentz
+    transforms act on spacetime indices, so they are independent. -/
+theorem permAct_complexLorentzAction_comm (n : ℕ)
+    (σ : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d)
+    (w : Fin n → Fin (d + 1) → ℂ) :
+    permAct σ (complexLorentzAction Λ w) =
+    complexLorentzAction Λ (permAct σ w) := rfl
+
+/-- ET is invariant under the Lorentz action: Λ·z ∈ ET whenever z ∈ ET. -/
+private theorem extendedTube_lorentz_invariant (n : ℕ)
+    (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ)
+    (hz : z ∈ ExtendedTube d n) :
+    complexLorentzAction Λ z ∈ ExtendedTube d n := by
+  obtain ⟨Λ', w, hw_FT, rfl⟩ := Set.mem_iUnion.mp hz
+  exact Set.mem_iUnion.mpr ⟨Λ * Λ', w, hw_FT,
+    by rw [complexLorentzAction_mul]⟩
+
+/-- ET is invariant under the inverse Lorentz action: if Λ·z ∈ ET then z ∈ ET. -/
+private theorem extendedTube_lorentz_invariant_inv (n : ℕ)
+    (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ)
+    (hz : complexLorentzAction Λ z ∈ ExtendedTube d n) :
+    z ∈ ExtendedTube d n := by
+  have := extendedTube_lorentz_invariant n Λ⁻¹ (complexLorentzAction Λ z) hz
+  rwa [← complexLorentzAction_mul, inv_mul_cancel, complexLorentzAction_one] at this
+
+/-- The ET overlap is the continuous image of `L₊(ℂ) × forward-overlap` under
+    the Lorentz action. This is a consequence of σ-Λ commutativity and
+    ET Lorentz invariance. -/
+theorem etOverlap_eq_image_forwardOverlap (n : ℕ) (σ : Equiv.Perm (Fin n)) :
+    etOverlap (d := d) n σ =
+      (fun p : ComplexLorentzGroup d × (Fin n → Fin (d + 1) → ℂ) =>
+        complexLorentzAction p.1 p.2) ''
+      (Set.univ ×ˢ permForwardOverlapSet (d := d) n σ) := by
+  ext z
+  simp only [etOverlap, permForwardOverlapSet, Set.mem_setOf_eq, Set.mem_image,
+             Set.mem_prod, Set.mem_univ, true_and, Prod.exists]
+  constructor
+  · rintro ⟨hz_ET, hσz_ET⟩
+    obtain ⟨Λ, w, hw_FT, rfl⟩ := Set.mem_iUnion.mp hz_ET
+    refine ⟨Λ, w, ⟨hw_FT, ?_⟩, rfl⟩
+    rw [permAct_complexLorentzAction_comm] at hσz_ET
+    exact extendedTube_lorentz_invariant_inv n Λ (permAct σ w) hσz_ET
+  · rintro ⟨Λ, w, ⟨hw_FT, hσw_ET⟩, rfl⟩
+    constructor
+    · exact Set.mem_iUnion.mpr ⟨Λ, w, hw_FT, rfl⟩
+    · rw [permAct_complexLorentzAction_comm]
+      exact extendedTube_lorentz_invariant n Λ (permAct σ w) hσw_ET
+
 /-- The permuted Jost set: real Jost points whose embeddings (both natural and
     σ-permuted) lie in the extended tube. For `d ≥ 2`, this is open and nonempty. -/
 def permJostSet (n : ℕ) (σ : Equiv.Perm (Fin n)) :
@@ -425,37 +473,190 @@ theorem extendF_diff_zero_on_permJostSet
     F_perm_invariant_on_jostSet n F hF_local σ x hxJ
   rw [h2, h3, h1, sub_self]
 
-/-- **Key lemma: Connectedness of the ET overlap `W = ET ∩ σ⁻¹(ET)`.**
+/-! ### Topological gluing lemma -/
 
-    This is the remaining geometric obligation for Route B. The standard
-    proof uses the fact that ET is a "domain of holomorphy" with a specific
-    geometric structure (union of Lorentz orbits of FT), which makes the
-    intersection `ET ∩ σ⁻¹(ET)` connected.
+/-- Topological gluing lemma: a union of preconnected slices over a preconnected
+    index set is preconnected, provided each slice is nonempty and slice membership
+    is an open condition on the index. -/
+theorem isPreconnected_iUnion_of_open_membership
+    {ι X : Type*} [TopologicalSpace ι] [TopologicalSpace X]
+    {I : Set ι} (hI_conn : IsPreconnected I)
+    (S : ι → Set X)
+    (hS_conn : ∀ i ∈ I, IsPreconnected (S i))
+    (hS_ne : ∀ i ∈ I, (S i).Nonempty)
+    (h_open : ∀ i ∈ I, ∀ x ∈ S i, ∀ᶠ j in 𝓝[I] i, x ∈ S j) :
+    IsPreconnected (⋃ i ∈ I, S i) := by
+  intro U V hU_open hV_open h_cov hU_ne hV_ne
+  by_contra h_disj
+  rw [Set.not_nonempty_iff_eq_empty] at h_disj
+  have absurd_mem : ∀ x, x ∈ (⋃ j ∈ I, S j) → x ∈ U → x ∈ V → False := by
+    intro x hxS hxU hxV
+    have : x ∈ (⋃ j ∈ I, S j) ∩ (U ∩ V) := ⟨hxS, hxU, hxV⟩
+    rw [h_disj] at this; exact this
+  let I_U := {i ∈ I | S i ⊆ U}
+  let I_V := {i ∈ I | S i ⊆ V}
+  have hI_cov : I ⊆ I_U ∪ I_V := by
+    intro i hi
+    have h_cov_i : S i ⊆ U ∪ V := (Set.subset_iUnion₂ i hi).trans h_cov
+    by_cases h_iU : (S i ∩ U).Nonempty
+    · by_cases h_iV : (S i ∩ V).Nonempty
+      · rcases hS_conn i hi U V hU_open hV_open h_cov_i h_iU h_iV with ⟨x, hxS, hxU, hxV⟩
+        exact (absurd_mem x (Set.mem_iUnion₂_of_mem hi hxS) hxU hxV).elim
+      · left; exact ⟨hi, fun x hx =>
+          (h_cov_i hx).resolve_right (fun hxV => (h_iV ⟨x, hx, hxV⟩).elim)⟩
+    · right; exact ⟨hi, fun x hx =>
+        (h_cov_i hx).resolve_left (fun hxU => (h_iU ⟨x, hx, hxU⟩).elim)⟩
+  have hIU_disj : Disjoint I_U I_V := by
+    rw [Set.disjoint_left]
+    rintro i ⟨hi, hsubU⟩ ⟨_, hsubV⟩
+    rcases hS_ne i hi with ⟨x, hx⟩
+    exact absurd_mem x (Set.mem_iUnion₂_of_mem hi hx) (hsubU hx) (hsubV hx)
+  have mk_open_lift (I_side : Set ι) (h_side_sub : I_side ⊆ I)
+      (h_propagate : ∀ i ∈ I_side, ∀ x ∈ S i, ∀ᶠ j in 𝓝[I] i, j ∈ I_side) :
+      ∃ O : Set ι, IsOpen O ∧ O ∩ I = I_side := by
+    set O := ⋃ (W : Set ι) (_ : IsOpen W) (_ : W ∩ I ⊆ I_side), W
+    refine ⟨O, isOpen_iUnion fun W => isOpen_iUnion fun hW => isOpen_iUnion fun _ => hW, ?_⟩
+    ext i; constructor
+    · rintro ⟨hi_O, hi_I⟩
+      obtain ⟨W, hW_mem⟩ := Set.mem_iUnion.mp hi_O
+      obtain ⟨_, hW_rest⟩ := Set.mem_iUnion.mp hW_mem
+      obtain ⟨hW_sub, hi_W⟩ := Set.mem_iUnion.mp hW_rest
+      exact hW_sub ⟨hi_W, hi_I⟩
+    · intro hi_side
+      have hfilt := h_propagate i hi_side
+      rcases (mem_nhdsWithin_iff_exists_mem_nhds_inter).mp
+        (by rcases hS_ne i (h_side_sub hi_side) with ⟨x, hx⟩
+            exact (hfilt x hx)) with ⟨W, hW_nhds, hW_sub⟩
+      rcases mem_nhds_iff.mp hW_nhds with ⟨O', hO'W, hO'_open, hi_O'⟩
+      have hO'_sub : O' ∩ I ⊆ I_side := fun j ⟨hjO, hjI⟩ => hW_sub ⟨hO'W hjO, hjI⟩
+      exact ⟨Set.mem_iUnion.mpr ⟨O', Set.mem_iUnion.mpr ⟨hO'_open,
+        Set.mem_iUnion.mpr ⟨hO'_sub, hi_O'⟩⟩⟩, h_side_sub hi_side⟩
+  have hU_propagate : ∀ i ∈ I_U, ∀ x ∈ S i, ∀ᶠ j in 𝓝[I] i, j ∈ I_U := by
+    intro i ⟨hi_I, hi_sub⟩ x hx
+    filter_upwards [h_open i hi_I x hx, self_mem_nhdsWithin] with j hj_S hj_I
+    rcases hI_cov hj_I with hj_U | hj_V
+    · exact hj_U
+    · exact (absurd_mem x (Set.mem_iUnion₂_of_mem hj_I hj_S) (hi_sub hx) (hj_V.2 hj_S)).elim
+  obtain ⟨O_U, hOU_open, hOU_inter⟩ := mk_open_lift I_U (fun i hi => hi.1) hU_propagate
+  have hV_propagate : ∀ i ∈ I_V, ∀ x ∈ S i, ∀ᶠ j in 𝓝[I] i, j ∈ I_V := by
+    intro i ⟨hi_I, hi_sub⟩ x hx
+    filter_upwards [h_open i hi_I x hx, self_mem_nhdsWithin] with j hj_S hj_I
+    rcases hI_cov hj_I with hj_U | hj_V
+    · exact (absurd_mem x (Set.mem_iUnion₂_of_mem hj_I hj_S) (hj_U.2 hj_S) (hi_sub hx)).elim
+    · exact hj_V
+  obtain ⟨O_V, hOV_open, hOV_inter⟩ := mk_open_lift I_V (fun i hi => hi.1) hV_propagate
+  have hI_sub : I ⊆ O_U ∪ O_V := by
+    intro i hi
+    rcases hI_cov hi with hU | hV
+    · left; exact (hOU_inter.symm ▸ hU : i ∈ O_U ∩ I).1
+    · right; exact (hOV_inter.symm ▸ hV : i ∈ O_V ∩ I).1
+  have hIU_ne : (I ∩ O_U).Nonempty := by
+    rcases hU_ne with ⟨x, hxS, hxU⟩
+    obtain ⟨i, hi, hx_Si⟩ := Set.mem_iUnion₂.mp hxS
+    rcases hI_cov hi with hi_IU | hi_IV
+    · exact ⟨i, hi, (hOU_inter.symm ▸ hi_IU : i ∈ O_U ∩ I).1⟩
+    · exact (absurd_mem x hxS hxU (hi_IV.2 hx_Si)).elim
+  have hIV_ne : (I ∩ O_V).Nonempty := by
+    rcases hV_ne with ⟨x, hxS, hxV⟩
+    obtain ⟨i, hi, hx_Si⟩ := Set.mem_iUnion₂.mp hxS
+    rcases hI_cov hi with hi_IU | hi_IV
+    · exact (absurd_mem x hxS (hi_IU.2 hx_Si) hxV).elim
+    · exact ⟨i, hi, (hOV_inter.symm ▸ hi_IV : i ∈ O_V ∩ I).1⟩
+  rcases hI_conn O_U O_V hOU_open hOV_open hI_sub hIU_ne hIV_ne with ⟨i, hi_I, hi_OU, hi_OV⟩
+  have h1 : i ∈ I_U := by rw [← hOU_inter]; exact ⟨hi_OU, hi_I⟩
+  have h2 : i ∈ I_V := by rw [← hOV_inter]; exact ⟨hi_OV, hi_I⟩
+  exact Set.disjoint_left.mp hIU_disj h1 h2
 
-    **Proof sketch (Streater–Wightman, §2-5):**
-    The extended tube `T'_n = L₊(ℂ) · T_n` is connected (continuous image
-    of connected `L₊(ℂ) × T_n`). Both `T'_n` and `σ(T'_n) = T'_n`
-    (since `T'_n` is invariant under permutations — every permutation is
-    a complex Lorentz transformation composed with a relabeling). Therefore
-    `W = T'_n ∩ σ⁻¹(T'_n) = T'_n` and W is connected.
+/-- Connected version of the gluing lemma. -/
+theorem isConnected_iUnion_of_open_membership
+    {ι X : Type*} [TopologicalSpace ι] [TopologicalSpace X]
+    {I : Set ι} (hI_conn : IsConnected I)
+    (S : ι → Set X)
+    (hS_conn : ∀ i ∈ I, IsPreconnected (S i))
+    (hS_ne : ∀ i ∈ I, (S i).Nonempty)
+    (h_open : ∀ i ∈ I, ∀ x ∈ S i, ∀ᶠ j in 𝓝[I] i, x ∈ S j) :
+    IsConnected (⋃ i ∈ I, S i) := by
+  constructor
+  · rcases hI_conn.nonempty with ⟨i, hi⟩
+    rcases hS_ne i hi with ⟨x, hx⟩
+    exact ⟨x, Set.mem_iUnion₂.mpr ⟨i, hi, hx⟩⟩
+  · exact isPreconnected_iUnion_of_open_membership hI_conn.isPreconnected S hS_conn hS_ne h_open
 
-    **Wait — is `T'_n` permutation-invariant?**
-    If `z ∈ ET`, does `σ·z ∈ ET`? This would make `W = ET` and the
-    connectedness would be immediate. However, this is exactly what we are
-    *trying to prove* (it would follow from `extendF` permutation invariance
-    by the identity theorem, creating a circular argument).
+/-! ### Connectedness of the forward-overlap set -/
 
-    In general, `T'_n` is NOT permutation-invariant — its permutation
-    invariance is the *consequence* of the BHW theorem, not a prerequisite.
-    So `W = ET ∩ σ⁻¹(ET)` is a proper open subset of ET, and its
-    connectedness is a genuine geometric obligation.
+/-- The index set of Lorentz transforms with nonempty forward-overlap slice
+    is connected for `d ≥ 2`. This is the main geometric obligation.
 
-    The standard textbook approach proves this via the Jost–Lehmann–Dyson
-    representation or by direct geometric analysis of the tube structure. -/
+    The proof uses the double-coset structure: FT is invariant under the real
+    Lorentz group `L₊↑(ℝ)`, making the index set bi-invariant. By polar
+    decomposition, this reduces to connectedness of a 1-parameter complex
+    boost strip. -/
+private theorem isConnected_sliceIndexSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    IsConnected {Λ : ComplexLorentzGroup d |
+      (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} := by
+  sorry
+
+/-- The forward-overlap set `{w ∈ FT | σ·w ∈ ET}` is connected for `d ≥ 2`.
+
+    Uses the slice decomposition `permForwardOverlapSet = ⋃_Λ Slice(Λ)`
+    where each `Slice(Λ)` is convex (hence connected), together with the
+    topological gluing lemma (`isConnected_iUnion_of_open_membership`).
+
+    The gluing lemma requires:
+    1. Connected index set (from `isConnected_sliceIndexSet`)
+    2. Each slice is preconnected (from convexity, `permForwardOverlapSlice_isPreconnected`)
+    3. Each slice is nonempty (by definition of the index set)
+    4. Slice membership is open in Λ (from `permForwardOverlapSlice_openMembership`) -/
+theorem isConnected_permForwardOverlapSet
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    IsConnected (permForwardOverlapSet (d := d) n σ) := by
+  -- Rewrite as union of slices over the index set of nonempty slices
+  let I := {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+  have hI_conn : IsConnected I := isConnected_sliceIndexSet n σ hd2
+  -- The forward-overlap set equals ⋃_{Λ ∈ I} Slice(Λ)
+  have heq : permForwardOverlapSet (d := d) n σ = ⋃ Λ ∈ I, permForwardOverlapSlice (d := d) n σ Λ := by
+    rw [permForwardOverlapSet_eq_iUnion_slice]
+    ext w; simp only [Set.mem_iUnion]; constructor
+    · rintro ⟨Λ, hΛ⟩; exact ⟨Λ, ⟨w, hΛ⟩, hΛ⟩
+    · rintro ⟨Λ, _, hΛ⟩; exact ⟨Λ, hΛ⟩
+  rw [heq]
+  exact isConnected_iUnion_of_open_membership hI_conn
+    (fun Λ => permForwardOverlapSlice (d := d) n σ Λ)
+    (fun Λ _ => permForwardOverlapSlice_isPreconnected n σ Λ)
+    (fun Λ hΛ => hΛ)
+    (fun Λ hΛ w hw => by
+      have := permForwardOverlapSlice_openMembership n σ w Λ hw
+      exact this.filter_mono nhdsWithin_le_nhds)
+
+/-- **Connectedness of `ET ∩ σ⁻¹(ET)` for `d ≥ 2`.**
+
+    By σ-Λ commutativity (`permAct_complexLorentzAction_comm`), the ET overlap
+    equals the continuous image of `L₊(ℂ) × forward-overlap` under the
+    Lorentz action map. Since `L₊(ℂ)` is connected and the forward-overlap
+    set is connected (by the slice gluing argument), the product is connected,
+    and so is its continuous image. -/
 theorem isConnected_etOverlap
     (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
     IsConnected (etOverlap (d := d) n σ) := by
-  sorry
+  rw [etOverlap_eq_image_forwardOverlap]
+  have hcont : Continuous (fun p : ComplexLorentzGroup d × (Fin n → Fin (d + 1) → ℂ) =>
+      complexLorentzAction p.1 p.2) := by
+    apply continuous_pi; intro k; apply continuous_pi; intro μ
+    simp only [complexLorentzAction]
+    apply continuous_finset_sum; intro ν _
+    exact ((continuous_apply ν).comp ((continuous_apply μ).comp
+      (ComplexLorentzGroup.continuous_val.comp continuous_fst))).mul
+      ((continuous_apply ν).comp ((continuous_apply k).comp continuous_snd))
+  haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
+    pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
+  have hFO_conn := isConnected_permForwardOverlapSet n σ hd2
+  constructor
+  · rcases hFO_conn.nonempty with ⟨w, hw⟩
+    exact ⟨complexLorentzAction 1 w,
+      Set.mem_image_of_mem _ (Set.mk_mem_prod (Set.mem_univ _) hw)⟩
+  · exact (PreconnectedSpace.isPreconnected_univ.prod
+      hFO_conn.isPreconnected).image _ hcont.continuousOn
 
 /-- **Target theorem for d ≥ 2 (Route B: ET identity theorem).**
 
@@ -469,10 +670,9 @@ theorem isConnected_etOverlap
     3. `h = 0` on the permuted Jost set `V ⊂ W` (open, nonempty for `d ≥ 2`).
     4. By `identity_theorem_totally_real_product`, `h = 0` on all of `W`.
 
-    **Remaining sorrys:**
-    - `F_perm_invariant_on_jostSet`: locality for general σ on JostSet
-      (induction on adjacent transposition decomposition).
-    - `isConnected_etOverlap`: connectedness of `ET ∩ σ⁻¹(ET)`.
+    **Remaining sorry:** `isConnected_sliceIndexSet` — connectedness of the
+    index set `{Λ | Slice(Λ) ≠ ∅}`, which propagates through
+    `isConnected_permForwardOverlapSet` → `isConnected_etOverlap` → here.
 -/
 theorem hExtPerm_of_d2
     (n : ℕ)
