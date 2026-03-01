@@ -1,6 +1,7 @@
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.Adjacency
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.IndexSetD1
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.JostWitnessGeneralSigma
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.OverlapConnected
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.SeedSlices
 import OSReconstruction.ComplexLieGroups.D1OrbitSet
 
@@ -397,12 +398,6 @@ private def permExtendedOverlapSet (n : ℕ) (σ : Equiv.Perm (Fin n)) :
 private abbrev permOrbitSeedSet
     (n : ℕ) (σ : Equiv.Perm (Fin n)) : Set (Fin n → Fin (d + 1) → ℂ) :=
   permSeedSet (d := d) n σ
-
-/-- Fixed-`Λ` slice for permutation forward-overlap witnesses. -/
-private def permForwardOverlapSlice
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d) :
-    Set (Fin n → Fin (d + 1) → ℂ) :=
-  {w | w ∈ ForwardTube d n ∧ complexLorentzAction Λ (permAct (d := d) σ w) ∈ ForwardTube d n}
 
 /-- Membership in `permForwardOverlapSet` is equivalent to existence of a fixed-`Λ`
 forward-overlap slice witness. -/
@@ -850,41 +845,6 @@ private theorem isConnected_permForwardOverlapIndexSet_of_real_double_coset_gene
         (ComplexLorentzGroup.ofReal R1 * Λ0 * ComplexLorentzGroup.ofReal R2) := by
     simpa [mul_assoc] using hleft
   exact hright.trans hleft'
-
-/-- Each fixed-`Λ` permutation forward-overlap slice is convex. -/
-private theorem permForwardOverlapSlice_convex
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d) :
-    Convex ℝ (permForwardOverlapSlice (d := d) n σ Λ) := by
-  intro w₁ hw₁ w₂ hw₂ a b ha hb hab
-  refine ⟨forwardTube_convex hw₁.1 hw₂.1 ha hb hab, ?_⟩
-  have hperm_linear :
-      permAct (d := d) σ (a • w₁ + b • w₂)
-        = a • permAct (d := d) σ w₁ + b • permAct (d := d) σ w₂ := by
-    ext k μ
-    simp [permAct, Pi.smul_apply, Pi.add_apply]
-  rw [hperm_linear]
-  have hlin :
-      complexLorentzAction Λ
-          (a • permAct (d := d) σ w₁ + b • permAct (d := d) σ w₂) =
-      a • complexLorentzAction Λ (permAct (d := d) σ w₁) +
-      b • complexLorentzAction Λ (permAct (d := d) σ w₂) := by
-    ext k μ
-    simp only [complexLorentzAction, Pi.add_apply, Pi.smul_apply, Complex.real_smul]
-    trans (↑a * ∑ ν, Λ.val μ ν * (permAct (d := d) σ w₁) k ν +
-        ↑b * ∑ ν, Λ.val μ ν * (permAct (d := d) σ w₂) k ν)
-    · rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
-      congr 1
-      ext ν
-      ring
-    · rfl
-  rw [hlin]
-  exact forwardTube_convex hw₁.2 hw₂.2 ha hb hab
-
-/-- Each fixed-`Λ` permutation forward-overlap slice is preconnected. -/
-private theorem permForwardOverlapSlice_isPreconnected
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (Λ : ComplexLorentzGroup d) :
-    IsPreconnected (permForwardOverlapSlice (d := d) n σ Λ) :=
-  (permForwardOverlapSlice_convex (d := d) n σ Λ).isPreconnected
 
 /-- Connected-index reduction: connectedness of the nonempty-slice index set gives
 refl-transitive overlap chains between any two indices. -/
@@ -2250,16 +2210,19 @@ private theorem iterated_eow_permutation_extension (n : ℕ)
             intro hd2
             simpa using
               JostWitnessGeneralSigma.jostWitness_exists (d := d) (n := n) hd2 σ
-          -- Remaining geometric obligations in the nontrivial branch:
-          -- `hJostWitness_hd2` provides the local witness for `d ≥ 2`.
-          -- ET-overlap invariance is then reduced (directly) to:
-          --   (a) connectedness of `permOrbitSeedSet` for the `d ≥ 2` route,
-          --       converted via `isConnected_permOrbitSeedSet_iff_permForwardOverlapSet`,
-          --       then applied to
-          --       `extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected`,
-          -- plus the separate `d = 1` branch (which cannot use the same real
-          -- Jost-witness mechanism).
-          sorry
+          -- Split on d = 1 vs d ≥ 2
+          by_cases hd_le : d ≤ 1
+          · -- d = 1 branch: requires separate analysis (1+1 spacetime)
+            have hd_eq : d = 1 := by omega
+            subst hd_eq
+            -- d = 1 case: the Jost witness approach and Borchers convexity
+            -- are not available. This requires the d=1 orbit-set analysis
+            -- from IndexSetD1.lean and D1OrbitSet.lean.
+            sorry
+          · -- d ≥ 2 branch: use hExtPerm_of_d2 from OverlapConnected.lean
+            have hd2 : 2 ≤ d := by omega
+            intro z hz hσz
+            exact hExtPerm_of_d2 n F hF_holo hF_lorentz hF_bv hF_local σ hd2 z hz hσz
       exact iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz
         hF_bv hF_local σ hExtPerm
 
