@@ -18,3 +18,7 @@ claude_to_codex.md
 codex_to_claude.md
 /PROGRESS_REPORT.md
 /PROOF_NOTES_*.md
+/MATHLIB_*.md
+/MATHLIB_*.txt
+/mathlib_*.lean
+/history/
