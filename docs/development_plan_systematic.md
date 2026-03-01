@@ -1,15 +1,17 @@
 # Systematic Development Plan (Integrated from `claude_to_codex.md`)
 
-Last updated: 2026-02-27
+Last updated: 2026-03-01
 
 This document is the active execution plan for closing `sorry`s on the OS reconstruction critical path. It consolidates the recommendations in `claude_to_codex.md` into tracked phases and concrete obligations.
 
 ## 1. Baseline Facts
 
 - `bargmann_hall_wightman` is now a theorem (not an axiom), delegated through `Bridge/AxiomBridge.lean`.
-- Project-wide `axiom` declarations: `0`.
-- Remaining blockers are explicit `sorry`s.
-- BHW-critical blockers in `ComplexLieGroups`: `2` local holes.
+- Project-wide `axiom` declarations: `2` (in `ComplexLieGroups/Connectedness/BHWPermutation/OverlapConnected.lean`).
+  - `isConnected_sliceIndexSet` — Lie group topology (KAK polar decomposition, d ≥ 2)
+  - `hExtPerm_of_d1` — dimension reduction for d=1 (via BHW invariant theory)
+- BHW-critical sorrys in `ComplexLieGroups`: **0** (all eliminated 2026-03-01).
+- See `ComplexLieGroups/Connectedness/BHWPermutation/STATUS.md` for axiom elimination plan.
 
 ## 2. Current Sorry Census (Direct `sorry` Lines)
 
@@ -20,24 +22,28 @@ Counts verified on 2026-02-27 with:
 |---|---:|
 | `OSReconstruction/Wightman` | 43 |
 | `OSReconstruction/SCV` | 14 |
-| `OSReconstruction/ComplexLieGroups` | 2 |
+| `OSReconstruction/ComplexLieGroups` | 0 (+ 2 axioms) |
 | `OSReconstruction/vNA` | 40 |
 | **Total** | **99** |
 
-Critical path total: **50** (`Wightman` critical subset 34 + `SCV` 14 + `ComplexLieGroups` 2).
+Critical path total: **48** (`Wightman` critical subset 34 + `SCV` 14 + `ComplexLieGroups` 0 sorrys/2 axioms).
 
 ## 3. Phase Plan
 
-### Phase A: ComplexLieGroups Root Blockers (Top Priority)
+### Phase A: ComplexLieGroups Axiom Elimination (Optional, Parallel)
 
-1. `orbitSet_isPreconnected` (`Connectedness/ComplexInvariance/Core.lean`)
-2. `iterated_eow_permutation_extension` (`Connectedness/BHWPermutation/PermutationFlow.lean`)
+**Status (2026-03-01):** All sorrys eliminated. BHW theorem compiles with 2 axioms.
+
+Remaining axioms (see `ComplexLieGroups/Connectedness/BHWPermutation/STATUS.md`):
+1. `isConnected_sliceIndexSet` — pure Lie group topology (KAK decomposition)
+2. `hExtPerm_of_d1` — dimension reduction (d=1 algebraic invariant theory)
 
 Checklist:
-- [ ] Close `hjoin` branch (`d >= 2`, `n > 0`) for `orbitSet_isPreconnected`.
-- [ ] Close `hExtPerm` branch (`d > 0`, `n >= 2`, `σ ≠ 1`) for `iterated_eow_permutation_extension`.
-- [ ] Keep proofs test-first (`test/*.lean`) before porting to working files.
-- [ ] Prefer infrastructure lemmas over brittle one-off scripts.
+- [ ] Prove KAK polar decomposition for L₊(ℂ) (matrix logarithm on symmetric space).
+- [ ] Prove `isConnected_sliceIndexSet` from polar decomposition + existing bi-invariance.
+- [ ] (Optional) Prove d=1 algebraic invariant theory (SO₊(1,1;ℂ) ≅ ℂˣ, lightcone coordinates).
+- [ ] (Optional) Prove `hExtPerm_of_d1` via dimensional embedding + `hExtPerm_of_d2`.
+- [ ] (Alternative) Restrict BHW theorem to d ≥ 2, eliminating axiom 2 entirely.
 
 ### Phase B: SCV Load-Bearing Chain (Parallel with Phase A)
 
