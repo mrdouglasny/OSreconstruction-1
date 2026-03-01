@@ -1,6 +1,6 @@
 # BHW Permutation Invariance — Status & Axiom Elimination Plan
 
-Last updated: 2026-03-01
+Last updated: 2026-03-02
 
 ## Current State
 
@@ -66,14 +66,18 @@ axiom isConnected_boostStrip_inter_sliceIndexSet {d : ℕ}
 ```
 
 **Mathematical content**: The boost strip intersected with the slice index set
-is connected. Since the boost strip A ≅ ℂ is connected and the slice index set
-is open in A (by `permForwardOverlapSlice_openMembership`), this reduces to
-showing A ∩ I is nonempty — which follows from BHW having nonempty forward overlap.
+is connected.
 
-**Estimated difficulty**: Low-medium. The boost strip is path-connected (proved:
-`isConnected_complexBoostStrip`). The intersection with an open set in a
-path-connected space is connected if it's nonempty and the ambient space is
-locally path-connected.
+**Why it's true**: The boost strip B ≅ ℂ/2πiℤ is a cylinder. The bad set (boosts
+with empty slice) is the meridian {Im(t) = 0 mod 2π} — real Lorentz boosts,
+which preserve V⁺ and cannot perform the V⁻ → V⁺ mapping required by non-trivial
+permutations. For complex boosts with Im(t) ≠ 0, witnesses exist using large
+real spatial components. Removing a meridian from a cylinder leaves a connected
+space. See "Boost strip analysis" below for the full argument.
+
+**Estimated difficulty**: Medium. Requires explicit witness construction with
+hyperbolic/trigonometric estimates for general permutations, plus cylinder
+topology. Estimated ~300-500 lines of Lean.
 
 ### Derived theorem: `isConnected_sliceIndexSet`
 
@@ -198,6 +202,95 @@ bargmann_hall_wightman_theorem [NeZero d]
 
 ---
 
+## Progress Over Upstream (xiyin/OSreconstruction)
+
+Starting from xiyin's repo, our fork accomplished the following across 15 commits
+(+1589 / -79 lines, 8 files):
+
+### Sorry elimination
+
+- **Upstream state**: 1 sorry in `PermutationFlow.lean:2262` (the core BHW
+  permutation extension for `d ≥ 2`), 0 axioms in `OverlapConnected.lean`
+  (file did not exist).
+- **Current state**: 0 sorrys, 3 axioms (all pure Lie group geometry / d=1 reduction).
+
+### New file: `OverlapConnected.lean` (~1037 lines)
+
+This file contains the mathematical core of the BHW permutation proof:
+
+1. **Slice infrastructure (Route A)**:
+   - `permForwardOverlapSlice` — fixed-Λ slice of the forward-overlap set
+   - `permForwardOverlapSlice_convex` — each slice is convex (hence preconnected)
+   - `permForwardOverlapSlice_openMembership` — slice membership is open in Λ
+   - `permForwardOverlapSet_eq_iUnion_slice` — FOS = ⋃_Λ Slice(Λ)
+
+2. **Bi-invariance**:
+   - `sliceIndexSet_bi_invariant` / `_rev` — K-conjugation preserves slice
+     nonemptiness (both directions)
+
+3. **Boost strip**:
+   - `complexBoostStrip` — {exp(tK) | t ∈ ℂ} for the boost generator K
+   - `boostGen_isInLieAlgebra` — K is in the Lorentz Lie algebra
+   - `isConnected_complexBoostStrip` — the strip is connected (image of ℂ)
+
+4. **Connectedness chain**:
+   - `isConnected_sliceIndexSet` — **theorem** (derived from KAK + boost axioms)
+   - `isConnected_permForwardOverlapSet` — via `isConnected_iUnion_of_open_membership`
+   - `isConnected_etOverlap` — ET overlap is connected for d ≥ 2
+
+5. **Identity theorem (Route B)**:
+   - `identity_theorem_totally_real_product` — holomorphic function vanishing on
+     open subset of connected domain is identically zero
+   - `permJostSet` / `permJostSet_nonempty` — real Jost witnesses for d ≥ 2
+   - `extendF_diff_zero_on_permJostSet` — the difference h = extendF∘σ - extendF
+     vanishes on the Jost set
+   - `hExtPerm_of_d2` — **the d ≥ 2 permutation extension theorem**
+
+6. **Three axioms** (replacing the single sorry):
+   - `complexLorentzGroup_KAK` — Cartan decomposition
+   - `isConnected_boostStrip_inter_sliceIndexSet` — boost restriction connected
+   - `hExtPerm_of_d1` — d=1 dimension reduction
+
+### Key mathematical discovery: `extendedTube_convex` is FALSE
+
+An intermediate version used `axiom extendedTube_convex` (the extended tube is
+geometrically convex). This is **mathematically false** — the extended tube is
+only holomorphically convex (a domain of holomorphy), per Borchers 1961.
+
+**Counterexample**: For n=2, d≥2, configurations with differences (0,1,0,...) and
+(0,-1,0,...) are both spacelike (in ET), but midpoint (0,0,...) is lightlike (NOT
+in ET). This was identified and the false axiom replaced with the correct
+slice-gluing approach.
+
+### Refactoring of `PermutationFlow.lean`
+
+- Moved `permForwardOverlapSlice`, convexity, and preconnectedness from
+  `PermutationFlow.lean` to `OverlapConnected.lean` (eliminating duplication)
+- Wired the d=0/d=1/d≥2 case split: d=0 vacuous, d=1 via `hExtPerm_of_d1`,
+  d≥2 via `hExtPerm_of_d2`
+
+### Boost strip analysis (towards eliminating axiom 1b)
+
+Analysis of `isConnected_boostStrip_inter_sliceIndexSet` for n=2, σ=swap:
+
+- The boost strip B = {exp(tK) | t ∈ ℂ} has topology ℂ/2πiℤ (a cylinder),
+  because exp(tK) has eigenvalues e^{±t} and is periodic with period 2πi.
+- **Real boosts** (Im(t) = 0): slice is always **empty**. Real Lorentz boosts
+  preserve V⁺, so they cannot map V⁻ directions to V⁺ as required by the
+  permutation swap.
+- **Complex boosts with Im(t) ≠ 0**: slice is always **nonempty**. The imaginary
+  part of the boost mixes real and imaginary components of configurations. By
+  choosing witness ξ with large real spatial component Re(ξ₁) = -R, the boost
+  generates a timelike imaginary part: -Im(Λξ) ≈ (R cosh α sin ε, R sinh α sin ε,
+  0, ...) ∈ V⁺ since cosh²α - sinh²α = 1 > 0.
+- The **bad set** is {Im(t) = 0 mod 2π} — a single meridian on the cylinder.
+  Removing a meridian from a cylinder gives a connected space.
+- The proof would formalize: (1) explicit witness construction for Im(t) ≠ 0,
+  (2) V⁺ membership via hyperbolic/trigonometric estimates, (3) cylinder
+  topology (complement of meridian is connected). Estimated ~300-500 lines.
+
+---
+
 ## Historical Notes
 
 ### False axiom removed (2026-03-01)
@@ -237,10 +330,10 @@ then Route B uses the connected overlap domain for the identity theorem.
    on the symmetric space L₊(ℂ)/L₊↑(ℝ), or a direct polar decomposition for
    SO₊(1,d;ℂ).
 
-2. **`isConnected_boostStrip_inter_sliceIndexSet`** — Likely follows quickly
-   from the path-connectedness of the boost strip (`isConnected_complexBoostStrip`,
-   proved) plus openness of the slice index set in the boost strip. May reduce to
-   showing the intersection is nonempty.
+2. **`isConnected_boostStrip_inter_sliceIndexSet`** — The bad set (empty-slice
+   boosts) is the real-axis meridian on the cylinder ℂ/2πiℤ. Proof requires:
+   (a) explicit witness for each complex boost with Im(t) ≠ 0, (b) V⁺ estimates,
+   (c) cylinder minus meridian is connected. See "Boost strip analysis" above.
 
 3. **`hExtPerm_of_d1`** — Depends on (1) and (2) being done (via `hExtPerm_of_d2`).
    New files: `ComplexLieGroups/LightconeInvariantTheory.lean` (d=1 algebraic
