@@ -1,6 +1,6 @@
 # BHW Permutation Invariance — Status & Axiom Elimination Plan
 
-Last updated: 2026-03-01
+Last updated: 2026-03-02
 
 ## Current State
 
@@ -11,12 +11,12 @@ Last updated: 2026-03-01
 ```
 ```
 propext, Classical.choice, Quot.sound          -- standard Lean
-BHW.sliceIndexSet_KAK_principal                -- KAK with Weyl reflection (d ≥ 2)
+BHW.raw_KAK_decomposition                     -- Lie group KAK factorization (d ≥ 2)
 BHW.hExtPerm_of_d1                             -- dimension reduction (d = 1)
 ```
 
-`isConnected_principalBoostOverlap` is now a **theorem** (was axiom 1a).
-`isConnected_sliceIndexSet` is a **theorem** derived from the d ≥ 2 axiom.
+All previous axioms (`isConnected_principalBoostOverlap`, `sliceIndexSet_KAK_principal`)
+are now **theorems**. Only the raw KAK decomposition and the d=1 case remain axiomatized.
 
 ### Files (zero sorrys across all 6)
 
@@ -26,68 +26,59 @@ BHW.hExtPerm_of_d1                             -- dimension reduction (d = 1)
 | `JostWitnessGeneralSigma.lean` | ~620 | Jost witness for general σ when d ≥ 2 |
 | `Adjacency.lean` | ~1250 | Adjacent-swap overlap witnesses, EOW chain infrastructure |
 | `IndexSetD1.lean` | ~200 | d=1 orbit set preconnectedness |
-| `OverlapConnected.lean` | ~1825 | **Route B core**: identity theorem, slice gluing, boost exp, 2 axioms |
+| `OverlapConnected.lean` | ~2815 | **Route B core**: identity theorem, slice gluing, boost exp, Weyl reflection, 2 axioms |
 | `PermutationFlow.lean` | ~2450 | Master proof: EOW iteration, case split d=0/d=1/d≥2 |
 
 ---
 
 ## The Two Axioms
 
-### Proved theorem (was axiom 1a): `isConnected_principalBoostOverlap`
-
-**Now a theorem** — proved in `OverlapConnected.lean` via:
-
-1. **`exp_boostGen_eq`**: `exp(tK) = I + sinh(t)·K + (cosh(t)-1)·K²`, proved
-   via projection decomposition `K = Pp - Pm` with orthogonal idempotents and
-   `Matrix.exp_add_of_commute`.
-
-2. **`expBoost_val_entry`**: Entry formula for `exp(tK)` — cosh/sinh in the
-   {0,1} block, identity elsewhere.
-
-3. **`principalStrip_slice_nonempty`**: For `d ≥ 2` and `0 < Im(t) < π`, every
-   forward-overlap slice at `exp(tK)` is nonempty. Proof by the "large spatial
-   shift trick": construct witness `w` with imaginary time increments `ε` and
-   real spatial increments `M·sin(Im(t))⁻¹` along the σ-inverse ordering.
-   After boosting, the Minkowski condition reduces to `-(cosh²θ - sinh²θ)·A² = -A²`
-   with `A = cos(λ)·δ + sin(λ)·M > 0`.
-
-4. **`principalBoostOverlap_eq_strip`**: The overlap equals the entire principal
-   strip (since every slice is nonempty).
-
-5. **`convex_principalBoostStrip`** + convexity implies connectedness.
-
-### Axiom 1: `sliceIndexSet_KAK_principal` (KAK with Weyl reflection)
+### Axiom 1: `raw_KAK_decomposition` (line 2182, private)
 
 ```lean
-axiom sliceIndexSet_KAK_principal {d : ℕ} (hd2 : 2 ≤ d)
-    (n : ℕ) (σ : Equiv.Perm (Fin n))
-    (Λ : ComplexLorentzGroup d)
-    (hΛ : (permForwardOverlapSlice (d := d) n σ Λ).Nonempty) :
+private axiom raw_KAK_decomposition {d : ℕ}
+    (Λ : ComplexLorentzGroup d) :
     ∃ (k₁ k₂ : RestrictedLorentzGroup d) (t : ℂ),
-      t ∈ principalBoostOverlap d n σ ∧
       Λ = ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂
 ```
 
-**Mathematical content**: Every element of the slice index set factors as
-`k₁ · exp(tK) · k₂` with `t` in the principal boost overlap.
+**Mathematical content**: Every `Λ ∈ SO₊(1,d;ℂ)` factors as
+`k₁ · exp(tK) · k₂` with `k₁, k₂ ∈ SO↑(1,d;ℝ)` and `t ∈ ℂ`.
 
-**Why it's true**: Combines the standard Cartan KAK decomposition with the
-Weyl reflection trick. For d ≥ 2, there exists a 180° spatial rotation
-`R ∈ SO↑(1,d;ℝ)` such that `R · exp(tK) · R⁻¹ = exp(-tK)`. Given any KAK
-factorization `Λ = k₁ · exp(tK) · k₂`, if `Im(t) < 0` we replace it with
-`Λ = (k₁R⁻¹) · exp(-tK) · (Rk₂)` where `Im(-t) > 0`. The bad meridians
-`Im(t) = 0` and `Im(t) = π` are excluded by the nonempty slice condition.
+**Why it's true**: This is the complexified Cartan KAK decomposition.
+For the real Lorentz group, every proper orthochronous transformation factors
+as (spatial rotation) · (boost in direction 1) · (spatial rotation). The complex
+version extends this via polar decomposition + spectral theory for the indefinite
+metric.
 
-**No QFT dependencies**: Pure Lie group geometry.
+**No QFT dependencies**: Pure Lie group algebra.
 
-### Derived theorems
+**Proof approaches**:
+- **Eigenvalue analysis**: `Λ` preserves the Minkowski form, so eigenvalues come
+  in pairs `(eᵗ, e⁻ᵗ)`. Extract `t` from eigenvalues, `k₁, k₂` from the
+  change of basis.
+- **Polar decomposition**: Factor `Λ = P · O` with `P` positive (w.r.t. Minkowski),
+  `O` orthogonal. Then diagonalize `P` via real spatial rotations.
 
-- `isConnected_sliceIndexSet` — proved from `isConnected_principalBoostOverlap`
-  (now theorem) and `sliceIndexSet_KAK_principal` (axiom) by mapping
-  K × P × K → I via group multiplication, using principal KAK for surjectivity
-  and bi-invariance for membership.
+### Derived theorems (proved from raw_KAK + existing infrastructure)
 
-### Axiom 2: `hExtPerm_of_d1` (dimension reduction)
+- **`sliceIndexSet_KAK_principal`** — proved by combining:
+  1. `raw_KAK_decomposition` (axiom): gives `Λ = k₁ · exp(tK) · k₂` with `t ∈ ℂ`
+  2. **Weyl reflection** (theorem): 180° spatial rotation `R` satisfies
+     `R · exp(tK) · R⁻¹ = exp(-tK)`, mapping `Im(t) < 0` to `Im(-t) > 0`
+  3. **Periodicity** (theorem): `exp((t + 2πi)K) = exp(tK)`
+  4. **Meridian exclusion** (theorem): nonempty slice condition excludes
+     `Im(t) = 0` (real boosts) and `Im(t) = π` (PT reversal)
+
+- **`isConnected_principalBoostOverlap`** — proved via:
+  1. `principalStrip_slice_nonempty` (large spatial shift trick)
+  2. `principalBoostOverlap_eq_strip` (overlap = full principal strip)
+  3. `convex_principalBoostStrip` (convexity → connectedness)
+
+- **`isConnected_sliceIndexSet`** — proved from KAK + connectedness by mapping
+  `K × P × K → I` via group multiplication
+
+### Axiom 2: `hExtPerm_of_d1` (line 2794)
 
 ```lean
 axiom hExtPerm_of_d1
@@ -136,7 +127,7 @@ So for d=1, the BHW representation theorem (F = H(zᵢ·zⱼ)) can be proved by
 - Lightcone coordinate infrastructure for d=1
 - Algebraic invariant theory: F Lorentz-invariant ⟹ F = H(zᵢ·zⱼ)
 - Dimensional embedding: Fin 2 ↪ Fin 3 with forward cone compatibility
-- `hExtPerm_of_d2` (proved, no axioms beyond `isConnected_sliceIndexSet`)
+- `hExtPerm_of_d2` (proved, no axioms beyond `raw_KAK_decomposition`)
 
 **Estimated difficulty**: Hard. The algebraic invariant theory is the main
 challenge. The dimensional embedding has Fin arithmetic difficulties (previously
@@ -149,8 +140,15 @@ attempted and abandoned).
 ```
 Phase 1: Pure Lie Geometry
     isConnected_sliceIndexSet ✓ (theorem)
-    ├── isConnected_principalBoostOverlap ✓ (theorem, was axiom)
-    ├── sliceIndexSet_KAK_principal [AXIOM 1]
+    ├── isConnected_principalBoostOverlap ✓ (theorem)
+    │   ├── principalStrip_slice_nonempty ✓ (large spatial shift trick)
+    │   ├── exp_boostGen_eq ✓ (projection decomposition)
+    │   └── convex_principalBoostStrip ✓
+    ├── sliceIndexSet_KAK_principal ✓ (theorem)
+    │   ├── raw_KAK_decomposition [AXIOM 1]
+    │   ├── weyl_reflection ✓ (R·exp(tK)·R⁻¹ = exp(-tK))
+    │   ├── expBoost_periodic ✓ (exp((t+2πi)K) = exp(tK))
+    │   └── meridian exclusion ✓ (Im(t) ∉ {0, π})
     ├── sliceIndexSet_bi_invariant ✓
     ├── sliceIndexSet_bi_invariant_rev ✓
     └── RestrictedLorentzGroup.isPathConnected ✓
@@ -193,7 +191,8 @@ bargmann_hall_wightman_theorem [NeZero d]
     │   │   ├── isConnected_iUnion_of_open_membership ✓
     │   │   └── isConnected_sliceIndexSet ✓ (theorem)
     │   │       ├── isConnected_principalBoostOverlap ✓ (theorem)
-    │   │       ├── sliceIndexSet_KAK_principal [AXIOM 1]
+    │   │       ├── sliceIndexSet_KAK_principal ✓ (theorem)
+    │   │       │   └── raw_KAK_decomposition [AXIOM 1]
     │   │       ├── sliceIndexSet_bi_invariant ✓
     │   │       └── sliceIndexSet_bi_invariant_rev ✓
     │   └── ComplexLorentzGroup.isPathConnected ✓
@@ -206,17 +205,16 @@ bargmann_hall_wightman_theorem [NeZero d]
 
 ## Progress Over Upstream (xiyin/OSreconstruction)
 
-Starting from xiyin's repo, our fork accomplished the following across 15 commits
-(+1589 / -79 lines, 8 files):
+Starting from xiyin's repo, our fork accomplished the following:
 
 ### Sorry elimination
 
 - **Upstream state**: 1 sorry in `PermutationFlow.lean:2262` (the core BHW
   permutation extension for `d ≥ 2`), 0 axioms in `OverlapConnected.lean`
   (file did not exist).
-- **Current state**: 0 sorrys, 2 axioms (KAK decomposition + d=1 reduction).
+- **Current state**: 0 sorrys, 2 axioms (raw KAK decomposition + d=1 reduction).
 
-### New file: `OverlapConnected.lean` (~1825 lines)
+### New file: `OverlapConnected.lean` (~2815 lines)
 
 This file contains the mathematical core of the BHW permutation proof:
 
@@ -236,20 +234,7 @@ This file contains the mathematical core of the BHW permutation proof:
    - `principalBoostOverlap` — principal strip ∩ {t | slice nonempty}
    - `boostGen_isInLieAlgebra` — K is in the Lorentz Lie algebra
 
-4. **Connectedness chain**:
-   - `isConnected_sliceIndexSet` — **theorem** (derived from principal KAK + boost axioms)
-   - `isConnected_permForwardOverlapSet` — via `isConnected_iUnion_of_open_membership`
-   - `isConnected_etOverlap` — ET overlap is connected for d ≥ 2
-
-5. **Identity theorem (Route B)**:
-   - `identity_theorem_totally_real_product` — holomorphic function vanishing on
-     open subset of connected domain is identically zero
-   - `permJostSet` / `permJostSet_nonempty` — real Jost witnesses for d ≥ 2
-   - `extendF_diff_zero_on_permJostSet` — the difference h = extendF∘σ - extendF
-     vanishes on the Jost set
-   - `hExtPerm_of_d2` — **the d ≥ 2 permutation extension theorem**
-
-6. **Matrix exponential of boost generator** (new):
+4. **Matrix exponential of boost generator**:
    - `boostGen_sq`, `boostGen_cubed` — K² = projection, K³ = K
    - `exp_smul_idempotent` — for E²=E: exp(αE) = 1 + (exp(α)-1)·E
    - `exp_boostGen_eq` — exp(tK) = I + sinh(t)·K + (cosh(t)-1)·K²
@@ -257,8 +242,29 @@ This file contains the mathematical core of the BHW permutation proof:
    - `principalStrip_slice_nonempty` — large spatial shift witness
    - `isConnected_principalBoostOverlap` — **theorem** (was axiom)
 
-7. **Two axioms** (replacing the single sorry):
-   - `sliceIndexSet_KAK_principal` — KAK with Weyl reflection
+5. **Weyl reflection and principal strip KAK**:
+   - `weylReflection` — 180° spatial rotation R with R·K·R⁻¹ = -K
+   - `expBoost_weyl_neg` — R·exp(tK)·R⁻¹ = exp(-tK)
+   - `expBoost_periodic` — exp((t+2πi)K) = exp(tK)
+   - `expBoost_nonempty_excludes_even_meridian` — Im(t) ≠ 2mπ for nonempty slices
+   - `expBoost_nonempty_excludes_odd_meridian` — Im(t) ≠ (2m+1)π for nonempty slices
+   - `sliceIndexSet_KAK_principal` — **theorem** (was axiom)
+
+6. **Connectedness chain**:
+   - `isConnected_sliceIndexSet` — **theorem**
+   - `isConnected_permForwardOverlapSet` — via `isConnected_iUnion_of_open_membership`
+   - `isConnected_etOverlap` — ET overlap is connected for d ≥ 2
+
+7. **Identity theorem (Route B)**:
+   - `identity_theorem_totally_real_product` — holomorphic function vanishing on
+     open subset of connected domain is identically zero
+   - `permJostSet` / `permJostSet_nonempty` — real Jost witnesses for d ≥ 2
+   - `extendF_diff_zero_on_permJostSet` — the difference h = extendF∘σ - extendF
+     vanishes on the Jost set
+   - `hExtPerm_of_d2` — **the d ≥ 2 permutation extension theorem**
+
+8. **Two axioms**:
+   - `raw_KAK_decomposition` — pure Lie group KAK factorization
    - `hExtPerm_of_d1` — d=1 dimension reduction
 
 ### Key mathematical discovery: `extendedTube_convex` is FALSE
@@ -308,37 +314,37 @@ a convex strip, hence connected.
 
 ## Historical Notes
 
+### Axiom eliminated (2026-03-02): `sliceIndexSet_KAK_principal`
+
+Replaced by a **theorem** derived from the weaker `raw_KAK_decomposition` axiom
+plus proved Weyl reflection, periodicity, and meridian exclusion lemmas. The
+principal strip reduction is now fully formalized.
+
+### Axiom eliminated (2026-03-02): `isConnected_principalBoostOverlap`
+
+Proved as a theorem via matrix exponential entry formulas and the "large spatial
+shift trick" witness construction (~400 lines of infrastructure).
+
 ### False axiom removed (2026-03-02): `isConnected_boostParameterOverlap`
 
 The previous axiom `isConnected_boostParameterOverlap` stated that
 `{t ∈ ℂ | slice at exp(tK) nonempty}` is connected on the full cylinder ℂ/2πiℤ.
 This is **mathematically false** for n ≥ 3: both Im(t) = 0 (real boosts) AND
 Im(t) = π (PT reversal) give empty slices, and two meridians disconnect a cylinder
-into two strips. (For n = 2 with swap, Im(t) = π gives exp(iπK) = -I on the
-boost block, which IS in the index set — all differences flip, so the full FT
-maps. But for n ≥ 3, unflipped differences have their time component negated.)
+into two strips.
 
 The fix restricts to the **principal strip** `{0 < Im(t) < π}` and combines
-standard KAK with the Weyl reflection to cover both strips. The two new axioms
-`isConnected_principalBoostOverlap` and `sliceIndexSet_KAK_principal` are both
-mathematically true.
+standard KAK with the Weyl reflection to cover both strips.
 
 ### False axiom removed (2026-03-01): `extendedTube_convex`
 
 The extended tube ET is NOT geometrically convex. It is only holomorphically
-convex (a domain of holomorphy), per Borchers 1961. A previous version of this
-file contained `axiom extendedTube_convex`, which was mathematically false and
-could be used to derive `False` in Lean.
+convex (a domain of holomorphy), per Borchers 1961.
 
 **Counterexample**: For n=2, d≥2, take configurations A with difference (0,1,0,...)
 (spacelike, hence a Jost point in ET) and B with difference (0,-1,0,...)
 (also spacelike, in ET). The midpoint has difference (0,0,...) — the zero vector,
-which is lightlike. Since z₁ = z₂ implies w₁ = w₂ for any Λ⁻¹, contradicting
-Im(w₂-w₁) ∈ V⁺, the midpoint is NOT in ET.
-
-The fix replaced `extendedTube_convex` with `isConnected_sliceIndexSet` and
-rewired `isConnected_permForwardOverlapSet` to use the (already proved) slice
-gluing infrastructure.
+which is lightlike, NOT in ET.
 
 ### Route A vs Route B
 
@@ -355,20 +361,20 @@ then Route B uses the connected overlap domain for the identity theorem.
 
 ## Recommended Execution Order
 
-1. ~~**`isConnected_principalBoostOverlap`**~~ — **DONE** (proved as theorem,
-   ~400 lines including matrix exponential infrastructure).
+1. ~~**`isConnected_principalBoostOverlap`**~~ — **DONE** (proved as theorem).
 
-2. **`sliceIndexSet_KAK_principal`** — Combines standard Cartan KAK decomposition
-   with Weyl reflection. Needs: (a) matrix logarithm / polar decomposition for
-   SO₊(1,d;ℂ), (b) construction of the Weyl reflection R (180° rotation in the
-   boost-spatial plane), (c) proof that bad meridians are excluded by nonempty
-   slice condition. Estimated ~300-500 lines.
+2. ~~**`sliceIndexSet_KAK_principal`**~~ — **DONE** (proved as theorem from
+   `raw_KAK_decomposition` + Weyl reflection + periodicity + meridian exclusion).
 
-3. **`hExtPerm_of_d1`** — Depends on (1) and (2) being done (via `hExtPerm_of_d2`).
+3. **`raw_KAK_decomposition`** — Pure Lie group KAK factorization. Needs
+   eigenvalue analysis or polar decomposition for the indefinite metric.
+   Estimated ~300-500 lines.
+
+4. **`hExtPerm_of_d1`** — Depends on `hExtPerm_of_d2` (proved).
    New files: `ComplexLieGroups/LightconeInvariantTheory.lean` (d=1 algebraic
    invariant theory), `ComplexLieGroups/DimensionalEmbedding.lean` (Fin 2 ↪ Fin 3).
 
-4. **Restrict BHW to d ≥ 2** (alternative to step 3) — If d=1 infrastructure
+5. **Restrict BHW to d ≥ 2** (alternative to step 4) — If d=1 infrastructure
    proves too costly, change `bargmann_hall_wightman_theorem` to require
    `(hd2 : 2 ≤ d)` instead of `[NeZero d]`, eliminating axiom 2 entirely.
    The physical case (d=3, i.e., 3+1D spacetime) would be fully proved.
