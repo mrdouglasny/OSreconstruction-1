@@ -115,6 +115,51 @@ theorem permForwardOverlapSlice_isPreconnected
     IsPreconnected (permForwardOverlapSlice (d := d) n σ Λ) :=
   (permForwardOverlapSlice_convex n σ Λ).isPreconnected
 
+/-- Sum-closure of the open forward cone. -/
+private lemma inOpenForwardCone_add
+    {η₁ η₂ : Fin (d + 1) → ℝ}
+    (h₁ : InOpenForwardCone d η₁) (h₂ : InOpenForwardCone d η₂) :
+    InOpenForwardCone d (fun μ => η₁ μ + η₂ μ) := by
+  have hmid : InOpenForwardCone d ((1 / 2 : ℝ) • η₁ + (1 / 2 : ℝ) • η₂) :=
+    inOpenForwardCone_convex h₁ h₂ (by positivity) (by positivity) (by ring)
+  have hscaled : InOpenForwardCone d
+      ((2 : ℝ) • (((1 / 2 : ℝ) • η₁ + (1 / 2 : ℝ) • η₂)) ) :=
+    inOpenForwardCone_smul_pos (d := d) hmid (by
+      show 0 < (2 : ℝ)
+      norm_num)
+  have hfun : ((2 : ℝ) • (((1 / 2 : ℝ) • η₁ + (1 / 2 : ℝ) • η₂))) =
+      (fun μ => η₁ μ + η₂ μ) := by
+    ext μ
+    simp [Pi.smul_apply, smul_eq_mul]
+    ring
+  simpa [hfun] using hscaled
+
+/-- Any point `w k` of a forward-tube configuration has imaginary part in `V⁺`. -/
+private lemma forwardTube_point_inOpenForwardCone
+    {w : Fin n → Fin (d + 1) → ℂ}
+    (hw : w ∈ ForwardTube d n)
+    (k : Fin n) :
+    InOpenForwardCone d (fun μ => (w k μ).im) := by
+  have haux : ∀ m : ℕ, ∀ hm : m < n,
+      InOpenForwardCone d (fun μ => (w ⟨m, hm⟩ μ).im) := by
+    intro m
+    induction m with
+    | zero =>
+        intro hm
+        have h0 := hw ⟨0, hm⟩
+        simpa [ForwardTube, InOpenForwardCone] using h0
+    | succ m ih =>
+        intro hm
+        have hm' : m < n := Nat.lt_of_succ_lt hm
+        have hprev : InOpenForwardCone d (fun μ => (w ⟨m, hm'⟩ μ).im) := ih hm'
+        have hstep := hw ⟨m + 1, hm⟩
+        have hdiff : InOpenForwardCone d
+            (fun μ => (w ⟨m + 1, hm⟩ μ - w ⟨m, hm'⟩ μ).im) := by
+          simpa [ForwardTube, Nat.succ_ne_zero] using hstep
+        have hsum := inOpenForwardCone_add hprev hdiff
+        simpa [Complex.sub_im, Pi.add_apply] using hsum
+  exact haux k.1 k.2
+
 /-! ### Slice decomposition of the forward-overlap set -/
 
 /-- The forward-overlap set decomposes as a union of fixed-`Λ` slices. -/
@@ -1054,6 +1099,554 @@ private lemma expBoost_val_entry (t : ℂ) (hd : 1 ≤ d) (μ ν : Fin (d + 1)) 
     · rw [if_pos hμν]; ring
     · rw [if_neg hμν]; ring
 
+/-- Entry formula for the real boost element in the `(0,1)` plane. -/
+private lemma boostElement_val_entry (hd1 : 1 ≤ d) (a : ℝ) (μ ν : Fin (d + 1)) :
+    let k0 : Fin d := ⟨0, by omega⟩
+    let i0 : Fin (d + 1) := k0.succ
+    ((LorentzLieGroup.boostElement d k0 a).val.val μ ν : ℂ) =
+      if μ = 0 ∧ ν = 0 then Complex.cosh (a : ℂ)
+      else if (μ = 0 ∧ ν = i0) ∨ (μ = i0 ∧ ν = 0) then Complex.sinh (a : ℂ)
+      else if μ = i0 ∧ ν = i0 then Complex.cosh (a : ℂ)
+      else if μ = ν then 1
+      else 0 := by
+  classical
+  dsimp
+  let k0 : Fin d := ⟨0, by omega⟩
+  let i0 : Fin (d + 1) := k0.succ
+  have hk0succ : k0.succ = (⟨1, by omega⟩ : Fin (d + 1)) := by
+    ext
+    simp [k0]
+  change ((LorentzLieGroup.planarBoost d k0 a μ ν : ℝ) : ℂ) = _
+  by_cases hμ0 : μ = 0
+  · subst hμ0
+    rw [LorentzLieGroup.pb0 d k0 a ν]
+    by_cases hν0 : ν = 0
+    · subst hν0
+      simp [i0, hk0succ, Complex.ofReal_cosh]
+    · by_cases hν1 : ν = i0
+      · subst hν1
+        simp [i0, hk0succ, Complex.ofReal_sinh]
+      · have hνidx : ν ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
+          intro h
+          exact hν1 (by simpa [i0, hk0succ] using h)
+        have hν0' : ¬(0 : Fin (d + 1)) = ν := by simpa [eq_comm] using hν0
+        simp [hν0, hν1, hνidx, hν0', i0, hk0succ]
+  · by_cases hμ1 : μ = i0
+    · subst hμ1
+      rw [LorentzLieGroup.pbK d k0 a ν]
+      by_cases hν0 : ν = 0
+      · subst hν0
+        simp [i0, hk0succ, Complex.ofReal_sinh]
+      · by_cases hν1 : ν = i0
+        · subst hν1
+          simp [i0, hk0succ, Complex.ofReal_cosh]
+        · have hνidx : ν ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
+            intro h
+            exact hν1 (by simpa [i0, hk0succ] using h)
+          have hνidx' : ¬(⟨1, by omega⟩ : Fin (d + 1)) = ν := by
+            simpa [eq_comm] using hνidx
+          simp [hν0, hν1, hνidx, hνidx', i0, hk0succ]
+    · rw [LorentzLieGroup.pbO d k0 a μ hμ0 hμ1 ν]
+      by_cases hμν : μ = ν
+      · subst hμν
+        have hμidx : μ ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
+          intro h
+          exact hμ1 (by simpa [i0, hk0succ] using h)
+        simp [hμ0, hμ1, hμidx, i0, hk0succ]
+      · have hμidx : μ ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
+          intro h
+          exact hμ1 (by simpa [i0, hk0succ] using h)
+        simp [hμ0, hμ1, hμν, hμidx, i0, hk0succ]
+
+/-- Real boost parameters are exactly real Lorentz boosts in the first spatial direction. -/
+private lemma expBoost_ofReal_re (hd1 : 1 ≤ d) (a : ℝ) :
+    expBoost (d := d) (a : ℂ) =
+      ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a) := by
+  ext μ ν
+  change (expBoost (d := d) (a : ℂ)).val μ ν =
+      (((LorentzLieGroup.boostElement d ⟨0, by omega⟩ a).val.val μ ν : ℂ))
+  rw [expBoost_val_entry (d := d) (t := (a : ℂ)) hd1 μ ν,
+      boostElement_val_entry (d := d) hd1 a μ ν]
+  have hk0succ : ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1)) = ⟨1, by omega⟩ := by
+    ext
+    simp
+  have hμ0 : (μ = (0 : Fin (d + 1))) ↔ μ.val = 0 := by
+    constructor
+    · intro h
+      simpa [h]
+    · intro h
+      exact Fin.ext h
+  have hν0 : (ν = (0 : Fin (d + 1))) ↔ ν.val = 0 := by
+    constructor
+    · intro h
+      simpa [h]
+    · intro h
+      exact Fin.ext h
+  have hμ1 : (μ = (⟨1, by omega⟩ : Fin (d + 1))) ↔ μ.val = 1 := by
+    constructor
+    · intro h
+      simpa [h]
+    · intro h
+      exact Fin.ext h
+  have hν1 : (ν = (⟨1, by omega⟩ : Fin (d + 1))) ↔ ν.val = 1 := by
+    constructor
+    · intro h
+      simpa [h]
+    · intro h
+      exact Fin.ext h
+  have hμi0 : (μ = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1))) ↔ μ.val = 1 := by
+    constructor
+    · intro h
+      have h' : μ = (⟨1, by omega⟩ : Fin (d + 1)) := by simpa [hk0succ] using h
+      exact hμ1.mp h'
+    · intro h
+      have h' : μ = (⟨1, by omega⟩ : Fin (d + 1)) := hμ1.mpr h
+      simpa [hk0succ] using h'
+  have hνi0 : (ν = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1))) ↔ ν.val = 1 := by
+    constructor
+    · intro h
+      have h' : ν = (⟨1, by omega⟩ : Fin (d + 1)) := by simpa [hk0succ] using h
+      exact hν1.mp h'
+    · intro h
+      have h' : ν = (⟨1, by omega⟩ : Fin (d + 1)) := hν1.mpr h
+      simpa [hk0succ] using h'
+  have h00 :
+      (μ = (0 : Fin (d + 1)) ∧ ν = (0 : Fin (d + 1))) ↔
+        (μ.val = 0 ∧ ν.val = 0) := hμ0.and hν0
+  have h01 :
+      (μ = (0 : Fin (d + 1)) ∧ ν = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1)) ∨
+          μ = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1)) ∧ ν = (0 : Fin (d + 1))) ↔
+        (μ.val = 0 ∧ ν.val = 1 ∨ μ.val = 1 ∧ ν.val = 0) := by
+    constructor
+    · intro h
+      rcases h with h | h
+      · exact Or.inl ⟨hμ0.mp h.1, hνi0.mp h.2⟩
+      · exact Or.inr ⟨hμi0.mp h.1, hν0.mp h.2⟩
+    · intro h
+      rcases h with h | h
+      · exact Or.inl ⟨hμ0.mpr h.1, hνi0.mpr h.2⟩
+      · exact Or.inr ⟨hμi0.mpr h.1, hν0.mpr h.2⟩
+  have h11 :
+      (μ = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1)) ∧
+          ν = ((⟨0, by omega⟩ : Fin d).succ : Fin (d + 1))) ↔
+        (μ.val = 1 ∧ ν.val = 1) := hμi0.and hνi0
+  simpa [h00, h01, h11, hμ1, hν1]
+
+/-- `expBoost` is `2πi`-periodic (for `d ≥ 1`), reflecting the boost-cylinder
+    parameterization `t ~ t + 2πi`. -/
+private lemma expBoost_periodic_two_pi_I {d : ℕ} (hd : 1 ≤ d) (t : ℂ) :
+    expBoost (d := d) (t + (2 * Real.pi : ℂ) * Complex.I) = expBoost (d := d) t := by
+  have hsinh_2piI : Complex.sinh ((2 * Real.pi : ℂ) * Complex.I) = 0 := by
+    simpa [Complex.sin_two_pi] using Complex.sinh_mul_I (2 * (Real.pi : ℂ))
+  have hcosh_2piI : Complex.cosh ((2 * Real.pi : ℂ) * Complex.I) = 1 := by
+    simpa [Complex.cos_two_pi] using Complex.cosh_mul_I (2 * (Real.pi : ℂ))
+  have hsinh_shift :
+      Complex.sinh (t + (2 * Real.pi : ℂ) * Complex.I) = Complex.sinh t := by
+    rw [Complex.sinh_add, hsinh_2piI, hcosh_2piI]
+    simp
+  have hcosh_shift :
+      Complex.cosh (t + (2 * Real.pi : ℂ) * Complex.I) = Complex.cosh t := by
+    rw [Complex.cosh_add, hsinh_2piI, hcosh_2piI]
+    simp
+  ext μ ν
+  simp [expBoost_val_entry, hd, hsinh_shift, hcosh_shift]
+
+/-- `expBoost` is periodic under shifts by integer multiples of `2πi`. -/
+private lemma expBoost_periodic_two_pi_I_int {d : ℕ} (hd : 1 ≤ d) (t : ℂ) (m : ℤ) :
+    expBoost (d := d) (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) = expBoost (d := d) t := by
+  have hmI :
+      (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I) =
+        ((m : ℂ) * (2 * Real.pi : ℂ)) * Complex.I := by ring
+  have hsinh_m : Complex.sinh (((m : ℂ) * (2 * Real.pi : ℂ)) * Complex.I) = 0 := by
+    rw [Complex.sinh_mul_I]
+    have hmul :
+        ((m : ℂ) * (2 * Real.pi : ℂ)) = (((2 * m : ℤ) : ℂ) * (Real.pi : ℂ)) := by
+      norm_num [Int.cast_mul, mul_assoc, mul_left_comm, mul_comm]
+    have hsin :
+        Complex.sin (((m : ℂ) * (2 * Real.pi : ℂ))) = 0 := by
+      rw [hmul]
+      simpa using Complex.sin_int_mul_pi (2 * m)
+    simp [hsin]
+  have hcosh_m : Complex.cosh (((m : ℂ) * (2 * Real.pi : ℂ)) * Complex.I) = 1 := by
+    rw [Complex.cosh_mul_I]
+    simpa [mul_assoc] using Complex.cos_int_mul_two_pi m
+  have hsinh_shift :
+      Complex.sinh (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) = Complex.sinh t := by
+    rw [hmI, Complex.sinh_add, hsinh_m, hcosh_m]
+    simp
+  have hcosh_shift :
+      Complex.cosh (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) = Complex.cosh t := by
+    rw [hmI, Complex.cosh_add, hsinh_m, hcosh_m]
+    simp
+  ext μ ν
+  simp [expBoost_val_entry, hd, hsinh_shift, hcosh_shift]
+
+/-- Spatial index `0` (first spatial coordinate) for `d ≥ 2`. -/
+private def weylIdx0 (d : ℕ) (hd2 : 2 ≤ d) : Fin d := ⟨0, by omega⟩
+
+/-- Spatial index `1` (second spatial coordinate) for `d ≥ 2`. -/
+private def weylIdx1 (d : ℕ) (hd2 : 2 ≤ d) : Fin d := ⟨1, by omega⟩
+
+private lemma weylIdx_ne (d : ℕ) (hd2 : 2 ≤ d) :
+    weylIdx0 d hd2 ≠ weylIdx1 d hd2 := by
+  simp [weylIdx0, weylIdx1]
+
+/-- The Weyl reflection candidate: a `π`-rotation in the `(1,2)` spatial plane.
+    It flips the boost spatial axis while staying in `SO↑(1,d;ℝ)`. -/
+private def weylRot (d : ℕ) (hd2 : 2 ≤ d) : RestrictedLorentzGroup d :=
+  spatialRotElement d (weylIdx0 d hd2) (weylIdx1 d hd2) (weylIdx_ne d hd2) Real.pi
+
+/-- Time row of the Weyl rotation is unchanged. -/
+private lemma weylRot_row_time (d : ℕ) (hd2 : 2 ≤ d) (ν : Fin (d + 1)) :
+    (weylRot d hd2).val.val 0 ν = if ν = 0 then 1 else 0 := by
+  change spatialRot d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0 ν = _
+  rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0
+    (by simp [weylIdx0]) (by simp [weylIdx1]) ν]
+  simp [eq_comm]
+
+/-- Time column of the Weyl rotation is unchanged. -/
+private lemma weylRot_col_time (d : ℕ) (hd2 : 2 ≤ d) (μ : Fin (d + 1)) :
+    (weylRot d hd2).val.val μ 0 = if μ = 0 then 1 else 0 := by
+  change spatialRot d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi μ 0 = _
+  by_cases hμ0 : μ = 0
+  · subst hμ0
+    rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0
+      (by simp [weylIdx0]) (by simp [weylIdx1]) 0]
+  · by_cases hμ1 : μ = (weylIdx0 d hd2).succ
+    · subst hμ1
+      rw [sr_i d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0]
+      simp [weylIdx0]
+    · by_cases hμ2 : μ = (weylIdx1 d hd2).succ
+      · subst hμ2
+        rw [sr_j d (weylIdx0 d hd2) (weylIdx1 d hd2) (weylIdx_ne d hd2) Real.pi 0]
+        simp [weylIdx0, weylIdx1]
+      · rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi μ hμ1 hμ2 0]
+
+/-- Boost row (spatial index 1) picks up a minus sign under the Weyl rotation. -/
+private lemma weylRot_row_boost (d : ℕ) (hd2 : 2 ≤ d) (ν : Fin (d + 1)) :
+    (weylRot d hd2).val.val (weylIdx0 d hd2).succ ν =
+      if ν = (weylIdx0 d hd2).succ then (-1 : ℝ) else 0 := by
+  change spatialRot d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi (weylIdx0 d hd2).succ ν = _
+  rw [sr_i d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi ν]
+  simp [weylIdx0, Real.sin_pi, Real.cos_pi]
+
+/-- Boost column (spatial index 1) picks up a minus sign under the Weyl rotation. -/
+private lemma weylRot_col_boost (d : ℕ) (hd2 : 2 ≤ d) (μ : Fin (d + 1)) :
+    (weylRot d hd2).val.val μ (weylIdx0 d hd2).succ =
+      if μ = (weylIdx0 d hd2).succ then (-1 : ℝ) else 0 := by
+  change spatialRot d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi μ (weylIdx0 d hd2).succ = _
+  by_cases hμ0 : μ = 0
+  · subst hμ0
+    rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0
+      (by simp [weylIdx0]) (by simp [weylIdx1]) (weylIdx0 d hd2).succ]
+    simp [weylIdx0]
+  · by_cases hμ1 : μ = (weylIdx0 d hd2).succ
+    · subst hμ1
+      rw [sr_i d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi (weylIdx0 d hd2).succ]
+      simp [weylIdx0, Real.sin_pi, Real.cos_pi]
+    · by_cases hμ2 : μ = (weylIdx1 d hd2).succ
+      · subst hμ2
+        rw [sr_j d (weylIdx0 d hd2) (weylIdx1 d hd2) (weylIdx_ne d hd2) Real.pi
+          (weylIdx0 d hd2).succ]
+        simp [weylIdx0, weylIdx1, Real.sin_pi]
+      · rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi μ hμ1 hμ2
+          (weylIdx0 d hd2).succ]
+        simp [hμ1]
+
+/-- Complex-cast version of `weylRot_row_time`. -/
+private lemma weylRotC_row_time (d : ℕ) (hd2 : 2 ≤ d) (ν : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2)).val 0 ν =
+      if ν = 0 then (1 : ℂ) else 0 := by
+  change ((weylRot d hd2).val.val 0 ν : ℂ) = _
+  rw [weylRot_row_time d hd2 ν]
+  split_ifs <;> simp
+
+/-- Complex-cast version of `weylRot_col_time`. -/
+private lemma weylRotC_col_time (d : ℕ) (hd2 : 2 ≤ d) (μ : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2)).val μ 0 =
+      if μ = 0 then (1 : ℂ) else 0 := by
+  change ((weylRot d hd2).val.val μ 0 : ℂ) = _
+  rw [weylRot_col_time d hd2 μ]
+  split_ifs <;> simp
+
+/-- Complex-cast version of `weylRot_row_boost`. -/
+private lemma weylRotC_row_boost (d : ℕ) (hd2 : 2 ≤ d) (ν : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2)).val (weylIdx0 d hd2).succ ν =
+      if ν = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+  change ((weylRot d hd2).val.val (weylIdx0 d hd2).succ ν : ℂ) = _
+  rw [weylRot_row_boost d hd2 ν]
+  split_ifs <;> simp
+
+/-- Complex-cast version of `weylRot_col_boost`. -/
+private lemma weylRotC_col_boost (d : ℕ) (hd2 : 2 ≤ d) (μ : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2)).val μ (weylIdx0 d hd2).succ =
+      if μ = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+  change ((weylRot d hd2).val.val μ (weylIdx0 d hd2).succ : ℂ) = _
+  rw [weylRot_col_boost d hd2 μ]
+  split_ifs <;> simp
+
+/-- Diagonal sign character of the Weyl rotation at angle `π`. -/
+private def weylSign (d : ℕ) (hd2 : 2 ≤ d) (a : Fin (d + 1)) : ℂ :=
+  if a = 0 then (1 : ℂ)
+  else if a = (weylIdx0 d hd2).succ then (-1 : ℂ)
+  else if a = (weylIdx1 d hd2).succ then (-1 : ℂ)
+  else (1 : ℂ)
+
+private lemma weylSign_sq (d : ℕ) (hd2 : 2 ≤ d) (a : Fin (d + 1)) :
+    weylSign d hd2 a * weylSign d hd2 a = 1 := by
+  by_cases ha0 : a = 0
+  · simp [weylSign, ha0]
+  · by_cases ha1 : a = (weylIdx0 d hd2).succ
+    · simp [weylSign, ha0, ha1]
+    · by_cases ha2 : a = (weylIdx1 d hd2).succ
+      · simp [weylSign, ha0, ha1, ha2]
+      · simp [weylSign, ha0, ha1, ha2]
+
+/-- At `θ = π`, `weylRot` is diagonal with signs given by `weylSign`. -/
+private lemma weylRotC_entry_diag (d : ℕ) (hd2 : 2 ≤ d)
+    (a b : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2)).val a b =
+      if a = b then weylSign d hd2 a else 0 := by
+  change ((weylRot d hd2).val.val a b : ℂ) = _
+  change ((spatialRot d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi a b : ℝ) : ℂ) = _
+  rcases Fin.eq_zero_or_eq_succ a with rfl | ⟨x, rfl⟩
+  · rw [sr_other d (weylIdx0 d hd2) (weylIdx1 d hd2) Real.pi 0
+      (by simp [weylIdx0]) (by simp [weylIdx1]) b]
+    by_cases hb : b = 0
+    · simp [weylSign, hb, eq_comm]
+    · simp [weylSign, hb, eq_comm]
+  · rw [spatialRot_succ_apply d (weylIdx0 d hd2) (weylIdx1 d hd2) (weylIdx_ne d hd2) Real.pi x b]
+    by_cases hxi : x = weylIdx0 d hd2
+    · subst hxi
+      by_cases hb : b = (weylIdx0 d hd2).succ
+      · simp [weylSign, hb, eq_comm, weylIdx0, weylIdx1, Real.sin_pi, Real.cos_pi]
+      · have hb' : b ≠ (weylIdx0 d hd2).succ := hb
+        have hb1 : b ≠ (⟨1, by omega⟩ : Fin (d + 1)) := by
+          simpa [weylIdx0] using hb'
+        simp [weylSign, hb1, eq_comm, weylIdx0, weylIdx1, Real.sin_pi, Real.cos_pi]
+    · by_cases hxj : x = weylIdx1 d hd2
+      · subst hxj
+        by_cases hb : b = (weylIdx1 d hd2).succ
+        · simp [weylSign, hb, eq_comm, weylIdx0, weylIdx1, Real.sin_pi, Real.cos_pi]
+        · have hb' : b ≠ (weylIdx1 d hd2).succ := hb
+          have hb2 : b ≠ (⟨2, by omega⟩ : Fin (d + 1)) := by
+            simpa [weylIdx1] using hb'
+          simp [weylSign, hb2, eq_comm, weylIdx0, weylIdx1, Real.sin_pi, Real.cos_pi]
+      · by_cases hb : x.succ = b
+        · have hb0 : b ≠ 0 := by simpa [hb] using Fin.succ_ne_zero x
+          have hb1 : b ≠ (weylIdx0 d hd2).succ := by
+            intro hb1
+            apply hxi
+            exact Fin.succ_inj.mp (hb.trans hb1)
+          have hb2 : b ≠ (weylIdx1 d hd2).succ := by
+            intro hb2
+            apply hxj
+            exact Fin.succ_inj.mp (hb.trans hb2)
+          simp [hxi, hxj, weylSign, hb, hb0, hb1, hb2, eq_comm]
+        · simp [hxi, hxj, weylSign, hb, eq_comm]
+
+/-- Under Weyl conjugation, the `(0,1)` boost entry changes sign. -/
+private lemma weylConj_expBoost_entry01 {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2)).val 0 (weylIdx0 d hd2).succ
+      = Complex.sinh (-t) := by
+  have hd1 : 1 ≤ d := by omega
+  change ((((ComplexLorentzGroup.ofReal (weylRot d hd2)).val * (expBoost t).val *
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val :
+      Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) 0 (weylIdx0 d hd2).succ) =
+      Complex.sinh (-t))
+  rw [Matrix.mul_apply]
+  have hR_col : ∀ α : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val α (weylIdx0 d hd2).succ =
+        if α = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+    intro α
+    simpa using weylRotC_col_boost d hd2 α
+  simp_rw [hR_col, mul_ite, mul_neg, mul_zero]
+  simp_rw [Matrix.mul_apply]
+  have hR_row0 : ∀ β : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val 0 β = if β = 0 then (1 : ℂ) else 0 := by
+    intro β
+    simpa using weylRotC_row_time d hd2 β
+  simp_rw [hR_row0, ite_mul, one_mul, zero_mul]
+  simp
+  have hentry : (expBoost t).val 0 (weylIdx0 d hd2).succ = Complex.sinh t := by
+    simpa [weylIdx0] using expBoost_val_entry (d := d) t hd1 0 (weylIdx0 d hd2).succ
+  simp [hentry]
+
+/-- Under Weyl conjugation, the `(1,0)` boost entry changes sign. -/
+private lemma weylConj_expBoost_entry10 {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2)).val (weylIdx0 d hd2).succ 0
+      = Complex.sinh (-t) := by
+  have hd1 : 1 ≤ d := by omega
+  change ((((ComplexLorentzGroup.ofReal (weylRot d hd2)).val * (expBoost t).val *
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val :
+      Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) (weylIdx0 d hd2).succ 0) =
+      Complex.sinh (-t))
+  rw [Matrix.mul_apply]
+  have hR_col0 : ∀ α : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val α 0 = if α = 0 then (1 : ℂ) else 0 := by
+    intro α
+    simpa using weylRotC_col_time d hd2 α
+  simp [hR_col0]
+  simp_rw [Matrix.mul_apply]
+  have hR_row1 : ∀ β : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val (weylIdx0 d hd2).succ β =
+        if β = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+    intro β
+    simpa using weylRotC_row_boost d hd2 β
+  simp [hR_row1]
+  have hentry : (expBoost t).val (weylIdx0 d hd2).succ 0 = Complex.sinh t := by
+    simpa [weylIdx0] using expBoost_val_entry (d := d) t hd1 (weylIdx0 d hd2).succ 0
+  simp [hentry]
+
+/-- Under Weyl conjugation, the `(0,0)` entry is unchanged. -/
+private lemma weylConj_expBoost_entry00 {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2)).val 0 0 = Complex.cosh (-t) := by
+  have hd1 : 1 ≤ d := by omega
+  change ((((ComplexLorentzGroup.ofReal (weylRot d hd2)).val * (expBoost t).val *
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val :
+      Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) 0 0) = Complex.cosh (-t))
+  rw [Matrix.mul_apply]
+  have hR_col0 : ∀ α : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val α 0 = if α = 0 then (1 : ℂ) else 0 := by
+    intro α
+    simpa using weylRotC_col_time d hd2 α
+  simp [hR_col0]
+  simp_rw [Matrix.mul_apply]
+  have hR_row0 : ∀ β : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val 0 β = if β = 0 then (1 : ℂ) else 0 := by
+    intro β
+    simpa using weylRotC_row_time d hd2 β
+  simp_rw [hR_row0, ite_mul, one_mul, zero_mul]
+  have hsum :
+      (∑ x : Fin (d + 1), if x = 0 then (expBoost (d := d) t).val x 0 else 0) =
+        (expBoost (d := d) t).val 0 0 := by
+    simp
+  have hentry : (expBoost (d := d) t).val 0 0 = Complex.cosh t := by
+    simpa using expBoost_val_entry (d := d) t hd1 0 0
+  simp [hsum, hentry]
+
+/-- Under Weyl conjugation, the `(1,1)` entry is unchanged. -/
+private lemma weylConj_expBoost_entry11 {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2)).val (weylIdx0 d hd2).succ (weylIdx0 d hd2).succ
+      = Complex.cosh (-t) := by
+  have hd1 : 1 ≤ d := by omega
+  change ((((ComplexLorentzGroup.ofReal (weylRot d hd2)).val * (expBoost t).val *
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val :
+      Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ) (weylIdx0 d hd2).succ (weylIdx0 d hd2).succ) =
+      Complex.cosh (-t))
+  rw [Matrix.mul_apply]
+  have hR_col1 : ∀ α : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val α (weylIdx0 d hd2).succ =
+        if α = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+    intro α
+    simpa using weylRotC_col_boost d hd2 α
+  simp [hR_col1]
+  simp_rw [Matrix.mul_apply]
+  have hR_row1 : ∀ β : Fin (d + 1),
+      (ComplexLorentzGroup.ofReal (weylRot d hd2)).val (weylIdx0 d hd2).succ β =
+        if β = (weylIdx0 d hd2).succ then (-1 : ℂ) else 0 := by
+    intro β
+    simpa using weylRotC_row_boost d hd2 β
+  simp [hR_row1]
+  have hentry : (expBoost (d := d) t).val (weylIdx0 d hd2).succ (weylIdx0 d hd2).succ =
+      Complex.cosh t := by
+    simpa [weylIdx0] using
+      expBoost_val_entry (d := d) t hd1 (weylIdx0 d hd2).succ (weylIdx0 d hd2).succ
+  simp [hentry]
+
+/-- Weyl conjugation acts on the time/boost `2×2` block as `t ↦ -t`. -/
+private theorem weylConj_expBoost_boostBlock {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    let R := ComplexLorentzGroup.ofReal (weylRot d hd2)
+    let i := (weylIdx0 d hd2).succ
+    (R * expBoost t * R).val 0 0 = Complex.cosh (-t) ∧
+    (R * expBoost t * R).val 0 i = Complex.sinh (-t) ∧
+    (R * expBoost t * R).val i 0 = Complex.sinh (-t) ∧
+    (R * expBoost t * R).val i i = Complex.cosh (-t) := by
+  simp [weylConj_expBoost_entry00, weylConj_expBoost_entry01,
+    weylConj_expBoost_entry10, weylConj_expBoost_entry11]
+
+/-- Entrywise form of Weyl conjugation on boosts: diagonal sign-twisting. -/
+private lemma weylConj_expBoost_entry_sign {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ)
+    (μ ν : Fin (d + 1)) :
+    (ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2)).val μ ν =
+      weylSign d hd2 μ * (expBoost (d := d) t).val μ ν * weylSign d hd2 ν := by
+  let R : ComplexLorentzGroup d := ComplexLorentzGroup.ofReal (weylRot d hd2)
+  change ((((R.val * (expBoost (d := d) t).val * R.val :
+      Matrix (Fin (d + 1)) (Fin (d + 1)) ℂ)) μ ν) =
+      weylSign d hd2 μ * (expBoost (d := d) t).val μ ν * weylSign d hd2 ν)
+  have hR : ∀ a b : Fin (d + 1), R.val a b = if a = b then weylSign d hd2 a else 0 := by
+    intro a b
+    simpa [R] using weylRotC_entry_diag d hd2 a b
+  rw [Matrix.mul_apply]
+  simp_rw [hR, mul_ite, mul_zero]
+  simp
+  rw [Matrix.mul_apply]
+  simp [hR, ite_mul, one_mul, zero_mul]
+
+/-- Weyl conjugation sends `exp(tK)` to `exp(-tK)` for `d ≥ 2`. -/
+private theorem weylConj_expBoost {d : ℕ} (hd2 : 2 ≤ d) (t : ℂ) :
+    ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost (d := d) t *
+      ComplexLorentzGroup.ofReal (weylRot d hd2) = expBoost (d := d) (-t) := by
+  ext μ ν
+  have hd1 : 1 ≤ d := by omega
+  rw [weylConj_expBoost_entry_sign (d := d) hd2 t μ ν]
+  rw [expBoost_val_entry (d := d) t hd1 μ ν, expBoost_val_entry (d := d) (-t) hd1 μ ν]
+  by_cases h00 : μ.val = 0 ∧ ν.val = 0
+  · have hμ0 : μ = 0 := Fin.ext (by simpa using h00.1)
+    have hν0 : ν = 0 := Fin.ext (by simpa using h00.2)
+    subst μ; subst ν
+    simp [h00, weylSign]
+  · by_cases h01 :
+      (μ.val = 0 ∧ ν.val = 1) ∨ (μ.val = 1 ∧ ν.val = 0)
+    · rcases h01 with h01 | h10
+      · have hμ0 : μ = 0 := Fin.ext (by simpa using h01.1)
+        have hν1 : ν = (weylIdx0 d hd2).succ := by
+          apply Fin.ext
+          simpa [weylIdx0] using h01.2
+        subst μ; subst ν
+        simp [h00, h01, weylSign, weylIdx0, weylIdx1]
+      · have hμ1 : μ = (weylIdx0 d hd2).succ := by
+          apply Fin.ext
+          simpa [weylIdx0] using h10.1
+        have hν0 : ν = 0 := Fin.ext (by simpa using h10.2)
+        subst μ; subst ν
+        simp [h00, h10, weylSign, weylIdx0, weylIdx1]
+    · by_cases h11 : μ.val = 1 ∧ ν.val = 1
+      · have hμ1 : μ = (weylIdx0 d hd2).succ := by
+          apply Fin.ext
+          simpa [weylIdx0] using h11.1
+        have hν1 : ν = (weylIdx0 d hd2).succ := by
+          apply Fin.ext
+          simpa [weylIdx0] using h11.2
+        subst μ; subst ν
+        simp [h00, h01, h11, weylSign, weylIdx0, weylIdx1]
+      · by_cases hμν : μ = ν
+        · subst ν
+          have hμ0 : μ ≠ 0 := by
+            intro h
+            apply h00
+            simpa [h]
+          have hμ1 : μ.val ≠ 1 := by
+            intro h
+            exact h11 ⟨h, h⟩
+          simp [hμ0, hμ1, weylSign_sq, mul_assoc]
+        · have hA : ¬(μ = 0 ∧ ν = 0) := by
+            intro h
+            apply h00
+            simpa [h.1, h.2]
+          have hB : ¬(μ = 0 ∧ ν.val = 1 ∨ μ.val = 1 ∧ ν = 0) := by
+            intro h
+            apply h01
+            rcases h with h | h
+            · exact Or.inl ⟨by simpa [h.1], h.2⟩
+            · exact Or.inr ⟨h.1, by simpa [h.2]⟩
+          simp [hA, hB, h11, hμν]
+
 /-- The **principal boost strip** `{t ∈ ℂ | 0 < Im(t) < π}`.
 
     The boost generator `K` has eigenvalues `±1`, so `exp(tK)` is periodic with
@@ -1530,30 +2123,276 @@ theorem isConnected_principalBoostOverlap {d : ℕ}
   simp only [principalBoostStrip, Set.mem_setOf_eq]
   exact ⟨hpi, hpi2⟩
 
-/-- **Principal-strip KAK decomposition** (textbook axiom): Every element of
-    the slice index set factors as `k₁ · exp(tK) · k₂` with `t` in the
-    principal boost overlap.
+/-- **Raw KAK decomposition** for the complex Lorentz group.
 
-    This combines the standard Cartan KAK decomposition for `L₊(ℂ)` with
-    the Weyl reflection trick: for `d ≥ 2`, there exists a 180° spatial
-    rotation `R ∈ SO↑(1,d;ℝ)` such that `R · exp(tK) · R⁻¹ = exp(-tK)`.
-    Given any KAK factorization `Λ = k₁ · exp(tK) · k₂`, if `Im(t) < 0`
-    we replace it with `Λ = (k₁R⁻¹) · exp(-tK) · (Rk₂)` where `Im(-t) > 0`.
-    The meridians `Im(t) = 0` and `Im(t) = π` are excluded by the nonempty
-    slice condition (the former gives real boosts preserving `V⁺`, the latter
-    gives PT reversal which negates time components of unflipped differences).
+    This is the pure Lie-theoretic input: every `Λ ∈ SO₊(1,d;ℂ)` factors as
+    `k₁ · exp(tK) · k₂` with real restricted Lorentz factors. -/
+private axiom raw_KAK_decomposition {d : ℕ}
+    (Λ : ComplexLorentzGroup d) :
+    ∃ (k₁ k₂ : RestrictedLorentzGroup d) (t : ℂ),
+      Λ = ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂
 
-    **References**:
-    - S. Helgason, "Differential Geometry, Lie Groups, and Symmetric Spaces"
-      (1978), Chapter VI, Theorem 1.1
-    - A.W. Knapp, "Lie Groups Beyond an Introduction" (2002), §VII.3 -/
-axiom sliceIndexSet_KAK_principal {d : ℕ} (hd2 : 2 ≤ d)
+/-- Nonempty overlap slices cannot occur on even meridians `Im(t) = 2πm`
+    for nontrivial permutations: after periodicity reduction this would force
+    `FT ∩ σ·FT ≠ ∅`, contradicting `σ ≠ 1`. -/
+private lemma expBoost_nonempty_excludes_even_meridian (d : ℕ) (hd2 : 2 ≤ d)
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1)
+    (t : ℂ)
+    (ht : (permForwardOverlapSlice (d := d) n σ (expBoost (d := d) t)).Nonempty) :
+    ∀ m : ℤ, t.im ≠ ((2 * m : ℤ) : ℝ) * Real.pi := by
+  intro m hm
+  have hd1 : 1 ≤ d := by omega
+  let a : ℝ := t.re
+  have hm' : t.im = (m : ℝ) * (2 * Real.pi) := by
+    calc
+      t.im = ((2 * m : ℤ) : ℝ) * Real.pi := hm
+      _ = (m : ℝ) * (2 * Real.pi) := by
+            norm_num [Int.cast_mul, mul_assoc, mul_comm, mul_left_comm]
+  have ht_decomp : t = (a : ℂ) + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I) := by
+    apply Complex.ext <;> simp [a, hm', mul_assoc, mul_comm, mul_left_comm]
+  have hperiod :
+      expBoost (d := d) ((a : ℂ) + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) =
+        expBoost (d := d) (a : ℂ) :=
+    expBoost_periodic_two_pi_I_int (d := d) hd1 (a : ℂ) m
+  have hexp_real : expBoost (d := d) t = expBoost (d := d) (a : ℂ) := by
+    calc
+      expBoost (d := d) t =
+          expBoost (d := d) ((a : ℂ) + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) := by
+            rw [ht_decomp]
+      _ = expBoost (d := d) (a : ℂ) := hperiod
+  have ht_real :
+      (permForwardOverlapSlice (d := d) n σ (expBoost (d := d) (a : ℂ))).Nonempty := by
+    simpa [hexp_real] using ht
+  have hreal_eq :
+      expBoost (d := d) (a : ℂ) =
+        ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a) :=
+    expBoost_ofReal_re (d := d) hd1 a
+  rcases ht_real with ⟨w, hwFT, hwActFT⟩
+  have hwActFT' :
+      complexLorentzAction
+        (ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a))
+        (permAct (d := d) σ w) ∈ ForwardTube d n := by
+    simpa [hreal_eq] using hwActFT
+  have hpermFT :
+      permAct (d := d) σ w ∈ ForwardTube d n := by
+    have htmp :
+        complexLorentzAction
+          (ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a))⁻¹
+          (complexLorentzAction
+            (ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a))
+            (permAct (d := d) σ w)) ∈ ForwardTube d n := by
+      exact ofReal_inv_preserves_forwardTube
+        (R := LorentzLieGroup.boostElement d ⟨0, by omega⟩ a)
+        (z := complexLorentzAction
+          (ComplexLorentzGroup.ofReal (LorentzLieGroup.boostElement d ⟨0, by omega⟩ a))
+          (permAct (d := d) σ w))
+        hwActFT'
+    simpa [complexLorentzAction_inv] using htmp
+  have hwPerm : w ∈ PermutedForwardTube d n σ := by
+    simpa [PermutedForwardTube, permAct] using hpermFT
+  have hinter : w ∈ ForwardTube d n ∩ PermutedForwardTube d n σ := ⟨hwFT, hwPerm⟩
+  have hempty :
+      ForwardTube d n ∩ PermutedForwardTube d n σ = (∅ : Set (Fin n → Fin (d + 1) → ℂ)) :=
+    forwardTube_inter_permutedForwardTube_eq_empty_of_ne_one (d := d) (n := n) σ hσ
+  have : w ∈ (∅ : Set (Fin n → Fin (d + 1) → ℂ)) := by simpa [hempty] using hinter
+  exact this.elim
+
+/-- Residual geometric input: nonempty overlap slices exclude odd meridians
+    `Im(t) = (2m+1)π`. (Even meridians are proved above.) -/
+private axiom expBoost_nonempty_excludes_odd_meridian (d : ℕ) (hd2 : 2 ≤ d)
     (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hσ : σ ≠ 1)
+    (t : ℂ)
+    (ht : (permForwardOverlapSlice (d := d) n σ (expBoost (d := d) t)).Nonempty) :
+    ∀ m : ℤ, t.im ≠ ((2 * m + 1 : ℤ) : ℝ) * Real.pi
+
+private lemma im_add_int_two_pi_I (t : ℂ) (m : ℤ) :
+    (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)).im =
+      t.im + (m : ℝ) * (2 * Real.pi) := by
+  simp [mul_comm, mul_left_comm]
+
+/-- Scalar parameter normalization: from a nonempty boost slice, one can move
+    the parameter into the principal strip by an integer `2πi` shift, optionally
+    followed by a sign flip. -/
+private theorem expBoost_nonempty_parameter_normalization (d : ℕ) (hd2 : 2 ≤ d)
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hσ : σ ≠ 1)
+    (t : ℂ)
+    (ht : (permForwardOverlapSlice (d := d) n σ (expBoost (d := d) t)).Nonempty) :
+    ∃ (t' : ℂ) (m : ℤ),
+      (0 < t'.im ∧ t'.im < Real.pi) ∧
+      (t' = t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I) ∨
+       t' = -(t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I))
+      ) := by
+  have heven : ∀ m : ℤ, t.im ≠ ((2 * m : ℤ) : ℝ) * Real.pi :=
+    expBoost_nonempty_excludes_even_meridian d hd2 n σ hσ t ht
+  have hodd : ∀ m : ℤ, t.im ≠ ((2 * m + 1 : ℤ) : ℝ) * Real.pi :=
+    expBoost_nonempty_excludes_odd_meridian d hd2 n σ hσ t ht
+  let m0 : ℤ := Int.floor (t.im / (2 * Real.pi))
+  let y : ℝ := t.im - (m0 : ℝ) * (2 * Real.pi)
+  have h2pi_pos : (0 : ℝ) < 2 * Real.pi := by positivity
+  have hm0_le : (m0 : ℝ) ≤ t.im / (2 * Real.pi) := Int.floor_le _
+  have hm0_lt : t.im / (2 * Real.pi) < (m0 : ℝ) + 1 := Int.lt_floor_add_one _
+  have hm0_mul : (m0 : ℝ) * (2 * Real.pi) ≤ t.im := by
+    have hmul := mul_le_mul_of_nonneg_right hm0_le (le_of_lt h2pi_pos)
+    have hdiv : (t.im / (2 * Real.pi)) * (2 * Real.pi) = t.im := by
+      field_simp [ne_of_gt h2pi_pos]
+    linarith
+  have hm0_mul_lt : t.im < ((m0 : ℝ) + 1) * (2 * Real.pi) := by
+    have hmul := mul_lt_mul_of_pos_right hm0_lt h2pi_pos
+    have hdiv : (t.im / (2 * Real.pi)) * (2 * Real.pi) = t.im := by
+      field_simp [ne_of_gt h2pi_pos]
+    linarith
+  have hy_nonneg : 0 ≤ y := by
+    dsimp [y]
+    linarith
+  have hy_lt_two_pi : y < 2 * Real.pi := by
+    dsimp [y]
+    linarith
+  have hy_ne_zero : y ≠ 0 := by
+    intro hy0
+    change t.im - (m0 : ℝ) * (2 * Real.pi) = 0 at hy0
+    have hy0' : t.im = (m0 : ℝ) * (2 * Real.pi) := by linarith
+    have hy0'' : t.im = ((2 * m0 : ℤ) : ℝ) * Real.pi := by
+      calc
+        t.im = (m0 : ℝ) * (2 * Real.pi) := hy0'
+        _ = ((2 * m0 : ℤ) : ℝ) * Real.pi := by
+            norm_num [Int.cast_mul, mul_assoc, mul_comm, mul_left_comm]
+    exact heven m0 hy0''
+  have hy_ne_pi : y ≠ Real.pi := by
+    intro hypi
+    change t.im - (m0 : ℝ) * (2 * Real.pi) = Real.pi at hypi
+    have hypi' : t.im = (m0 : ℝ) * (2 * Real.pi) + Real.pi := by linarith
+    have hypi'' : t.im = ((2 * m0 + 1 : ℤ) : ℝ) * Real.pi := by
+      calc
+        t.im = (m0 : ℝ) * (2 * Real.pi) + Real.pi := hypi'
+        _ = ((2 * m0 + 1 : ℤ) : ℝ) * Real.pi := by
+            norm_num [Int.cast_mul, Int.cast_add, mul_assoc, mul_comm, mul_left_comm]
+            ring
+    exact hodd m0 hypi''
+  have hy_pos : 0 < y := lt_of_le_of_ne hy_nonneg (Ne.symm hy_ne_zero)
+  by_cases hy_lt_pi : y < Real.pi
+  · let m : ℤ := -m0
+    let t' : ℂ := t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)
+    have ht'im : t'.im = y := by
+      unfold t' m
+      rw [im_add_int_two_pi_I]
+      have hnegm : ((-m0 : ℤ) : ℝ) = -(m0 : ℝ) := by norm_num
+      rw [hnegm]
+      dsimp [y]
+      ring
+    refine ⟨t', m, ?_, ?_⟩
+    · exact ⟨by simpa [ht'im] using hy_pos, by simpa [ht'im] using hy_lt_pi⟩
+    · exact Or.inl rfl
+  · have hy_pi_le : Real.pi ≤ y := le_of_not_gt hy_lt_pi
+    have hy_gt_pi : Real.pi < y := lt_of_le_of_ne hy_pi_le (Ne.symm hy_ne_pi)
+    let m : ℤ := -m0 - 1
+    let t' : ℂ := -(t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I))
+    have ht'im : t'.im = 2 * Real.pi - y := by
+      unfold t' m
+      rw [Complex.neg_im, im_add_int_two_pi_I]
+      have hnegm : ((-m0 - 1 : ℤ) : ℝ) = -(m0 : ℝ) - 1 := by norm_num
+      rw [hnegm]
+      dsimp [y]
+      ring
+    refine ⟨t', m, ?_, ?_⟩
+    · constructor
+      · have : 0 < 2 * Real.pi - y := by linarith [hy_lt_two_pi]
+        simpa [ht'im] using this
+      · have : 2 * Real.pi - y < Real.pi := by linarith [hy_gt_pi]
+        simpa [ht'im] using this
+    · exact Or.inr rfl
+
+/-- **Principal-strip normalization for boosts (up to real `K`-factors)**.
+
+    This follows from:
+    1. scalar parameter normalization (shift/reflection),
+    2. `2πi` periodicity of `expBoost`,
+    3. Weyl conjugation `exp(tK) ↦ exp(-tK)`. -/
+private theorem expBoost_principal_representative (d : ℕ) (hd2 : 2 ≤ d)
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hσ : σ ≠ 1)
+    (t : ℂ)
+    (ht : (permForwardOverlapSlice (d := d) n σ (expBoost (d := d) t)).Nonempty) :
+    ∃ (kL kR : RestrictedLorentzGroup d) (t' : ℂ),
+      (0 < t'.im ∧ t'.im < Real.pi) ∧
+      expBoost (d := d) t =
+        ComplexLorentzGroup.ofReal kL * expBoost (d := d) t' * ComplexLorentzGroup.ofReal kR := by
+  have hd1 : 1 ≤ d := by omega
+  obtain ⟨t', m, ht'_strip, ht'_form⟩ :=
+    expBoost_nonempty_parameter_normalization d hd2 n σ hσ t ht
+  rcases ht'_form with ht'_shift | ht'_refl
+  · refine ⟨1, 1, t', ht'_strip, ?_⟩
+    have hperiod :
+        expBoost (d := d) (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) = expBoost (d := d) t :=
+      expBoost_periodic_two_pi_I_int (d := d) hd1 t m
+    have ht_eq : expBoost (d := d) t = expBoost (d := d) t' := by
+      simpa [ht'_shift] using hperiod.symm
+    calc
+      expBoost (d := d) t = expBoost (d := d) t' := ht_eq
+      _ = ComplexLorentzGroup.ofReal (1 : RestrictedLorentzGroup d) * expBoost (d := d) t' *
+            ComplexLorentzGroup.ofReal (1 : RestrictedLorentzGroup d) := by
+          simp [ofReal_one_eq, mul_assoc]
+  · refine ⟨weylRot d hd2, weylRot d hd2, t', ht'_strip, ?_⟩
+    have hperiod :
+        expBoost (d := d) (t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I)) = expBoost (d := d) t :=
+      expBoost_periodic_two_pi_I_int (d := d) hd1 t m
+    have hnegarg :
+        -t' = t + (m : ℂ) * ((2 * Real.pi : ℂ) * Complex.I) := by
+      rw [ht'_refl]
+      ring
+    have ht_eq_neg : expBoost (d := d) t = expBoost (d := d) (-t') := by
+      simpa [hnegarg] using hperiod.symm
+    calc
+      expBoost (d := d) t = expBoost (d := d) (-t') := ht_eq_neg
+      _ = ComplexLorentzGroup.ofReal (weylRot d hd2) * expBoost (d := d) t' *
+            ComplexLorentzGroup.ofReal (weylRot d hd2) := by
+          simpa using (weylConj_expBoost (d := d) hd2 t').symm
+
+/-- **Principal-strip KAK decomposition**: every slice-index element factors as
+    `k₁ · exp(tK) · k₂` with `t` in the principal boost overlap.
+
+    This is obtained from:
+    1. the raw KAK factorization (`raw_KAK_decomposition`), and
+    2. principal-strip normalization of the boost parameter
+       (`expBoost_principal_representative`). -/
+theorem sliceIndexSet_KAK_principal {d : ℕ} (hd2 : 2 ≤ d)
+    (n : ℕ) (σ : Equiv.Perm (Fin n))
+    (hσ : σ ≠ 1)
     (Λ : ComplexLorentzGroup d)
     (hΛ : (permForwardOverlapSlice (d := d) n σ Λ).Nonempty) :
     ∃ (k₁ k₂ : RestrictedLorentzGroup d) (t : ℂ),
       t ∈ principalBoostOverlap d n σ ∧
-      Λ = ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂
+      Λ = ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂ := by
+  obtain ⟨k₁, k₂, t, hKAK⟩ := raw_KAK_decomposition Λ
+  have ht_nonempty_raw :
+      (permForwardOverlapSlice (d := d) n σ (expBoost t)).Nonempty := by
+    have hcomposed :
+        (permForwardOverlapSlice (d := d) n σ
+          (ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂)).Nonempty := by
+      simpa [hKAK] using hΛ
+    exact sliceIndexSet_bi_invariant_rev n σ (expBoost t) k₁ k₂ hcomposed
+  obtain ⟨kL, kR, t', ht'_strip, ht_repr⟩ :=
+    expBoost_principal_representative d hd2 n σ hσ t ht_nonempty_raw
+  have ht'_nonempty :
+      (permForwardOverlapSlice (d := d) n σ (expBoost t')).Nonempty := by
+    have hcomposed :
+        (permForwardOverlapSlice (d := d) n σ
+          (ComplexLorentzGroup.ofReal kL * expBoost t' * ComplexLorentzGroup.ofReal kR)).Nonempty := by
+      simpa [ht_repr] using ht_nonempty_raw
+    exact sliceIndexSet_bi_invariant_rev n σ (expBoost t') kL kR hcomposed
+  refine ⟨k₁ * kL, kR * k₂, t', ?_, ?_⟩
+  · refine ⟨ht'_strip, ?_⟩
+    exact ht'_nonempty
+  · calc
+      Λ = ComplexLorentzGroup.ofReal k₁ * expBoost t * ComplexLorentzGroup.ofReal k₂ := hKAK
+      _ = ComplexLorentzGroup.ofReal k₁ *
+            (ComplexLorentzGroup.ofReal kL * expBoost t' * ComplexLorentzGroup.ofReal kR) *
+            ComplexLorentzGroup.ofReal k₂ := by
+              rw [ht_repr]
+      _ = ComplexLorentzGroup.ofReal (k₁ * kL) * expBoost t' *
+            ComplexLorentzGroup.ofReal (kR * k₂) := by
+              simp [ofReal_mul_eq, mul_assoc]
 
 /-- The slice index set is connected for `d ≥ 2`.
 
@@ -1570,7 +2409,7 @@ axiom sliceIndexSet_KAK_principal {d : ℕ} (hd2 : 2 ≤ d)
     strips. The principal strip fix restricts to `{0 < Im(t) < π}` and uses
     the Weyl reflection to cover both strips via KAK. -/
 theorem isConnected_sliceIndexSet {d : ℕ}
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) :
     IsConnected {Λ : ComplexLorentzGroup d |
       (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} := by
   -- Abbreviations
@@ -1603,7 +2442,7 @@ theorem isConnected_sliceIndexSet {d : ℕ}
   -- Step 5: f is surjective onto I (by principal KAK)
   have hf_surj : ∀ Λ ∈ I, ∃ p, f p = Λ := by
     intro Λ hΛ
-    obtain ⟨k₁, k₂, t, htP, rfl⟩ := sliceIndexSet_KAK_principal hd2 n σ Λ hΛ
+    obtain ⟨k₁, k₂, t, htP, rfl⟩ := sliceIndexSet_KAK_principal hd2 n σ hσ Λ hΛ
     exact ⟨⟨k₁, ⟨t, htP⟩, k₂⟩, rfl⟩
   -- Step 6: The domain K × P × K is connected
   haveI : ConnectedSpace {t : ℂ // t ∈ P} :=
@@ -1629,11 +2468,11 @@ theorem isConnected_sliceIndexSet {d : ℕ}
     gluing lemma `isConnected_iUnion_of_open_membership` gives connectedness
     of the full union. -/
 theorem isConnected_permForwardOverlapSet
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) :
     IsConnected (permForwardOverlapSet (d := d) n σ) := by
   -- Define the index set: Λ's with nonempty slices
   let I := {Λ : ComplexLorentzGroup d | (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
-  have hI_conn : IsConnected I := isConnected_sliceIndexSet n σ hd2
+  have hI_conn : IsConnected I := isConnected_sliceIndexSet n σ hσ hd2
   -- The forward-overlap set equals ⋃_{Λ ∈ I} Slice(Λ)
   have heq : permForwardOverlapSet (d := d) n σ =
       ⋃ Λ ∈ I, permForwardOverlapSlice (d := d) n σ Λ := by
@@ -1661,7 +2500,7 @@ theorem isConnected_permForwardOverlapSet
     set is connected (by the slice gluing argument), the product is connected,
     and so is its continuous image. -/
 theorem isConnected_etOverlap
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hd2 : 2 ≤ d) :
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) :
     IsConnected (etOverlap (d := d) n σ) := by
   rw [etOverlap_eq_image_forwardOverlap]
   have hcont : Continuous (fun p : ComplexLorentzGroup d × (Fin n → Fin (d + 1) → ℂ) =>
@@ -1674,7 +2513,7 @@ theorem isConnected_etOverlap
       ((continuous_apply ν).comp ((continuous_apply k).comp continuous_snd))
   haveI : PathConnectedSpace (ComplexLorentzGroup d) :=
     pathConnectedSpace_iff_univ.mpr ComplexLorentzGroup.isPathConnected
-  have hFO_conn := isConnected_permForwardOverlapSet n σ hd2
+  have hFO_conn := isConnected_permForwardOverlapSet n σ hσ hd2
   constructor
   · rcases hFO_conn.nonempty with ⟨w, hw⟩
     exact ⟨complexLorentzAction 1 w,
@@ -1715,6 +2554,7 @@ theorem hExtPerm_of_d2
         F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
         F (fun k μ => (x k μ : ℂ)))
     (σ : Equiv.Perm (Fin n))
+    (hσ : σ ≠ 1)
     (hd2 : 2 ≤ d)
     (z : Fin n → Fin (d + 1) → ℂ)
     (hz : z ∈ ExtendedTube d n)
@@ -1734,7 +2574,7 @@ theorem hExtPerm_of_d2
   -- Step 4: W is open and connected
   have hW_open : IsOpen (etOverlap (d := d) n σ) := isOpen_etOverlap n σ
   have hW_conn : IsConnected (etOverlap (d := d) n σ) :=
-    isConnected_etOverlap n σ hd2
+    isConnected_etOverlap n σ hσ hd2
   -- Step 5: The permuted Jost set V is open and nonempty, with realEmbed V ⊂ W
   have hV_open : IsOpen (permJostSet (d := d) n σ) := isOpen_permJostSet n σ
   have hV_ne : (permJostSet (d := d) n σ).Nonempty := permJostSet_nonempty n σ hd2

@@ -2220,7 +2220,7 @@ private theorem iterated_eow_permutation_extension (n : ℕ)
           · -- d ≥ 2 branch: use hExtPerm_of_d2 from OverlapConnected.lean
             have hd2 : 2 ≤ d := by omega
             intro z hz hσz
-            exact hExtPerm_of_d2 n F hF_holo hF_lorentz hF_bv hF_local σ hd2 z hz hσz
+            exact hExtPerm_of_d2 n F hF_holo hF_lorentz hF_bv hF_local σ hσ hd2 z hz hσz
       exact iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz
         hF_bv hF_local σ hExtPerm
 
