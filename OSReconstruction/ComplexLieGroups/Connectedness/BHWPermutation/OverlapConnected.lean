@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.SeedSlices
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.JostWitnessGeneralSigma
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.SliceIndexSetD3
 
 /-!
 # Extended Tube Permutation Invariance via Identity Theorem (Route B)
@@ -638,23 +639,35 @@ private lemma isOpen_sliceIndexSet {d : ℕ} (n : ℕ) (σ : Equiv.Perm (Fin n))
   exact (permForwardOverlapSlice_openMembership n σ w Λ hw).mono
     (fun Λ' hΛ' => ⟨w, hΛ'⟩)
 
-/-- **Axiom (Bogolyubov–Logunov–Todorov, Lemma 9.7).**
+/-- **Axiom (Bogolyubov–Logunov–Todorov, Lemma 9.7) for d ≠ 3.**
     The slice index set `{Λ ∈ SO₊(1,d;ℂ) | ∃ w ∈ FT, Λ(σw) ∈ FT}` is connected.
 
-    In the textbook (4D, SL(2,ℂ)×SL(2,ℂ) parametrization), every element of the
-    index set is continuously deformed to a canonical form (K, K̄⁻¹) parametrised
-    by (α,β) with α ∈ ℝ, 0 < β < π — a connected parameter space.
-
-    For general d ≥ 2, SO₊(1,d;ℂ) is path-connected (proved:
+    For general d ≥ 2, d ≠ 3, SO₊(1,d;ℂ) is path-connected (proved:
     `ComplexLorentzGroup.isPathConnected`) and the index set is a non-empty
     open subset whose complement has positive codimension, hence connected.
 
     **Reference**: Bogolyubov, Logunov, Oksak & Todorov,
     *General Principles of Quantum Field Theory* (1990), Ch. 9, Lemma 9.7. -/
-private axiom isConnected_sliceIndexSet {d : ℕ}
-    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) :
+private axiom isConnected_sliceIndexSet_general {d : ℕ}
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) (hd3 : d ≠ 3) :
     IsConnected {Λ : ComplexLorentzGroup d |
       (permForwardOverlapSlice (d := d) n σ Λ).Nonempty}
+
+/-- **The slice index set is connected for d ≥ 2.**
+
+    For d = 3 (physical 4D spacetime), this is proved via the SL(2,ℂ)×SL(2,ℂ)
+    double cover and KAK decomposition (`isConnected_sliceIndexSet_d3`).
+    For other d ≥ 2, it remains an axiom (`isConnected_sliceIndexSet_general`).
+
+    **Reference**: Bogolyubov, Logunov, Oksak & Todorov,
+    *General Principles of Quantum Field Theory* (1990), Ch. 9, Lemma 9.7. -/
+private theorem isConnected_sliceIndexSet {d : ℕ}
+    (n : ℕ) (σ : Equiv.Perm (Fin n)) (hσ : σ ≠ 1) (hd2 : 2 ≤ d) :
+    IsConnected {Λ : ComplexLorentzGroup d |
+      (permForwardOverlapSlice (d := d) n σ Λ).Nonempty} := by
+  by_cases hd3 : d = 3
+  · subst hd3; exact isConnected_sliceIndexSet_d3 n σ hσ
+  · exact isConnected_sliceIndexSet_general n σ hσ hd2 hd3
 
 /-- The forward-overlap set `{w ∈ FT | σ·w ∈ ET}` is connected for `d ≥ 2`.
 
