@@ -11,11 +11,11 @@ Count convention: direct tactic holes only (`^\s*sorry\b`).
 
 | Scope | Direct `sorry` lines |
 |-------|----------------------:|
-| `OSReconstruction/Wightman` | 41 |
-| `OSReconstruction/SCV` | 14 |
+| `OSReconstruction/Wightman` | 40 |
+| `OSReconstruction/SCV` | 13 |
 | `OSReconstruction/ComplexLieGroups` | 2 |
 | `OSReconstruction/vNA` | 40 |
-| **Whole project** | **97** |
+| **Whole project** | **95** |
 
 ## Root Blocker Layers
 
@@ -40,10 +40,9 @@ Axiom transfer chain:
 Cluster transfer:
 - `bvt_cluster`
 
-### 2) R -> E Wick Rotation Plumbing (14 total)
+### 2) R -> E Wick Rotation Plumbing (13 total)
 
-`ForwardTubeLorentz.lean` (2):
-- `polynomial_growth_on_slice`
+`ForwardTubeLorentz.lean` (1):
 - `wickRotation_not_in_PET_null`
 
 `BHWExtension.lean` (2):
@@ -64,15 +63,14 @@ Cluster transfer:
 - `bhw_pointwise_cluster_euclidean`
 - `W_analytic_cluster_integral`
 
-### 3) Shared SCV Infrastructure (14 total, load-bearing)
+### 3) Shared SCV Infrastructure (13 total, load-bearing)
 
-`SCV/PaleyWiener.lean` (6):
+`SCV/PaleyWiener.lean` (5):
 - `paley_wiener_half_line`
 - `paley_wiener_cone`
 - `paley_wiener_converse`
 - `paley_wiener_one_step`
 - `paley_wiener_one_step_simple`
-- `paley_wiener_unique`
 
 `SCV/LaplaceSchwartz.lean` (6):
 - `fourierLaplace_continuousWithinAt`

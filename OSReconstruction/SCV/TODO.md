@@ -1,6 +1,6 @@
 # SCV TODO: OS-Critical Analytic Continuation Chain
 
-Last updated: 2026-02-27
+Last updated: 2026-03-05
 
 This TODO tracks the remaining `SCV` blockers on the OS reconstruction path.
 
@@ -11,11 +11,11 @@ Count convention in this file: direct tactic holes only, i.e.
 
 | Scope | Direct `sorry` lines |
 |---|---:|
-| `OSReconstruction/SCV` | 14 |
+| `OSReconstruction/SCV` | 13 |
 
 Breakdown:
 - `SCV/LaplaceSchwartz.lean`: 6
-- `SCV/PaleyWiener.lean`: 6
+- `SCV/PaleyWiener.lean`: 5
 - `SCV/BochnerTubeTheorem.lean`: 2
 
 ## Load-Bearing Items (Priority)
@@ -37,14 +37,13 @@ These three are the main leverage points for unblocking downstream `Wightman/Rec
 - `fourierLaplace_boundary_continuous`
 - `fourierLaplace_boundary_integral_convergence`
 
-### `SCV/PaleyWiener.lean` (6)
+### `SCV/PaleyWiener.lean` (5)
 
 - `paley_wiener_half_line`
 - `paley_wiener_cone`
 - `paley_wiener_converse`
 - `paley_wiener_one_step`
 - `paley_wiener_one_step_simple`
-- `paley_wiener_unique`
 
 ### `SCV/BochnerTubeTheorem.lean` (2)
 

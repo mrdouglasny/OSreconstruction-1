@@ -22,11 +22,11 @@ Counts verified with:
 
 | Scope | Sorrys |
 |---|---:|
-| `OSReconstruction/Wightman` | 41 |
-| `OSReconstruction/SCV` | 14 |
+| `OSReconstruction/Wightman` | 40 |
+| `OSReconstruction/SCV` | 13 |
 | `OSReconstruction/ComplexLieGroups` | 2 |
 | `OSReconstruction/vNA` | 40 |
-| **Total** | **97** |
+| **Total** | **95** |
 
 ## 3. Primary Priority Stack
 
@@ -45,16 +45,16 @@ Clusters:
 4. Cluster property (2):
    - `bvt_cluster` and companion transport lemma
 
-### B) R -> E wick-rotation submodules (14 sorrys total)
+### B) R -> E wick-rotation submodules (13 sorrys total)
 
 1. `SchwingerAxioms.lean` (5)
 2. `BHWTranslation.lean` (5)
 3. `BHWExtension.lean` (2)
-4. `ForwardTubeLorentz.lean` (2)
+4. `ForwardTubeLorentz.lean` (1)
 
-### C) Shared SCV infrastructure (14 sorrys total, deepest dependency)
+### C) Shared SCV infrastructure (13 sorrys total, deepest dependency)
 
-1. `PaleyWiener.lean` (6)
+1. `PaleyWiener.lean` (5)
 2. `LaplaceSchwartz.lean` (6)
 3. `BochnerTubeTheorem.lean` (2)
 
