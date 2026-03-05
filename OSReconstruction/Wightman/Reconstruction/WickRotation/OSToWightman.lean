@@ -448,8 +448,6 @@ theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (W_0 : SchwartzNPoint d 0 → ℂ)
     (F_0 : (Fin 0 → Fin (d + 1) → ℂ) → ℂ)
-    (_hW_cont : Continuous W_0)
-    (_hW_lin : IsLinearMap ℂ W_0)
     (hBV : ∀ (f : SchwartzNPoint d 0) (η : Fin 0 → Fin (d + 1) → ℝ),
       InForwardCone d 0 η →
       Filter.Tendsto
@@ -641,8 +639,6 @@ theorem bvt_normalized (OS : OsterwalderSchraderAxioms d)
   exact bv_zero_point_is_evaluation OS lgc
     (bvt_W OS lgc 0)
     (bvt_F OS lgc 0)
-    (boundary_values_tempered OS lgc 0).choose_spec.choose_spec.1
-    (boundary_values_tempered OS lgc 0).choose_spec.choose_spec.2.1
     (bvt_boundary_values OS lgc 0)
     (bvt_euclidean_restriction OS lgc 0)
     f
