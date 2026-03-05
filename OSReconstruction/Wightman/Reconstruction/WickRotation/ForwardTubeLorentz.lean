@@ -307,29 +307,50 @@ instances used here.
 
 /-- Polynomial growth of a holomorphic function on a fixed interior slice of a tube domain.
 
-    If F is holomorphic on ForwardTube d n and ε > 0 with η ∈ V₊^n, then the
+    If F is holomorphic on ForwardTube d n, has tempered distributional boundary
+    values, and ε > 0 with η ∈ V₊^n, then the
     restriction x ↦ F(x + iεη) satisfies polynomial growth:
     ‖F(x + iεη)‖ ≤ C · (1 + ‖x‖)^N for some C, N depending on F, ε, η.
 
-    This follows from the Cauchy integral formula applied on polydiscs centered
-    at x + iεη that fit inside the tube (since εη is in the interior of the cone).
-    The Cauchy estimates give polynomial growth from the holomorphy.
-
-    Blocked by: The full argument requires either the Cauchy integral formula
-    for polydiscs in several complex variables, or the Fourier-Laplace representation
-    of holomorphic functions on tube domains (Vladimirov §25). Neither is in Mathlib.
+    Here this is obtained through `ForwardTubeDistributions`: convert Schwartz BV
+    data to flat-coordinate BV (`schwartz_bv_to_flat_bv`) and then apply
+    `polynomial_growth_forwardTube` on the compact singleton `{εη}`.
 
     Ref: Vladimirov, "Methods of the Theory of Generalized Functions", Theorem 25.5 -/
 theorem polynomial_growth_on_slice {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
+      ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+        InForwardCone d n η →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointDomain d n,
+            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (T f)))
     (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
     ∃ (C_bd : ℝ) (N : ℕ), C_bd > 0 ∧
       ∀ (x : NPointDomain d n),
         ‖F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)‖ ≤
           C_bd * (1 + ‖x‖) ^ N := by
-  sorry
+  -- Convert Schwartz BV data into the flat BV form needed by polynomial growth.
+  have h_bv_flat := schwartz_bv_to_flat_bv (d := d) (n := n) hF h_bv
+  let y0 : Fin n → Fin (d + 1) → ℝ := fun k μ => ε * η k μ
+  have hη_abs : η ∈ ForwardConeAbs d n :=
+    (inForwardCone_iff_mem_forwardConeAbs (d := d) (n := n) η).1 hη
+  have hy0_mem : y0 ∈ ForwardConeAbs d n := forwardConeAbs_smul d n ε hε η hη_abs
+  have hK_sub : ({y0} : Set (Fin n → Fin (d + 1) → ℝ)) ⊆ ForwardConeAbs d n := by
+    intro y hy
+    rcases Set.mem_singleton_iff.mp hy with rfl
+    exact hy0_mem
+  obtain ⟨C_bd, N, hC_pos, hbound⟩ :=
+    polynomial_growth_forwardTube
+      (d := d) (n := n) hF h_bv_flat {y0} isCompact_singleton hK_sub
+  refine ⟨C_bd, N, hC_pos, ?_⟩
+  intro x
+  simpa [y0, mul_assoc, mul_left_comm, mul_comm]
+    using hbound x y0 (by simp)
 
 /-- A function with polynomial growth times a Schwartz function is integrable.
 
@@ -440,6 +461,14 @@ theorem forward_tube_slice_aestrongly_measurable {d n : ℕ} [NeZero d]
 theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
+    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
+      ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+        InForwardCone d n η →
+        Filter.Tendsto
+          (fun ε : ℝ => ∫ x : NPointDomain d n,
+            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
+          (nhdsWithin 0 (Set.Ioi 0))
+          (nhds (T f)))
     (f : SchwartzNPoint d n)
     (η : Fin n → Fin (d + 1) → ℝ) (hη : InForwardCone d n η)
     (ε : ℝ) (hε : ε > 0) :
@@ -448,7 +477,7 @@ theorem forward_tube_bv_integrable {d n : ℕ} [NeZero d]
         F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
       MeasureTheory.volume := by
   -- Decompose via polynomial growth on the slice + Schwartz decay
-  obtain ⟨C_bd, N, hC, hgrowth⟩ := polynomial_growth_on_slice F hF η hη ε hε
+  obtain ⟨C_bd, N, hC, hgrowth⟩ := polynomial_growth_on_slice F hF h_bv η hη ε hε
   -- Measurability: the slice map x ↦ F(x + εηi) is continuous since F is holomorphic
   -- on the forward tube and the affine embedding maps into it
   have hg_meas : MeasureTheory.AEStronglyMeasurable
@@ -786,8 +815,14 @@ theorem W_analytic_lorentz_bv_agree
   · congr 1; ext x; ring
   · exact forward_tube_bv_integrable
       (fun z => W_a (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν))
-      (W_analytic_lorentz_holomorphic Wfn n Λ) f η hη ε (Set.mem_Ioi.mp hε)
-  · exact forward_tube_bv_integrable W_a hW_hol f η hη ε (Set.mem_Ioi.mp hε)
+      (W_analytic_lorentz_holomorphic Wfn n Λ)
+      ⟨Wfn.W n, Wfn.tempered n, fun f' η' hη' =>
+        lorentz_covariant_distributional_bv (d := d) (n := n)
+          Wfn W_a hW_hol hW_bv Λ f' η' hη'⟩
+      f η hη ε (Set.mem_Ioi.mp hε)
+  · exact forward_tube_bv_integrable W_a hW_hol
+      ⟨Wfn.W n, Wfn.tempered n, hW_bv⟩
+      f η hη ε (Set.mem_Ioi.mp hε)
 
 
 end

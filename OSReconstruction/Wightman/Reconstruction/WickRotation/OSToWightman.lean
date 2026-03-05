@@ -173,7 +173,58 @@ theorem iterated_analytic_continuation
     ∃ (S_ext : (Fin k → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ S_ext (AnalyticContinuationRegion d k (d + 1)) ∧
       ∀ z ∈ AnalyticContinuationRegion d k 0, S_ext z = S_base z := by
-  sorry
+  let P : ℕ → Prop := fun r =>
+    ∃ (S_r : (Fin k → Fin (d + 1) → ℂ) → ℂ),
+      DifferentiableOn ℂ S_r (AnalyticContinuationRegion d k r) ∧
+      ∀ z ∈ AnalyticContinuationRegion d k 0, S_r z = S_base z
+  have hP0 : P 0 := ⟨S_base, hS_base, fun _ _ => rfl⟩
+  have hstep : ∀ r, r < d + 1 → P r → P (r + 1) := by
+    intro r hr hPr
+    rcases hPr with ⟨S_r, hS_r_hol, hS_r_base⟩
+    obtain ⟨S_next, hS_next_hol, hS_next_agree⟩ :=
+      inductive_analytic_continuation OS lgc k r hr S_r hS_r_hol
+    rcases Nat.eq_zero_or_pos k with hk0 | hkpos
+    · subst hk0
+      refine ⟨S_next, hS_next_hol, ?_⟩
+      intro z hz0
+      have hz_r : z ∈ AnalyticContinuationRegion d 0 r := by
+        cases r <;> simp [AnalyticContinuationRegion]
+      calc
+        S_next z = S_r z := hS_next_agree z hz_r
+        _ = S_base z := hS_r_base z hz0
+    · let i0 : Fin k := ⟨0, hkpos⟩
+      have hdisj : Disjoint (AnalyticContinuationRegion d k 0)
+          (AnalyticContinuationRegion d k (r + 1)) := by
+        rw [Set.disjoint_left]
+        intro z hz0 hz1
+        rcases hz0 with ⟨hz0_im, _hz0_pos⟩
+        rcases hz1 with ⟨hz1_pos, _hz1_real⟩
+        have hpos := hz1_pos i0 (0 : Fin (d + 1)) (Nat.zero_le r)
+        have hpos0 : (z i0 (0 : Fin (d + 1))).im > 0 := by
+          simpa [i0] using hpos
+        have him0 : (z i0 (0 : Fin (d + 1))).im = 0 := hz0_im i0 (0 : Fin (d + 1))
+        linarith
+      let S_next' : (Fin k → Fin (d + 1) → ℂ) → ℂ :=
+        fun z => if z ∈ AnalyticContinuationRegion d k 0 then S_base z else S_next z
+      have hEq : Set.EqOn S_next' S_next (AnalyticContinuationRegion d k (r + 1)) := by
+        intro z hz
+        have hz_not_base : z ∉ AnalyticContinuationRegion d k 0 := by
+          intro hz0
+          exact (Set.disjoint_left.mp hdisj hz0 hz)
+        simp [S_next', hz_not_base]
+      refine ⟨S_next', hS_next_hol.congr hEq, ?_⟩
+      intro z hz0
+      simp [S_next', hz0]
+  have hP_all : ∀ r, r ≤ d + 1 → P r := by
+    intro r hrle
+    induction r with
+    | zero =>
+        exact hP0
+    | succ r ihr =>
+        have hrlt : r < d + 1 := Nat.lt_of_lt_of_le (Nat.lt_succ_self r) hrle
+        have hrle' : r ≤ d + 1 := Nat.le_trans (Nat.le_succ r) hrle
+        exact hstep r hrlt (ihr hrle')
+  exact hP_all (d + 1) (le_rfl)
 
 /-- Schwinger functions on C_k^(0), recovering S_k via integration.
     Blocked by: pointwise extraction from S_k and smoothness in positive-time region.
@@ -321,8 +372,10 @@ continuation. The helper lemmas below capture each derivation. -/
     function `F_analytic` on the forward tube. It is continuous (tempered) and linear,
     and satisfies factorial growth bounds from the OS linear growth condition.
 
-    Note: `boundary_values_tempered` is currently sorry'd, so `bvt_W` and all downstream
-    properties extracted from it are logically contingent on that proof obligation. -/
+    Note: `boundary_values_tempered` is proved in this file, but it depends on
+    upstream deferred lemmas (`full_analytic_continuation` and
+    `forward_tube_bv_tempered`), so `bvt_W` and downstream properties remain
+    contingent on those obligations. -/
 def bvt_W (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     SchwartzNPoint d n → ℂ :=
@@ -339,8 +392,10 @@ def bvt_W (OS : OsterwalderSchraderAxioms d)
     recover `bvt_W` (the Wightman distribution), and its Euclidean restriction
     (via Wick rotation) recovers the Schwinger functions `OS.S n`.
 
-    Note: `boundary_values_tempered` is currently sorry'd, so `bvt_F` and all downstream
-    properties extracted from it are logically contingent on that proof obligation. -/
+    Note: `boundary_values_tempered` is proved in this file, but it depends on
+    upstream deferred lemmas (`full_analytic_continuation` and
+    `forward_tube_bv_tempered`), so `bvt_F` and downstream properties remain
+    contingent on those obligations. -/
 def bvt_F (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     (Fin n → Fin (d + 1) → ℂ) → ℂ :=
@@ -393,8 +448,8 @@ theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS)
     (W_0 : SchwartzNPoint d 0 → ℂ)
     (F_0 : (Fin 0 → Fin (d + 1) → ℂ) → ℂ)
-    (hW_cont : Continuous W_0)
-    (hW_lin : IsLinearMap ℂ W_0)
+    (_hW_cont : Continuous W_0)
+    (_hW_lin : IsLinearMap ℂ W_0)
     (hBV : ∀ (f : SchwartzNPoint d 0) (η : Fin 0 → Fin (d + 1) → ℝ),
       InForwardCone d 0 η →
       Filter.Tendsto
@@ -406,7 +461,38 @@ theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
       OS.S 0 f = ∫ x : Fin 0 → Fin (d + 1) → ℝ,
         F_0 (fun k => wickRotatePoint (x k)) * (f x)) :
     ∀ f : SchwartzNPoint d 0, W_0 f = f 0 := by
-  sorry
+  intro f
+  let η0 : Fin 0 → Fin (d + 1) → ℝ := fun k => Fin.elim0 k
+  have hη0 : InForwardCone d 0 η0 := by
+    intro k
+    exact Fin.elim0 k
+  set I0 : ℂ := ∫ x : Fin 0 → Fin (d + 1) → ℝ,
+      F_0 (fun k => wickRotatePoint (x k)) * (f x)
+  have hconst :
+      ∀ ε : ℝ,
+        (∫ x : Fin 0 → Fin (d + 1) → ℝ,
+          F_0 (fun k μ => ↑(x k μ) + ε * ↑(η0 k μ) * Complex.I) * (f x)) = I0 := by
+    intro ε
+    unfold I0
+    congr 1
+    ext x
+    have hz : (fun k μ => ↑(x k μ) + ε * ↑(η0 k μ) * Complex.I) =
+        (fun k => wickRotatePoint (x k)) := by
+      funext k
+      exact Fin.elim0 k
+    simp [hz]
+  have hBV0 : Filter.Tendsto (fun ε : ℝ => I0)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds (W_0 f)) := by
+    simpa [hconst] using hBV f η0 hη0
+  have hI0 : Filter.Tendsto (fun ε : ℝ => I0)
+      (nhdsWithin 0 (Set.Ioi 0)) (nhds I0) :=
+    tendsto_const_nhds
+  have hW0 : W_0 f = I0 :=
+    tendsto_nhds_unique hBV0 hI0
+  calc
+    W_0 f = I0 := hW0
+    _ = OS.S 0 f := (hEuclid f).symm
+    _ = f 0 := lgc.normalized_zero f
 
 /-- E2R translation: Translation invariance transfers from S_n (via E1) through
     the analytic continuation to the BV.

@@ -1,142 +1,95 @@
-# Systematic Development Plan (Integrated from `claude_to_codex.md`)
+# Systematic Development Plan (OS Reconstruction Critical Path)
 
-Last updated: 2026-02-27
+Last updated: 2026-03-05
 
-This document is the active execution plan for closing `sorry`s on the OS reconstruction critical path. It consolidates the recommendations in `claude_to_codex.md` into tracked phases and concrete obligations.
+This is the active execution plan for closing `sorry`s on the OS reconstruction path.
+It supersedes the earlier BHW-first ordering.
 
-## 1. Baseline Facts
+## 1. Proof-Quality Policy (Hard Constraints)
 
-- `bargmann_hall_wightman` is now a theorem (not an axiom), delegated through `Bridge/AxiomBridge.lean`.
-- Project-wide `axiom` declarations: `0`.
-- Remaining blockers are explicit `sorry`s.
-- BHW-critical blockers in `ComplexLieGroups`: `2` local holes.
+1. No wrappers, no useless lemmas, no code bloat.
+2. Every new lemma must either:
+   - close a blocker directly, or
+   - carry nontrivial reusable mathematical content needed downstream.
+3. Do not add forwarding/repackaging lemmas that only rename existing statements.
+4. Close `sorry`s with substantial proofs (not assumption padding or existential hiding).
+5. Numerical checks are optional diagnostics; they are not required workflow gates.
 
-## 2. Current Sorry Census (Direct `sorry` Lines)
+## 2. Live Sorry Census
 
-Counts verified on 2026-02-27 with:
+Counts verified with:
 `rg -n '^\s*sorry\b' OSReconstruction --glob '*.lean'`
 
 | Scope | Sorrys |
 |---|---:|
-| `OSReconstruction/Wightman` | 43 |
+| `OSReconstruction/Wightman` | 41 |
 | `OSReconstruction/SCV` | 14 |
 | `OSReconstruction/ComplexLieGroups` | 2 |
 | `OSReconstruction/vNA` | 40 |
-| **Total** | **99** |
+| **Total** | **97** |
 
-Critical path total: **50** (`Wightman` critical subset 34 + `SCV` 14 + `ComplexLieGroups` 2).
+## 3. Primary Priority Stack
 
-## 3. Phase Plan
+### A) E -> R direction (`OSToWightman.lean`, 12 sorrys)
 
-### Phase A: ComplexLieGroups Root Blockers (Top Priority)
+Clusters:
+1. Analytic continuation infrastructure (4 core obligations):
+   - `inductive_analytic_continuation`
+   - `schwinger_holomorphic_on_base_region`
+   - `extend_to_forward_tube_via_bochner`
+   - `full_analytic_continuation` (rotation-invariance step)
+2. Boundary-value existence (1):
+   - `forward_tube_bv_tempered` / `boundary_values_tempered` chain
+3. Axiom transfer chain (7):
+   - transfer of W0-W5-style properties through holomorphic extension + boundary values
+4. Cluster property (2):
+   - `bvt_cluster` and companion transport lemma
 
-1. `orbitSet_isPreconnected` (`Connectedness/ComplexInvariance/Core.lean`)
-2. `iterated_eow_permutation_extension` (`Connectedness/BHWPermutation/PermutationFlow.lean`)
+### B) R -> E wick-rotation submodules (14 sorrys total)
 
-Checklist:
-- [ ] Close `hjoin` branch (`d >= 2`, `n > 0`) for `orbitSet_isPreconnected`.
-- [ ] Close `hExtPerm` branch (`d > 0`, `n >= 2`, `σ ≠ 1`) for `iterated_eow_permutation_extension`.
-- [ ] Keep proofs test-first (`test/*.lean`) before porting to working files.
-- [ ] Prefer infrastructure lemmas over brittle one-off scripts.
+1. `SchwingerAxioms.lean` (5)
+2. `BHWTranslation.lean` (5)
+3. `BHWExtension.lean` (2)
+4. `ForwardTubeLorentz.lean` (2)
 
-### Phase B: SCV Load-Bearing Chain (Parallel with Phase A)
+### C) Shared SCV infrastructure (14 sorrys total, deepest dependency)
 
-Priority order:
-1. `LaplaceSchwartz.fourierLaplace_continuousWithinAt`
-2. `PaleyWiener.paley_wiener_half_line`
-3. Remaining `LaplaceSchwartz`/`PaleyWiener` chain
-4. `BochnerTubeTheorem.bochner_local_extension`, then consistency/gluing
+1. `PaleyWiener.lean` (6)
+2. `LaplaceSchwartz.lean` (6)
+3. `BochnerTubeTheorem.lean` (2)
 
-Checklist:
-- [ ] Prove L1 (`fourierLaplace_continuousWithinAt`) and propagate dependent L2-L6.
-- [ ] Prove P1 (`paley_wiener_half_line`) and propagate dependent P2/P4/P5/P6.
-- [ ] Close `BochnerTubeTheorem` (`bochner_local_extension`, `holomorphic_extension_from_local`).
+These SCV blockers are root dependencies for both E -> R and R -> E analytic continuation chains.
 
-### Phase C: Wick Rotation R->E Chain (Depends on A and B)
+## 4. Secondary / Standalone Blockers
 
-Order:
-1. `ForwardTubeLorentz`
-2. `BHWExtension`
-3. `BHWTranslation`
-4. `SchwingerAxioms`
+1. `Wightman/Reconstruction/Main.lean`: `wightman_uniqueness` (1)
+2. `Wightman/Reconstruction/GNSHilbertSpace.lean`: vacuum-uniqueness chain (1)
+3. `Wightman/WightmanAxioms.lean`: 4 infrastructural sorrys
+4. `Wightman/NuclearSpaces/*`: 7 sorrys (important but not critical-path)
+5. `ComplexLieGroups/*`: 2 remaining BHW-permutation blockers (maintained, not current top lane)
 
-Checklist:
-- [ ] `polynomial_growth_on_slice` (load-bearing).
-- [ ] `forward_tube_bv_integrable_translated` chain.
-- [ ] Distributional/local-commutativity bridge in `BHWExtension`.
-- [ ] Complete remaining Schwinger axiom transfer proofs.
+## 5. Execution Order
 
-### Phase D: OS -> Wightman Transfer (Depends on B and C)
+1. Close SCV load-bearing lemmas (`LaplaceSchwartz` -> `PaleyWiener` -> `Bochner`).
+2. Close `OSToWightman.lean` analytic continuation + BV existence core.
+3. Close axiom-transfer and cluster-transfer chain in `OSToWightman.lean`.
+4. Close R -> E wick-rotation plumbing (`ForwardTubeLorentz`, `BHWExtension`, `BHWTranslation`, `SchwingerAxioms`).
+5. Finish final wiring (`wightman_uniqueness`, remaining `GNSHilbertSpace`, residual `WightmanAxioms` blockers).
 
-Primary bottleneck: `forward_tube_bv_tempered` in `OSToWightman.lean`.
+## 6. Deprioritized Work (Unless It Unblocks the Above)
 
-Checklist:
-- [ ] Complete analytic continuation chain (`inductive`, `iterated`, `base-region`, `bochner`).
-- [ ] Prove `forward_tube_bv_tempered`.
-- [ ] Discharge 8 property-transfer sorrys and `bvt_cluster`.
+1. Most of `vNA/*`
+2. Non-critical NuclearSpaces side development
+3. Additional CLG refactors not required by active OS reconstruction blockers
 
-### Phase E: Final Wiring and Cleanup
-
-Checklist:
-- [ ] `Main.wightman_uniqueness`.
-- [ ] Remaining `GNSHilbertSpace` sorry.
-- [ ] Recompute and publish updated sorry census.
-
-## 4. Architectural Constraints (Must Preserve)
-
-- Keep bridge compatibility through `Bridge/AxiomBridge.lean` when changing Lorentz/tube definitions.
-- Respect `[NeZero d]` on Wightman-level theorems and bridge-facing statements.
-- Avoid import cycles across `ComplexLieGroups`, `SCV`, and `Wightman/Reconstruction`.
-- Keep `ComplexLieGroups` and `SCV` usable as independent upstream modules for Wick-rotation layers.
-
-## 5. Quick Wins Queue
-
-- `WickRotation/BHWTranslation.distributional_uniqueness_forwardTube_inter`
-- `WickRotation/OSToWightman.bv_zero_point_is_evaluation`
-- `SCV/PaleyWiener.paley_wiener_unique`
-- `WickRotation/OSToWightman.iterated_analytic_continuation` (after inductive step)
-
-## 6. Deprioritized Work (Unless Explicitly Requested)
-
-- `vNA/*` sorry closure (off OS critical path)
-- `Wightman/NuclearSpaces/*` sorry closure (important but not on shortest BHW/OS path)
-- Stone-theorem-heavy `GNSHilbertSpace` follow-ons before main critical blockers
-
-## 7. No-Go Routes (Do Not Reopen)
-
-- Midpoint implication route for permutation overlap (counterexample-backed false route).
-- Stronger no-go: even with `y ∈ ExtendedTube`, the right-adjacent ET midpoint implication
-  can fail (`test/jostset_et_counterexample_test.lean`, theorem
-  `midpoint_condition_on_ET_false`).
-- Global `JostSet ⊆ ExtendedTube` (false for `n = 3`, `d >= 1`).
-- Global geodesic endpoint-implies-segment route in forward-cone arguments (counterexample-backed false route).
-- vNA sorry closure as a prerequisite for OS theorem path (not on critical path).
-
-## 8. Process Rules
-
-- No axioms and no assumption smuggling.
-- Test-first policy: prototype in `test/*.lean`, then port to working files.
-- Prefer infrastructure lemma development when blocked.
-- Use targeted builds (`lake build <module>`), not broad cleanup/rebuild commands.
-
-## 9. Documentation Sync Policy
-
-- `README.md`, `OSReconstruction/Wightman/TODO.md`, `OSReconstruction/SCV/TODO.md`, and `OSReconstruction/ComplexLieGroups/TODO.md` must stay consistent with the census above.
-- If counts change, update docs in the same commit as proof changes.
-- Keep historical docs (`docs/PROOF_OUTLINE.md`, `docs/sorry_analysis.md`, `claude_for_codex.md`) clearly marked as non-canonical snapshots.
-- Keep active BHW status centralized in `docs/BHW_STATUS.md` and local
-  implementation status in
-  `OSReconstruction/ComplexLieGroups/Connectedness/BHWPermutation/BLOCKER_STATUS.md`.
-
-## 10. Verification Commands
+## 7. Verification Commands
 
 ```bash
 # module builds
-lake build OSReconstruction.ComplexLieGroups
 lake build OSReconstruction.SCV
 lake build OSReconstruction.Wightman
 
-# census checks
+# blocker census
 rg -n '^\s*sorry\b' OSReconstruction --glob '*.lean'
 rg -n '^axiom\\s+' OSReconstruction --glob '*.lean'
 ```

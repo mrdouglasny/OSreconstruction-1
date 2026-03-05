@@ -374,6 +374,7 @@ theorem translate_bv_integral_split {d n : ℕ} [NeZero d]
     (forward_tube_bv_integrable
       (Wfn.spectrum_condition n).choose
       (Wfn.spectrum_condition n).choose_spec.1
+      ⟨Wfn.W n, Wfn.tempered n, (Wfn.spectrum_condition n).choose_spec.2⟩
       f η hη ε hε)
 
 theorem W_analytic_translate_same_bv {d n : ℕ} [NeZero d]

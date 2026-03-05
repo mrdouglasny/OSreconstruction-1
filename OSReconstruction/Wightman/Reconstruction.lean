@@ -1325,6 +1325,8 @@ structure OsterwalderSchraderAxioms (d : ℕ) [NeZero d] where
     which is essential for proving temperedness of the reconstructed
     Wightman distributions. -/
 structure OSLinearGrowthCondition (d : ℕ) [NeZero d] (OS : OsterwalderSchraderAxioms d) where
+  /-- E0' normalization at zero points: `S₀(f) = f(0)`. -/
+  normalized_zero : ∀ f : SchwartzNPoint d 0, OS.S 0 f = f 0
   /-- The Sobolev index s -/
   sobolev_index : ℕ
   /-- Factorial growth bound constants: σₙ ≤ α · βⁿ · (n!)^γ -/
@@ -1379,4 +1381,3 @@ def IsWickRotationPair {d : ℕ} [NeZero d] (S : SchwingerFunctions d) (W : (n :
 -- (proved via WickRotation.lean: wightman_to_os_full, os_to_wightman_full)
 
 end
-
