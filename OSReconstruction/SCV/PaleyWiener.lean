@@ -607,7 +607,41 @@ theorem paley_wiener_half_line
         Tendsto (fun η : ℝ => ∫ x : ℝ, F (↑x + ↑η * I) * φ x)
           (nhdsWithin 0 (Ioi 0))
           (nhds (T φ))) := by
-  sorry
+  -- The candidate extension: F(z) = T(ℱ[ψ_z]) for Im(z) > 0
+  refine ⟨fun w => if hw : 0 < w.im then fourierLaplaceExt T w hw else 0, ?_, ?_, ?_⟩
+  · -- Part 1: holomorphicity on the upper half-plane
+    -- Follows directly from fourierLaplaceExt_differentiableOn
+    exact fourierLaplaceExt_differentiableOn T
+  · -- Part 2: polynomial growth on each horizontal line Im(z) = η
+    -- For η > 0 fixed, F(x + iη) = fourierLaplaceExt T (x + iη) hη
+    -- and this has polynomial growth by fourierLaplaceExt_horizontal_growth.
+    intro η hη
+    obtain ⟨C, N, hC, hbound⟩ := fourierLaplaceExt_horizontal_growth T η hη
+    refine ⟨C, N, hC, fun x => ?_⟩
+    -- (x : ℂ) + ↑η * I has positive imaginary part, so the dite reduces
+    have himx : 0 < ((x : ℂ) + ↑η * I).im := by simp [hη]
+    simp only [dif_pos himx]
+    -- fourierLaplaceExt is proof-irrelevant in its last argument, so matches hbound
+    exact hbound x
+  · -- Part 3: distributional BV convergence
+    -- ∫ F(x+iη)φ(x) dx → T(φ) as η → 0+
+    -- Proof sketch:
+    --   Step A (Fubini): ∫ F(x+iη)φ(x) dx = T(Φ_η)
+    --     where Φ_η(ξ) = χ(ξ) · exp(-ηξ) · (FT⁻¹[φ])(ξ)
+    --   Step B (Schwartz convergence): Φ_η → χ · FT⁻¹[φ] in S(ℝ) as η → 0+
+    --   Step C (HasOneSidedFourierSupport): T(FT[χ·ψ]) = T(FT[ψ]) for ψ ∈ S
+    --     (χ = 1 on [0,∞), so the cutoff is invisible to HasOneSidedFourierSupport)
+    --   Step D (Fourier inversion): T(FT[FT⁻¹[φ]]) = T(φ)
+    --
+    -- Root blocker: Step A requires commuting T (a CLM on the Fréchet space S(ℝ))
+    -- with a Bochner integral. Mathlib's ContinuousLinearMap.integral_comp_comm
+    -- requires Banach, not Fréchet spaces. Fréchet-Bochner theory is not in Mathlib 4.
+    --
+    -- Alternative direct approach (avoid Fubini): work entirely in Fourier space,
+    -- showing the η → 0+ limit via dominated convergence in ξ-space and
+    -- continuity of T in the Fréchet topology.
+    intro φ
+    sorry
 
 /-! ### The Paley-Wiener-Schwartz theorem: multi-dimensional case -/
 

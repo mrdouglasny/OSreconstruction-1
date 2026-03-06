@@ -90,6 +90,78 @@ theorem smoothCutoff_one_of_nonneg {ξ : ℝ} (h : 0 ≤ ξ) : smoothCutoff ξ =
 theorem smoothCutoff_contDiff : ContDiff ℝ (↑(⊤ : ℕ∞)) smoothCutoff :=
   Real.smoothTransition.contDiff.comp (contDiff_id.add contDiff_const)
 
+private lemma smoothCutoff_complex_contDiff :
+    ContDiff ℝ ↑(⊤ : ℕ∞) (fun ξ : ℝ => (smoothCutoff ξ : ℂ)) :=
+  Complex.ofRealCLM.contDiff.comp smoothCutoff_contDiff
+
+/-- The complex-valued smooth cutoff `ξ ↦ (χ(ξ) : ℂ)` has tempered growth.
+    This is used to multiply Schwartz functions by χ via `SchwartzMap.smulLeftCLM`.
+
+    For n=0: `|χ(ξ)| ≤ 1` (bounded by smoothTransition range).
+    For n≥1: `iteratedDeriv n χ` is supported in `[-1,0]` (smooth function constant on
+    `(-∞,-1)` and `(0,∞)`), hence compactly supported and bounded. -/
+theorem smoothCutoff_complex_hasTemperateGrowth :
+    Function.HasTemperateGrowth (fun ξ : ℝ => (smoothCutoff ξ : ℂ)) := by
+  constructor
+  · exact smoothCutoff_complex_contDiff
+  · intro n
+    use 0
+    rcases n with _ | n
+    · -- n = 0: |χ(ξ)| ≤ 1
+      use 1
+      intro ξ
+      rw [norm_iteratedFDeriv_eq_norm_iteratedDeriv, iteratedDeriv_zero]
+      simp only [mul_one, pow_zero]
+      rw [Complex.norm_real, show smoothCutoff ξ = (ξ + 1).smoothTransition from rfl,
+          Real.norm_of_nonneg (Real.smoothTransition.nonneg _)]
+      exact Real.smoothTransition.le_one _
+    · -- n+1 ≥ 1: derivative supported in (-1,0), hence compact support → bounded
+      -- On (0,∞): smoothCutoff = 1 (constant), so derivatives vanish there
+      -- On (-∞,-1): smoothCutoff = 0 (constant), so derivatives vanish there
+      have hEqPos : Set.EqOn (fun ξ : ℝ => (smoothCutoff ξ : ℂ)) (fun _ => 1) (Set.Ioi 0) := by
+        intro ξ hξ
+        simp only [Set.mem_Ioi] at hξ
+        show (smoothCutoff ξ : ℂ) = 1
+        exact_mod_cast smoothCutoff_one_of_nonneg (le_of_lt hξ)
+      have hEqNeg : Set.EqOn (fun ξ : ℝ => (smoothCutoff ξ : ℂ)) (fun _ => 0) (Set.Iio (-1)) := by
+        intro ξ hξ
+        simp only [Set.mem_Iio] at hξ
+        show (smoothCutoff ξ : ℂ) = 0
+        exact_mod_cast smoothCutoff_zero_of_le_neg_one (le_of_lt hξ)
+      have hDerivPos : Set.EqOn (iteratedDeriv (n + 1) (fun ξ : ℝ => (smoothCutoff ξ : ℂ)))
+          (fun _ => 0) (Set.Ioi 0) :=
+        hEqPos.iteratedDeriv_of_isOpen isOpen_Ioi (n + 1) |>.trans
+          (by intro x _; simp [iteratedDeriv_const])
+      have hDerivNeg : Set.EqOn (iteratedDeriv (n + 1) (fun ξ : ℝ => (smoothCutoff ξ : ℂ)))
+          (fun _ => 0) (Set.Iio (-1)) :=
+        hEqNeg.iteratedDeriv_of_isOpen isOpen_Iio (n + 1) |>.trans
+          (by intro x _; simp)
+      -- The derivative is supported in [-1,0] (compact)
+      have hsupp : Function.support (iteratedDeriv (n + 1) (fun ξ : ℝ => (smoothCutoff ξ : ℂ))) ⊆
+          Set.Icc (-1) 0 := by
+        intro ξ hξ
+        simp only [Function.mem_support] at hξ
+        rw [Set.mem_Icc]
+        constructor
+        · by_contra h
+          push_neg at h
+          exact hξ (hDerivNeg (Set.mem_Iio.mpr h))
+        · by_contra h
+          push_neg at h
+          exact hξ (hDerivPos (Set.mem_Ioi.mpr h))
+      -- Continuous and compactly supported → bounded
+      have hcont : Continuous (iteratedDeriv (n + 1) (fun ξ : ℝ => (smoothCutoff ξ : ℂ))) := by
+        exact smoothCutoff_complex_contDiff.continuous_iteratedDeriv (n + 1)
+          (by exact_mod_cast le_top)
+      have hcs : HasCompactSupport (iteratedDeriv (n + 1) (fun ξ : ℝ => (smoothCutoff ξ : ℂ))) :=
+        HasCompactSupport.of_support_subset_isCompact isCompact_Icc hsupp
+      obtain ⟨C, hC⟩ := hcs.exists_bound_of_continuous hcont
+      use C
+      intro ξ
+      rw [norm_iteratedFDeriv_eq_norm_iteratedDeriv]
+      simp only [mul_one, pow_zero]
+      exact hC ξ
+
 /-- χ is smooth for any order n : ℕ∞. -/
 theorem smoothCutoff_contDiff_n (n : ℕ∞) : ContDiff ℝ (↑n) smoothCutoff :=
   Real.smoothTransition.contDiff.comp (contDiff_id.add contDiff_const)
