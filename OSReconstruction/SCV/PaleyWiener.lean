@@ -5,6 +5,8 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.TubeDomainExtension
 import OSReconstruction.SCV.TubeDistributions
+import OSReconstruction.SCV.FourierLaplaceCore
+import Mathlib.Analysis.Asymptotics.Lemmas
 import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
 import Mathlib.Analysis.Distribution.SchwartzSpace.Fourier
 
@@ -115,6 +117,30 @@ def HasOneSidedFourierSupport (T : SchwartzMap ℝ ℂ → ℂ) : Prop :=
     (∀ x ∈ Function.support (φ : ℝ → ℂ), x < 0) →
     T (SchwartzMap.fourierTransformCLM ℂ φ) = 0
 
+/-- If a tempered distribution has one-sided Fourier support, then after pairing
+    against its Fourier transform it depends only on the restriction of the
+    Schwartz kernel to `[0, ∞)`. Any change on the negative half-line is invisible. -/
+theorem fourier_pairing_eq_of_eqOn_nonneg
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (hT_supp : HasOneSidedFourierSupport T)
+    {φ ψ : SchwartzMap ℝ ℂ}
+    (h_eq : Set.EqOn φ ψ (Set.Ici 0)) :
+    T (SchwartzMap.fourierTransformCLM ℂ φ) =
+      T (SchwartzMap.fourierTransformCLM ℂ ψ) := by
+  have hsupp :
+      ∀ x ∈ Function.support ((φ - ψ : SchwartzMap ℝ ℂ) : ℝ → ℂ), x < 0 := by
+    intro x hx
+    by_cases hx_nonneg : 0 ≤ x
+    · have hzero : (φ - ψ : SchwartzMap ℝ ℂ) x = 0 := by
+        simp [h_eq hx_nonneg]
+      exact (hx hzero).elim
+    · linarith
+  have hzero :
+      T (SchwartzMap.fourierTransformCLM ℂ (φ - ψ : SchwartzMap ℝ ℂ)) = 0 :=
+    hT_supp (φ - ψ) hsupp
+  exact sub_eq_zero.mp (by
+    simpa [map_sub] using hzero)
+
 /-- A tempered distribution T on R^m has **Fourier support in a closed set S**
     if T̂ (the Fourier transform of T) vanishes on Schwartz functions supported
     outside S. That is, for every φ ∈ 𝓢(ℝ^m,ℂ) with supp(φ) ∩ S = ∅,
@@ -198,11 +224,349 @@ def HasPolynomialGrowthOnLine (f : ℝ → ℂ) : Prop :=
 theorem upperHalfPlane_isOpen : IsOpen upperHalfPlane :=
   isOpen_lt continuous_const Complex.continuous_im
 
+/-! ### Finite Schwartz-seminorm control of tempered functionals -/
+
+/-- A continuous linear functional on Schwartz space is controlled by finitely many
+    Schwartz seminorms.
+
+    This is the standard tempered-distribution boundedness statement specialized to
+    `𝓢(ℝ, ℂ)`: continuity for the Schwartz topology is equivalent to domination by a
+    finite supremum of Schwartz seminorms. It is the functional-analytic input needed
+    to turn the abstract continuity hypothesis in `paley_wiener_half_line` into the
+    concrete seminorm estimates used to control the Fourier-Laplace pairing. -/
+theorem schwartz_functional_bound
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ) :
+    ∃ s : Finset (ℕ × ℕ), ∃ C : NNReal, C ≠ 0 ∧
+      ∀ φ : SchwartzMap ℝ ℂ,
+        ‖T φ‖ ≤ (C • s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) φ := by
+  let q : Seminorm ℂ (SchwartzMap ℝ ℂ) := (normSeminorm ℂ ℂ).comp T.toLinearMap
+  have hq_cont : Continuous q := by
+    change Continuous (fun φ : SchwartzMap ℝ ℂ => ‖T φ‖)
+    simpa [q, Seminorm.comp_apply, coe_normSeminorm] using
+      continuous_norm.comp T.continuous
+  obtain ⟨s, C, hC, hbound⟩ := Seminorm.bound_of_continuous
+    (schwartz_withSeminorms ℂ ℝ ℂ) q hq_cont
+  refine ⟨s, C, hC, ?_⟩
+  intro φ
+  simpa [q, Seminorm.comp_apply, coe_normSeminorm] using hbound φ
+
+/-- A continuous linear functional on Schwartz space grows at most polynomially on the
+    horizontal-line test family `x ↦ ψ_{x+iη}`. -/
+theorem schwartz_functional_horizontal_growth
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (η : ℝ) (hη : 0 < η) :
+    HasPolynomialGrowthOnLine
+      (fun x => T (schwartzPsiZ ((x : ℂ) + η * I) (by simpa using hη))) := by
+  classical
+  obtain ⟨s, C, hC, hbound⟩ := schwartz_functional_bound T
+  have hD :
+      ∀ p : ℕ × ℕ, ∃ D : ℝ, 0 ≤ D ∧ ∀ x : ℝ,
+        SchwartzMap.seminorm ℝ p.1 p.2
+          (schwartzPsiZ ((x : ℂ) + η * I) (by simpa using hη)) ≤
+            D * (1 + |x|) ^ p.2 := by
+    intro p
+    obtain ⟨D, hD_nonneg, hD_bound⟩ := schwartzPsiZ_seminorm_horizontal_bound η hη p.1 p.2
+    exact ⟨D, hD_nonneg, hD_bound⟩
+  choose D hD_nonneg hD_bound using hD
+  let N : ℕ := s.sup Prod.snd
+  let Dsum : ℝ := ∑ p ∈ s, D p
+  let Cbound : ℝ := (C : ℝ) * Dsum + 1
+  have hDsum_nonneg : 0 ≤ Dsum := by
+    dsimp [Dsum]
+    refine Finset.sum_nonneg ?_
+    intro p hp
+    exact hD_nonneg p
+  have hC_coe_ne : (C : ℝ) ≠ 0 := by
+    exact_mod_cast hC
+  have hC_pos : 0 < (C : ℝ) := by
+    exact lt_of_le_of_ne C.2 hC_coe_ne.symm
+  refine ⟨Cbound, N, by
+    dsimp [Cbound]
+    nlinarith, ?_⟩
+  intro x
+  let ψx : SchwartzMap ℝ ℂ := schwartzPsiZ ((x : ℂ) + η * I) (by simpa using hη)
+  let u : ℝ := 1 + |x|
+  have hu_nonneg : 0 ≤ u := by
+    have hx : 0 ≤ |x| := abs_nonneg x
+    linarith
+  have hu_ge_one : 1 ≤ u := by
+    have hx : 0 ≤ |x| := abs_nonneg x
+    linarith
+  have hsup_sum :
+      (s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) ψx ≤
+        (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψx := by
+    exact Seminorm.le_def.mp (Seminorm.finset_sup_le_sum (schwartzSeminormFamily ℂ ℝ ℂ) s) ψx
+  have hsum_apply :
+      ∀ s' : Finset (ℕ × ℕ),
+        (∑ p ∈ s', schwartzSeminormFamily ℂ ℝ ℂ p) ψx =
+          ∑ p ∈ s', schwartzSeminormFamily ℂ ℝ ℂ p ψx := by
+    intro s'
+    induction s' using Finset.induction with
+    | empty =>
+        simp
+    | insert a s' ha ih =>
+        simp [Finset.sum_insert, ha, ih]
+  have hsum_bound :
+      (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψx ≤ Dsum * u ^ N := by
+    calc
+      (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψx
+          = ∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p ψx := by
+              simpa using hsum_apply s
+      _ 
+          ≤ ∑ p ∈ s, D p * u ^ N := by
+              refine Finset.sum_le_sum ?_
+              intro p hp
+              have hpN : p.2 ≤ N := Finset.le_sup hp
+              calc
+                schwartzSeminormFamily ℂ ℝ ℂ p ψx
+                    ≤ D p * u ^ p.2 := hD_bound p x
+                _ ≤ D p * u ^ N := by
+                      refine mul_le_mul_of_nonneg_left ?_ (hD_nonneg p)
+                      exact pow_le_pow_right₀ hu_ge_one hpN
+      _ = Dsum * u ^ N := by
+            simp [Dsum, Finset.sum_mul]
+  have hT_bound : ‖T ψx‖ ≤ (C : ℝ) * (Dsum * u ^ N) := by
+    calc
+      ‖T ψx‖ ≤ (C • s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) ψx := hbound ψx
+      _ = (C : ℝ) * (s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) ψx := by
+            rfl
+      _ ≤ (C : ℝ) * ((∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψx) := by
+            gcongr
+      _ ≤ (C : ℝ) * (Dsum * u ^ N) := by
+            gcongr
+  calc
+    ‖T ψx‖ ≤ (C : ℝ) * (Dsum * u ^ N) := hT_bound
+    _ ≤ Cbound * u ^ N := by
+          have hu_pow_nonneg : 0 ≤ u ^ N := pow_nonneg hu_nonneg _
+          have hCu : (C : ℝ) * (Dsum * u ^ N) ≤ ((C : ℝ) * Dsum + 1) * u ^ N := by
+            have hu_pow_ge_one : 1 ≤ u ^ N := by
+              exact pow_le_pow_right₀ hu_ge_one (Nat.zero_le _)
+            nlinarith
+          simpa [Cbound, u, mul_assoc, mul_left_comm, mul_comm] using hCu
+
+/-- Along a fixed horizontal line in the upper half-plane, the candidate
+    Fourier-Laplace extension `z ↦ T(ℱ[ψ_z])` has polynomial growth. -/
+theorem fourierLaplaceExt_horizontal_growth
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (η : ℝ) (hη : 0 < η) :
+    HasPolynomialGrowthOnLine
+      (fun x => fourierLaplaceExt T ((x : ℂ) + η * I) (by simpa using hη)) := by
+  let S : SchwartzMap ℝ ℂ →L[ℂ] ℂ := T.comp (SchwartzMap.fourierTransformCLM ℂ)
+  simpa [S, fourierLaplaceExt_eq] using
+    schwartz_functional_horizontal_growth
+      (T := S) η hη
+
+/-- Along a fixed horizontal line, the candidate complex derivative kernel
+    `T(ℱ[(I ξ) ψ_{x+iη}])` also has polynomial growth.
+
+    This is the growth estimate needed for the derivative side of the
+    Fourier-Laplace pairing once holomorphicity is proved at the Schwartz-topology
+    level. -/
+theorem fourierLaplaceExt_derivCandidate_horizontal_growth
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (η : ℝ) (hη : 0 < η) :
+    HasPolynomialGrowthOnLine
+      (fun x =>
+        T ((SchwartzMap.fourierTransformCLM ℂ)
+          ((SchwartzMap.smulLeftCLM ℂ (fun ξ : ℝ => I * (ξ : ℂ)))
+            (schwartzPsiZ ((x : ℂ) + η * I) (by simpa using hη))))) := by
+  let L : SchwartzMap ℝ ℂ →L[ℂ] SchwartzMap ℝ ℂ :=
+    (SchwartzMap.fourierTransformCLM ℂ).comp
+      (SchwartzMap.smulLeftCLM ℂ (fun ξ : ℝ => I * (ξ : ℂ)))
+  let S : SchwartzMap ℝ ℂ →L[ℂ] ℂ := T.comp L
+  simpa [L, S] using schwartz_functional_horizontal_growth (T := S) η hη
+
+/-- Applying `T ∘ ℱ` to the local remainder kernel preserves the uniform
+    `O(‖h‖)` bound coming from the Schwartz seminorm estimates. -/
+theorem fourierLaplaceExt_remainder_bound
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (z : ℂ) (hz : 0 < z.im) :
+    ∃ K : ℝ, 0 ≤ K ∧ ∀ (h : ℂ) (hh_im : ‖h‖ ≤ z.im / 2) (hh1 : ‖h‖ ≤ 1),
+      ‖(T.comp (SchwartzMap.fourierTransformCLM ℂ))
+          (schwartzPsiZExpTaylorLinearRemainderQuot z hz h hh_im hh1)‖ ≤
+        K * ‖h‖ := by
+  let S : SchwartzMap ℝ ℂ →L[ℂ] ℂ := T.comp (SchwartzMap.fourierTransformCLM ℂ)
+  obtain ⟨s, C, hC, hbound⟩ := schwartz_functional_bound S
+  have hD :
+      ∀ p : ℕ × ℕ, ∃ D : ℝ, 0 ≤ D ∧
+        ∀ (h : ℂ) (hh_im : ‖h‖ ≤ z.im / 2) (hh1 : ‖h‖ ≤ 1),
+          SchwartzMap.seminorm ℝ p.1 p.2
+            (schwartzPsiZExpTaylorLinearRemainderQuot z hz h hh_im hh1) ≤
+              D * ‖h‖ := by
+    intro p
+    simpa using
+      schwartzPsiZExpTaylorLinearRemainderQuot_seminorm_le z hz p.1 p.2
+  choose D hD_nonneg hD_bound using hD
+  let Dsum : ℝ := ∑ p ∈ s, D p
+  let K : ℝ := (C : ℝ) * Dsum
+  have hDsum_nonneg : 0 ≤ Dsum := by
+    dsimp [Dsum]
+    refine Finset.sum_nonneg ?_
+    intro p hp
+    exact hD_nonneg p
+  have hC_pos : 0 < (C : ℝ) := by
+    have hC_coe_ne : (C : ℝ) ≠ 0 := by
+      exact_mod_cast hC
+    exact lt_of_le_of_ne C.2 hC_coe_ne.symm
+  refine ⟨K, mul_nonneg hC_pos.le hDsum_nonneg, ?_⟩
+  intro h hh_im hh1
+  let ψh : SchwartzMap ℝ ℂ :=
+    schwartzPsiZExpTaylorLinearRemainderQuot z hz h hh_im hh1
+  have hsup_sum :
+      (s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) ψh ≤
+        (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψh := by
+    exact Seminorm.le_def.mp
+      (Seminorm.finset_sup_le_sum (schwartzSeminormFamily ℂ ℝ ℂ) s) ψh
+  have hsum_apply :
+      ∀ s' : Finset (ℕ × ℕ),
+        (∑ p ∈ s', schwartzSeminormFamily ℂ ℝ ℂ p) ψh =
+          ∑ p ∈ s', schwartzSeminormFamily ℂ ℝ ℂ p ψh := by
+    intro s'
+    induction s' using Finset.induction with
+    | empty =>
+        simp
+    | insert a s' ha ih =>
+        simp [Finset.sum_insert, ha, ih]
+  have hsum_bound :
+      (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψh ≤ Dsum * ‖h‖ := by
+    calc
+      (∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψh
+          = ∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p ψh := by
+              simpa using hsum_apply s
+      _ ≤ ∑ p ∈ s, D p * ‖h‖ := by
+            refine Finset.sum_le_sum ?_
+            intro p hp
+            exact hD_bound p h hh_im hh1
+      _ = Dsum * ‖h‖ := by
+            simp [Dsum, Finset.sum_mul]
+  calc
+    ‖S ψh‖ ≤ (C : ℝ) * (s.sup (schwartzSeminormFamily ℂ ℝ ℂ)) ψh := by
+      simpa using hbound ψh
+    _ ≤ (C : ℝ) * ((∑ p ∈ s, schwartzSeminormFamily ℂ ℝ ℂ p) ψh) := by
+          gcongr
+    _ ≤ (C : ℝ) * (Dsum * ‖h‖) := by
+          gcongr
+    _ = K * ‖h‖ := by
+          simp [K, Dsum, mul_assoc, mul_left_comm, mul_comm]
+
+/-- The candidate Fourier-Laplace extension is holomorphic on the upper half-plane.
+
+    This packages the scalar derivative argument: the kernel remainder is
+    rewritten using `psiZ_sub_sub_deriv_eq_smul_remainder`, then the uniform
+    `O(‖h‖)` bound from `fourierLaplaceExt_remainder_bound` upgrades it to an
+    `O(‖h‖²)` scalar remainder. -/
+theorem fourierLaplaceExt_hasDerivAt
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
+    (z : ℂ) (hz : 0 < z.im) :
+    HasDerivAt
+      (fun w : ℂ =>
+        if hw : 0 < w.im then
+          fourierLaplaceExt T w hw
+        else
+          0)
+      (T ((SchwartzMap.fourierTransformCLM ℂ)
+        ((SchwartzMap.smulLeftCLM ℂ (fun ξ : ℝ => I * (ξ : ℂ)))
+          (schwartzPsiZ z hz))))
+      z := by
+  let F : ℂ → ℂ := fun w =>
+    if hw : 0 < w.im then
+      fourierLaplaceExt T w hw
+    else
+      0
+  let S : SchwartzMap ℝ ℂ →L[ℂ] ℂ := T.comp (SchwartzMap.fourierTransformCLM ℂ)
+  let Dψ : SchwartzMap ℝ ℂ :=
+    (SchwartzMap.smulLeftCLM ℂ (fun ξ : ℝ => I * (ξ : ℂ))) (schwartzPsiZ z hz)
+  let D : ℂ := S Dψ
+  obtain ⟨K, hK_nonneg, hKbound⟩ := fourierLaplaceExt_remainder_bound T z hz
+  rw [hasDerivAt_iff_isLittleO_nhds_zero]
+  have hsmall :
+      ∀ᶠ h : ℂ in 𝓝 0, ‖h‖ ≤ z.im / 2 ∧ ‖h‖ ≤ 1 ∧ 0 < (z + h).im := by
+    let r : ℝ := min (z.im / 2) 1
+    have hr : 0 < r := by
+      dsimp [r]
+      positivity
+    filter_upwards [Metric.ball_mem_nhds (0 : ℂ) hr] with h hh
+    have hnorm_lt : ‖h‖ < r := by
+      simpa [Metric.mem_ball, dist_eq_norm] using hh
+    have hh_im : ‖h‖ ≤ z.im / 2 := by
+      exact le_trans hnorm_lt.le (min_le_left _ _)
+    have hh1 : ‖h‖ ≤ 1 := by
+      exact le_trans hnorm_lt.le (min_le_right _ _)
+    have him_le : |h.im| ≤ ‖h‖ := by
+      simpa using Complex.abs_im_le_norm h
+    have him_lower : -‖h‖ ≤ h.im := by
+      rw [abs_le] at him_le
+      linarith
+    have hzph : 0 < (z + h).im := by
+      have hh_lt : ‖h‖ < z.im / 2 := lt_of_lt_of_le hnorm_lt (min_le_left _ _)
+      simpa [Complex.add_im] using (show 0 < z.im + h.im by nlinarith [hz, hh_lt, him_lower])
+    exact ⟨hh_im, hh1, hzph⟩
+  have hbound :
+      ∀ᶠ h : ℂ in 𝓝 0,
+        ‖F (z + h) - F z - h * D‖ ≤ K * ‖h ^ 2‖ := by
+    filter_upwards [hsmall] with h hh
+    rcases hh with ⟨hh_im, hh1, hzph⟩
+    let R : SchwartzMap ℝ ℂ := schwartzPsiZExpTaylorLinearRemainderQuot z hz h hh_im hh1
+    have htemp : (fun ξ : ℝ => I * (ξ : ℂ)).HasTemperateGrowth := by
+      fun_prop
+    have hkernel :
+        schwartzPsiZ (z + h) hzph - schwartzPsiZ z hz - h • Dψ = h • R := by
+      ext ξ
+      simpa [Dψ, R, schwartzPsiZ_apply, schwartzPsiZExpTaylorLinearRemainderQuot_apply,
+        SchwartzMap.smulLeftCLM_apply_apply htemp, smul_eq_mul] using
+        psiZ_sub_sub_deriv_eq_smul_remainder z h ξ
+    have hEq :
+        F (z + h) - F z - h * D = h * S R := by
+      have hzph' : 0 < z.im + h.im := by
+        simpa [Complex.add_im] using hzph
+      have hF_add : F (z + h) = fourierLaplaceExt T (z + h) hzph := by
+        simp [F, Complex.add_im, hzph']
+      have hF_zero : F z = fourierLaplaceExt T z hz := by
+        simp [F, hz]
+      calc
+        F (z + h) - F z - h * D
+            = fourierLaplaceExt T (z + h) hzph - fourierLaplaceExt T z hz - h * D := by
+                rw [hF_add, hF_zero]
+        _ = S (schwartzPsiZ (z + h) hzph) - S (schwartzPsiZ z hz) - h * D := by
+              simp [S, D, fourierLaplaceExt_eq]
+        _ = S (schwartzPsiZ (z + h) hzph - schwartzPsiZ z hz - h • Dψ) := by
+              simp [S, D, Dψ, map_smul, sub_eq_add_neg, add_assoc, add_left_comm, add_comm]
+        _ = S (h • R) := by rw [hkernel]
+        _ = h * S R := by
+              simp [S]
+    have hnorm_bound :
+        ‖F (z + h) - F z - h * D‖ ≤ K * ‖h ^ 2‖ := by
+      calc
+        ‖F (z + h) - F z - h * D‖ = ‖h * S R‖ := by rw [hEq]
+        _ = ‖h‖ * ‖S R‖ := by rw [norm_mul]
+        _ ≤ ‖h‖ * (K * ‖h‖) := by
+              exact mul_le_mul_of_nonneg_left (hKbound h hh_im hh1) (norm_nonneg h)
+        _ = K * ‖h ^ 2‖ := by
+              rw [norm_pow]
+              ring
+    exact hnorm_bound
+  exact (Asymptotics.IsBigO.of_bound K hbound).trans_isLittleO
+    (by simpa using (Asymptotics.isLittleO_pow_pow (𝕜 := ℂ) (m := 1) (n := 2) one_lt_two))
+
+/-- The candidate Fourier-Laplace extension is differentiable on the upper half-plane. -/
+theorem fourierLaplaceExt_differentiableOn
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ) :
+    DifferentiableOn ℂ
+      (fun w : ℂ =>
+        if hw : 0 < w.im then
+          fourierLaplaceExt T w hw
+        else
+          0)
+      upperHalfPlane := by
+  intro z hz
+  exact (fourierLaplaceExt_hasDerivAt T z hz).differentiableAt.differentiableWithinAt
+
 /-! ### The Paley-Wiener-Schwartz theorem: 1D case -/
 
 /-- **Paley-Wiener theorem for the half-line (1D).**
 
-    If T in S'(R) is a continuous linear functional on Schwartz space with
+    If `T ∈ S'(ℝ)` is given as a continuous complex-linear functional on
+    Schwartz space with
     Fourier support in [0, infinity) (meaning: T(phi) = 0 whenever
     supp(phi) subset (-infinity, 0)), then the Fourier-Laplace transform
     z -> T(e^{-iz .}) extends holomorphically to the upper half-plane Im(z) > 0.
@@ -218,14 +582,20 @@ theorem upperHalfPlane_isOpen : IsOpen upperHalfPlane :=
     4. This makes z -> T(e^{-iz .}) well-defined and holomorphic (differentiate under
        the distribution pairing)
 
-    Sorry blocked by: Fourier-Laplace representation for tempered distributions,
-    differentiation under the distribution pairing, and the connection between
-    Fourier support and exponential decay.
+    The Fourier-Laplace Schwartz family `ψ_z`, the candidate extension
+    `z ↦ T(ℱ[ψ_z])`, the horizontal-line seminorm growth of `ψ_{x+iη}`, the
+    finite-seminorm control of `T`, and the resulting polynomial horizontal-line
+    growth of both `z ↦ T(ℱ[ψ_z])` and its candidate derivative kernel
+    `z ↦ T(ℱ[(I ξ) ψ_z])` are now formalized in `SCV.FourierLaplaceCore`,
+    `schwartz_functional_bound`, `fourierLaplaceExt_horizontal_growth`, and
+    `fourierLaplaceExt_derivCandidate_horizontal_growth`.
+    The remaining blockers are:
+    1. holomorphicity of the distribution pairing in `z`,
+    2. distributional boundary-value convergence using the one-sided Fourier support.
 
     Ref: Reed-Simon II, Theorem IX.16; Hormander, Theorem 7.4.3 -/
 theorem paley_wiener_half_line
-    (T : SchwartzMap ℝ ℂ → ℂ)
-    (hT_lin : IsLinearMap ℝ T) (hT_cont : Continuous T)
+    (T : SchwartzMap ℝ ℂ →L[ℂ] ℂ)
     (hT_supp : HasOneSidedFourierSupport T) :
     ∃ (F : ℂ → ℂ),
       DifferentiableOn ℂ F upperHalfPlane ∧
@@ -327,8 +697,10 @@ theorem paley_wiener_converse {m : ℕ}
        in x_r whose Fourier transform is supported in [0, infinity).
     3. Polynomial growth in the r-th variable.
 
-    Then F extends holomorphically to include the upper half-plane in the
-    r-th variable: z_r with Im(z_r) > 0.
+    Then F extends holomorphically in the r-th variable on the correct
+    slice-extension region: either z is already in T(C), or the r-th
+    imaginary coordinate is positive and the other imaginary coordinates
+    match those of some y ∈ C.
 
     The proof applies `paley_wiener_half_line` to the r-th variable (fixing the
     other variables as parameters), obtaining a holomorphic extension in z_r.
@@ -365,12 +737,13 @@ theorem paley_wiener_one_step {m : ℕ}
     -- Polynomial growth in the r-th variable
     (h_growth : ∀ (z' : Fin m → ℂ), (fun i => (z' i).im) ∈ C →
       HasPolynomialGrowthOnLine (fun t => F (Function.update z' r ↑t))) :
-    -- Then F extends holomorphically to include Im(z_r) > 0
+    -- Then F extends holomorphically on the one-step slice-extension region
     ∃ (F_ext : (Fin m → ℂ) → ℂ),
-      -- Holomorphic on the extended domain:
-      -- original tube OR (other coordinates in tube AND r-th coordinate in upper half-plane)
+      -- Holomorphic on the original tube together with the one-variable extension slices.
       DifferentiableOn ℂ F_ext
-        { z | (fun i => (z i).im) ∈ C ∨ (z r).im > 0 } ∧
+        (TubeDomain C ∪
+          { z | 0 < (z r).im ∧
+                ∃ y ∈ C, ∀ i, i ≠ r → (z i).im = y i }) ∧
       -- Agrees with F on original tube
       (∀ z ∈ TubeDomain C, F_ext z = F z) := by
   sorry
@@ -414,10 +787,9 @@ theorem paley_wiener_one_step_simple
           (nhdsWithin 0 (Ioi 0))
           (nhds (∫ t : ℝ, f t * φ t))) := by
   rcases hf_growth with ⟨C_bound, N, hC_bound_pos, h_growth_bound⟩
-  let T : SchwartzMap ℝ ℂ → ℂ := fun φ => ∫ t : ℝ, f t * φ t
   let M : ℕ := N + 2
   let sem : SchwartzMap ℝ ℂ → ℝ :=
-    fun φ => (Finset.Iic (M, 0)).sup (schwartzSeminormFamily ℝ ℝ ℂ) φ
+    fun φ => (Finset.Iic (M, 0)).sup (schwartzSeminormFamily ℂ ℝ ℂ) φ
   have h_decay_int : MeasureTheory.Integrable
       (fun t : ℝ => (1 + ‖t‖) ^ (-(2 : ℝ))) MeasureTheory.volume :=
     by
@@ -431,7 +803,7 @@ theorem paley_wiener_one_step_simple
       (1 + ‖t‖) ^ M * ‖φ t‖ ≤ 2 ^ M * sem φ := by
     intro φ t
     simpa [sem, M, norm_iteratedFDeriv_zero] using
-      (SchwartzMap.one_add_le_sup_seminorm_apply (𝕜 := ℝ)
+      (SchwartzMap.one_add_le_sup_seminorm_apply (𝕜 := ℂ)
         (m := (M, 0)) (k := M) (n := 0) (le_rfl) (le_rfl) φ t)
   have h_pointwise_bound : ∀ (φ : SchwartzMap ℝ ℂ) (t : ℝ),
       ‖f t * φ t‖ ≤ C_bound * 2 ^ M * sem φ * ((1 + ‖t‖) ^ 2)⁻¹ := by
@@ -468,56 +840,43 @@ theorem paley_wiener_one_step_simple
       h_decay_int_nat.const_mul (C_bound * 2 ^ M * sem φ)
     refine h_majorant_int.mono' ((hf_cont.mul φ.continuous).aestronglyMeasurable) ?_
     exact Filter.Eventually.of_forall (h_pointwise_bound φ)
-  have hT_lin : IsLinearMap ℝ T := by
-    constructor
-    · intro φ ψ
-      simpa [T, mul_add] using
-        (MeasureTheory.integral_add
-          (f := fun t : ℝ => f t * φ t)
-          (g := fun t : ℝ => f t * ψ t)
-          (h_integrable φ) (h_integrable ψ))
-    · intro a φ
-      simpa [T, smul_eq_mul, mul_assoc, mul_left_comm, mul_comm] using
-        (MeasureTheory.integral_smul a (fun t : ℝ => f t * φ t))
-  have hT_cont : Continuous T := by
-    let I₂ : ℝ := ∫ t : ℝ, ((1 + ‖t‖) ^ 2)⁻¹
-    let A : SchwartzMap ℝ ℂ →L[ℝ] ℂ :=
-      SchwartzMap.mkCLMtoNormedSpace (𝕜 := ℝ) T
-        (fun φ ψ => by
-          simpa [T, mul_add] using
-            (MeasureTheory.integral_add
-              (f := fun t : ℝ => f t * φ t)
-              (g := fun t : ℝ => f t * ψ t)
-              (h_integrable φ) (h_integrable ψ)))
-        (fun a φ => by
-          simpa [T, smul_eq_mul, mul_assoc, mul_left_comm, mul_comm] using
-            (MeasureTheory.integral_smul a (fun t : ℝ => f t * φ t)))
-        (by
-          have hI₂_nonneg : 0 ≤ I₂ := by
-            unfold I₂
-            exact MeasureTheory.integral_nonneg fun _ => by positivity
-          refine ⟨Finset.Iic (M, 0), C_bound * 2 ^ M * I₂, ?_, ?_⟩
-          · exact mul_nonneg (mul_nonneg (le_of_lt hC_bound_pos) (by positivity)) hI₂_nonneg
-          · intro φ
-            calc
-              ‖T φ‖ = ‖∫ t : ℝ, f t * φ t‖ := by rfl
-              _ ≤ ∫ t : ℝ, ‖f t * φ t‖ :=
-                MeasureTheory.norm_integral_le_integral_norm _
-              _ ≤ ∫ t : ℝ, C_bound * 2 ^ M * sem φ * ((1 + ‖t‖) ^ 2)⁻¹ :=
-                MeasureTheory.integral_mono_ae (h_integrable φ).norm
-                  (h_decay_int_nat.const_mul (C_bound * 2 ^ M * sem φ))
-                  (Filter.Eventually.of_forall (h_pointwise_bound φ))
-              _ = C_bound * 2 ^ M * I₂ * sem φ := by
-                rw [show (∫ t : ℝ, C_bound * 2 ^ M * sem φ * ((1 + ‖t‖) ^ 2)⁻¹) =
-                    (C_bound * 2 ^ M * sem φ) * I₂ by
-                      simp [I₂, MeasureTheory.integral_const_mul]]
-                ring
-              _ = (C_bound * 2 ^ M * I₂) * (Finset.Iic (M, 0)).sup
-                  (schwartzSeminormFamily ℝ ℝ ℂ) φ := by
-                simp [sem, mul_assoc])
-    simpa [T] using A.continuous
+  let I₂ : ℝ := ∫ t : ℝ, ((1 + ‖t‖) ^ 2)⁻¹
+  let T : SchwartzMap ℝ ℂ →L[ℂ] ℂ :=
+    SchwartzMap.mkCLMtoNormedSpace (𝕜 := ℂ)
+      (fun φ : SchwartzMap ℝ ℂ => ∫ t : ℝ, f t * φ t)
+      (fun φ ψ => by
+        simpa [mul_add] using
+          (MeasureTheory.integral_add
+            (f := fun t : ℝ => f t * φ t)
+            (g := fun t : ℝ => f t * ψ t)
+            (h_integrable φ) (h_integrable ψ)))
+      (fun a φ => by
+        simpa [mul_assoc, mul_left_comm, mul_comm] using
+          (MeasureTheory.integral_smul a (fun t : ℝ => f t * φ t)))
+      (by
+        have hI₂_nonneg : 0 ≤ I₂ := by
+          unfold I₂
+          exact MeasureTheory.integral_nonneg fun _ => by positivity
+        refine ⟨Finset.Iic (M, 0), C_bound * 2 ^ M * I₂, ?_, ?_⟩
+        · exact mul_nonneg (mul_nonneg (le_of_lt hC_bound_pos) (by positivity)) hI₂_nonneg
+        · intro φ
+          calc
+            ‖∫ t : ℝ, f t * φ t‖ ≤ ∫ t : ℝ, ‖f t * φ t‖ :=
+              MeasureTheory.norm_integral_le_integral_norm _
+            _ ≤ ∫ t : ℝ, C_bound * 2 ^ M * sem φ * ((1 + ‖t‖) ^ 2)⁻¹ :=
+              MeasureTheory.integral_mono_ae (h_integrable φ).norm
+                (h_decay_int_nat.const_mul (C_bound * 2 ^ M * sem φ))
+                (Filter.Eventually.of_forall (h_pointwise_bound φ))
+            _ = C_bound * 2 ^ M * I₂ * sem φ := by
+              rw [show (∫ t : ℝ, C_bound * 2 ^ M * sem φ * ((1 + ‖t‖) ^ 2)⁻¹) =
+                  (C_bound * 2 ^ M * sem φ) * I₂ by
+                    simp [I₂, MeasureTheory.integral_const_mul]]
+              ring
+            _ = (C_bound * 2 ^ M * I₂) * (Finset.Iic (M, 0)).sup
+                (schwartzSeminormFamily ℂ ℝ ℂ) φ := by
+              simp [sem, mul_assoc])
   obtain ⟨F_ext, hF_holo, hF_growth, hF_bv⟩ :=
-    paley_wiener_half_line T hT_lin hT_cont h_spectral
+    paley_wiener_half_line T (by simpa [T] using h_spectral)
   refine ⟨F_ext, hF_holo, hF_growth, ?_⟩
   intro φ
   simpa [T] using hF_bv φ
