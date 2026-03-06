@@ -377,7 +377,7 @@ theorem polynomial_growth_tube {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (h_bv : ∀ (η : Fin m → ℝ), η ∈ C →
       ∃ (T : (Fin m → ℝ) → ℂ), ContinuousOn T Set.univ ∧
-        ∀ (f : (Fin m → ℝ) → ℂ), MeasureTheory.Integrable f →
+        ∀ (f : SchwartzMap (Fin m → ℝ) ℂ),
           Filter.Tendsto (fun ε : ℝ =>
             ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
           (nhdsWithin 0 (Set.Ioi 0))

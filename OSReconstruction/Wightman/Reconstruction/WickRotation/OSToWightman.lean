@@ -67,34 +67,33 @@ structure EuclideanSemigroup (OS : OsterwalderSchraderAxioms d) where
     condition E0' provides the bounds needed for the continuation. -/
 
 /-- The region C_k^(r) from OS II: the domain after r steps of analytic continuation.
-    C_k^(0) = {ξ ∈ ℝ^k : ξⱼ > 0} (positive real half-space, all coordinates real)
-    C_k^(r+1) extends the first r+1 spacetime coordinates to complex (Im diff > 0),
-    while the remaining d-r coordinates stay real (Im = 0).
+    C_k^(0) = {ξ ∈ ℝ^k : Im = 0, ξᵢ₀ > 0} (positive real Euclidean domain)
+    C_k^(r+1) = {z ∈ ℂ^{k(d+1)} : Im(z_i,μ - z_{i-1,μ}) > 0 for all i, μ ≤ r}
+      (open forward tube in the first r+1 spacetime directions; no constraint on μ > r).
 
-    **Note**: C_k^(d+1) is a tube over the positive orthant (0,∞)^{d+1} (each
-    component of imaginary differences is positive). This is STRICTLY SMALLER
-    than the forward tube T_k (which requires imaginary differences in V₊, the
-    forward light cone). To reach T_k from C_k^(d+1), one needs:
+    **Key property**: For r ≥ 1, C_k^(r) is an OPEN subset of ℂ^{k(d+1)}
+    (strict positivity of imaginary parts ⟹ open). This ensures `DifferentiableOn ℂ`
+    on C_k^(r) is genuine holomorphicity, not a vacuous condition.
+
+    **Note**: C_k^(d+1) is the full forward tube (Im-differences positive in all
+    directions). To reach the actual forward tube from C_k^(d+1), one needs:
     1. Euclidean rotation invariance (E1) to extend to SO(d+1)-rotated copies
     2. Bochner's tube theorem to extend to the convex hull = forward tube
 
-    The regions EXPAND as r increases: C_k^(r) ⊂ C_k^(r+1), because each step
-    frees one more coordinate from the "must be real" constraint. -/
+    The regions are monotone: C_k^(r) ⊂ C_k^(r+1), and C_k^(0) is disjoint
+    from C_k^(r) for r ≥ 1 (C_k^(0) has Im = 0, C_k^(r) requires Im > 0). -/
 def AnalyticContinuationRegion (d k r : ℕ) [NeZero d] :
     Set (Fin k → Fin (d + 1) → ℂ) :=
   match r with
-  | 0 => -- All real, positive Euclidean times
+  | 0 => -- Base: positive Euclidean domain (all Im = 0, Euclidean times positive)
     { z | (∀ i : Fin k, ∀ μ : Fin (d + 1), (z i μ).im = 0) ∧
           (∀ i : Fin k, (z i 0).re > 0) }
-  | r + 1 => -- First r+1 coordinates complex with positive imaginary part,
-    -- remaining coordinates must be real
-    { z | (∀ i : Fin k,
+  | r + 1 => -- Open forward tube in first r+1 spacetime directions;
+    -- no constraint on remaining directions (μ > r), giving an open set.
+    { z | ∀ i : Fin k,
         ∀ μ : Fin (d + 1), μ.val ≤ r →
           let prev := if h : i.val = 0 then 0 else z ⟨i.val - 1, by omega⟩
-          (z i μ - prev μ).im > 0) ∧
-       (∀ i : Fin k,
-        ∀ μ : Fin (d + 1), μ.val > r →
-          (z i μ).im = 0) }
+          (z i μ - prev μ).im > 0 }
 
 /-- **Inductive analytic continuation (OS II, Theorem 4.1).**
 
@@ -198,10 +197,13 @@ theorem iterated_analytic_continuation
         rw [Set.disjoint_left]
         intro z hz0 hz1
         rcases hz0 with ⟨hz0_im, _hz0_pos⟩
-        rcases hz1 with ⟨hz1_pos, _hz1_real⟩
-        have hpos := hz1_pos i0 (0 : Fin (d + 1)) (Nat.zero_le r)
+        -- hz1 : ∀ i, ∀ μ, μ.val ≤ r → (let prev := ...; (z i μ - prev μ).im > 0)
+        -- Apply at i0 (= ⟨0,hkpos⟩) and μ = 0:
+        have hraw := hz1 i0 (0 : Fin (d + 1)) (Nat.zero_le r)
+        -- i0.val = 0, so prev = fun _ => 0, prev 0 = 0; hraw : (z i0 0 - 0).im > 0
         have hpos0 : (z i0 (0 : Fin (d + 1))).im > 0 := by
-          simpa [i0] using hpos
+          simp only [show i0.val = 0 from rfl, ↓reduceDIte, Pi.zero_apply, sub_zero] at hraw
+          exact hraw
         have him0 : (z i0 (0 : Fin (d + 1))).im = 0 := hz0_im i0 (0 : Fin (d + 1))
         linarith
       let S_next' : (Fin k → Fin (d + 1) → ℂ) → ℂ :=
@@ -401,6 +403,11 @@ def bvt_F (OS : OsterwalderSchraderAxioms d)
     (Fin n → Fin (d + 1) → ℂ) → ℂ :=
   (boundary_values_tempered OS lgc n).choose_spec.choose
 
+theorem bvt_W_continuous (OS : OsterwalderSchraderAxioms d)
+    (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
+    Continuous (bvt_W OS lgc n) :=
+  (boundary_values_tempered OS lgc n).choose_spec.choose_spec.1
+
 theorem bvt_F_holomorphic (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ) :
     DifferentiableOn ℂ (bvt_F OS lgc n) (ForwardTube d n) :=
@@ -502,6 +509,7 @@ theorem bv_zero_point_is_evaluation (OS : OsterwalderSchraderAxioms d)
 theorem bv_translation_invariance_transfer (OS : OsterwalderSchraderAxioms d)
     (lgc : OSLinearGrowthCondition d OS) (n : ℕ)
     (W_n : SchwartzNPoint d n → ℂ)
+    (hW_cont : Continuous W_n)
     (F_n : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_hol : DifferentiableOn ℂ F_n (ForwardTube d n))
     (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
@@ -520,6 +528,13 @@ theorem bv_translation_invariance_transfer (OS : OsterwalderSchraderAxioms d)
     ∀ (a : SpacetimeDim d) (f g : SchwartzNPoint d n),
       (∀ x, g.toFun x = f.toFun (fun i => x i + a)) →
       W_n f = W_n g := by
+  -- Proof sketch: From hEuclid and hE1, F_n(wick(x)) = F_n(wick(x-a)) for all x, so F_n is
+  -- invariant under the Euclidean shift wick_a = (i*a_0, a_1, ..., a_d).
+  -- By distributional_uniqueness_forwardTube, F_n(z) = F_n(z - wick_a) on all of FT.
+  -- The BV limit W_n(g) = lim ∫ F_n(x + iεη) f(x+a) dx = lim ∫ F_n(y - a + iεη) f(y) dy,
+  -- and y - a + iεη = y - wick_a + iεη (up to the i*a_0 time component cancellation) — but
+  -- this identification fails because a_0 ≠ i*a_0 (real vs imaginary time shift).
+  -- Full proof requires the analytic continuation infrastructure (BHW + OS II Section VI).
   sorry
 
 /-- E2R Lorentz: Lorentz covariance transfers from E1 (Euclidean rotation
@@ -650,6 +665,7 @@ theorem bvt_translation_invariant (OS : OsterwalderSchraderAxioms d)
   intro n a f g hfg
   exact bv_translation_invariance_transfer OS lgc n
     (bvt_W OS lgc n)
+    (bvt_W_continuous OS lgc n)
     (bvt_F OS lgc n)
     (bvt_F_holomorphic OS lgc n)
     (bvt_boundary_values OS lgc n)

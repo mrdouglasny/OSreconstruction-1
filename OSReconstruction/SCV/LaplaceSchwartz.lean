@@ -377,7 +377,7 @@ theorem polynomial_growth_of_continuous_bv {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (h_bv : ∀ (η : Fin m → ℝ), η ∈ C →
       ∃ (T : (Fin m → ℝ) → ℂ), ContinuousOn T Set.univ ∧
-        ∀ (f : (Fin m → ℝ) → ℂ), MeasureTheory.Integrable f →
+        ∀ (f : SchwartzMap (Fin m → ℝ) ℂ),
           Filter.Tendsto (fun ε : ℝ =>
             ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
           (nhdsWithin 0 (Ioi 0))
@@ -499,45 +499,12 @@ theorem fourierLaplace_boundary_integral_convergence {m : ℕ}
     {F : (Fin m → ℂ) → ℂ} (hF : DifferentiableOn ℂ F (TubeDomain C))
     (hRepr : HasFourierLaplaceRepr C F)
     (η : Fin m → ℝ) (hη : η ∈ C)
-    (f : (Fin m → ℝ) → ℂ) (hf : MeasureTheory.Integrable f) :
+    (f : SchwartzMap (Fin m → ℝ) ℂ) :
     Filter.Tendsto (fun ε : ℝ =>
       ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x)
     (nhdsWithin 0 (Set.Ioi 0))
-    (nhds (∫ x, F (realEmbed x) * f x)) := by
-  -- Apply dominated convergence theorem
-  obtain ⟨C_bd, N, δ, hC_pos, hδ_pos, h_bound⟩ :=
-    fourierLaplace_uniform_bound_near_boundary hC hconv hne hF hRepr η hη
-  set bound : (Fin m → ℝ) → ℝ := fun x => C_bd * (1 + ‖x‖) ^ N * ‖f x‖ with hbound_def
-  apply MeasureTheory.tendsto_integral_filter_of_dominated_convergence bound
-  · -- AE strong measurability
-    apply Filter.eventually_of_mem (self_mem_nhdsWithin (s := Set.Ioi 0))
-    intro ε hε_pos
-    exact fourierLaplace_integrand_aestronglyMeasurable hF η hη hcone
-      f hf ε (Set.mem_Ioi.mp hε_pos)
-  · -- AE domination
-    have h_Ioo_mem : Set.Ioo (0 : ℝ) δ ∈ nhdsWithin 0 (Set.Ioi 0) := by
-      rw [mem_nhdsGT_iff_exists_Ioo_subset]
-      exact ⟨δ, hδ_pos, Set.Subset.rfl⟩
-    apply Filter.eventually_of_mem h_Ioo_mem
-    intro ε hε
-    apply Filter.Eventually.of_forall
-    intro x
-    calc ‖F (fun i => ↑(x i) + ↑ε * ↑(η i) * I) * f x‖
-        = ‖F (fun i => ↑(x i) + ↑ε * ↑(η i) * I)‖ * ‖f x‖ := norm_mul _ _
-      _ ≤ (C_bd * (1 + ‖x‖) ^ N) * ‖f x‖ :=
-          mul_le_mul_of_nonneg_right (h_bound x ε hε.1 hε.2) (norm_nonneg _)
-      _ = bound x := by ring
-  · -- Integrability of bound: C_bd * (1 + ‖x‖)^N * ‖f x‖
-    -- For general integrable f, this requires f to be in a weighted L^1 space.
-    -- In the physics applications (ForwardTubeDistributions), f is actually Schwartz
-    -- or compactly supported, so this is satisfied. For the general statement,
-    -- this is a genuine analytical hypothesis.
-    sorry
-  · -- AE pointwise convergence
-    apply Filter.Eventually.of_forall
-    intro x
-    have h_ptwise := fourierLaplace_pointwise_boundary_limit hC hconv hne hcone hF hRepr x η hη
-    exact Filter.Tendsto.mul h_ptwise tendsto_const_nhds
+    (nhds (∫ x, F (realEmbed x) * f x)) :=
+  fourierLaplace_schwartz_integral_convergence hC hconv hne hcone hF hRepr f η hη
 
 end SCV
 

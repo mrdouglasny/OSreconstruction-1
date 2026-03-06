@@ -1,6 +1,6 @@
 # Wightman TODO: OS Reconstruction Priority Queue
 
-Last updated: 2026-03-05
+Last updated: 2026-03-05 (rev 2)
 
 This file tracks blockers on the active OS reconstruction path with current priority order.
 Policy lock: no wrappers, no useless lemmas, no code bloat; close `sorry`s with substantial mathematical proofs.
@@ -11,11 +11,16 @@ Count convention: direct tactic holes only (`^\s*sorry\b`).
 
 | Scope | Direct `sorry` lines |
 |-------|----------------------:|
-| `OSReconstruction/Wightman` | 40 |
+| `OSReconstruction/Wightman` | 34 |
 | `OSReconstruction/SCV` | 13 |
 | `OSReconstruction/ComplexLieGroups` | 2 |
 | `OSReconstruction/vNA` | 40 |
-| **Whole project** | **95** |
+| **Whole project** | **89** |
+
+_Count cross-checked 2026-03-05 by `rg '^\s*sorry\b' --glob '*.lean'` (awk sum = 89)._
+_BHWTranslation.lean was incorrectly listed with 5 sorrys; actual count is 1._
+_BHWExtension.lean: W_analytic_swap_distributional_agree and analytic_boundary_local_commutativity are NOW PROVED (0 sorrys)._
+_GNSHilbertSpace.lean: covariance_preHilbert was proved; 1 sorry remains (vacuum_unique part 2, spectral theory)._
 
 ## Root Blocker Layers
 
@@ -40,21 +45,15 @@ Axiom transfer chain:
 Cluster transfer:
 - `bvt_cluster`
 
-### 2) R -> E Wick Rotation Plumbing (13 total)
+### 2) R -> E Wick Rotation Plumbing (7 total, down from 13)
 
 `ForwardTubeLorentz.lean` (1):
 - `wickRotation_not_in_PET_null`
 
-`BHWExtension.lean` (2):
-- `W_analytic_swap_distributional_agree`
-- `analytic_boundary_local_commutativity`
+`BHWExtension.lean` (0): **COMPLETE** — both sorrys proved as of 2026-03-05.
 
-`BHWTranslation.lean` (5):
-- `forwardTube_lorentz_translate_aux_core`
-- `W_analytic_translated_bv_eq`
-- `forward_tube_bv_integrable_translated`
-- `distributional_uniqueness_forwardTube_inter`
-- `bv_limit_constant_along_convex_path`
+`BHWTranslation.lean` (1):
+- `isConnected_permutedExtendedTube_inter_translate`
 
 `SchwingerAxioms.lean` (5):
 - `polynomial_growth_forwardTube_full`
@@ -87,7 +86,7 @@ Cluster transfer:
 ## Secondary Blockers (Not First Execution Lane)
 
 1. `Wightman/Reconstruction/Main.lean`: `wightman_uniqueness`
-2. `Wightman/Reconstruction/GNSHilbertSpace.lean`: `covariance_preHilbert`
+2. `Wightman/Reconstruction/GNSHilbertSpace.lean`: `vacuum_unique` part 2 (spectral theory; covariance_preHilbert PROVED)
 3. `Wightman/WightmanAxioms.lean`: 4 infrastructural sorrys
 4. `Wightman/NuclearSpaces/*`: side development, not on shortest reconstruction path
 5. `ComplexLieGroups` remaining blocker status: see
@@ -98,7 +97,7 @@ Cluster transfer:
 1. SCV core (`LaplaceSchwartz` + `PaleyWiener` + `Bochner`) to unblock continuation machinery.
 2. `OSToWightman` analytic continuation + BV existence.
 3. `OSToWightman` axiom transfer and cluster chain.
-4. Wick-rotation plumbing (`ForwardTubeLorentz` -> `BHWExtension` -> `BHWTranslation` -> `SchwingerAxioms`).
+4. Wick-rotation plumbing (`ForwardTubeLorentz` -> ~~`BHWExtension`~~ [complete] -> `BHWTranslation` -> `SchwingerAxioms`).
 5. Final uniqueness and residual wiring.
 
 ## Commands

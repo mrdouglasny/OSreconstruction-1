@@ -899,7 +899,7 @@ theorem polynomial_growth_forwardTube {d n : ℕ} [NeZero d]
     (hF : DifferentiableOn ℂ F (ForwardTube d n))
     (h_bv : ∀ (η : Fin (n * (d + 1)) → ℝ), η ∈ ForwardConeFlat d n →
       ∃ (T : (Fin (n * (d + 1)) → ℝ) → ℂ), ContinuousOn T Set.univ ∧
-        ∀ (f : (Fin (n * (d + 1)) → ℝ) → ℂ), MeasureTheory.Integrable f →
+        ∀ (f : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ),
           Filter.Tendsto (fun ε : ℝ =>
             ∫ x : Fin (n * (d + 1)) → ℝ,
               (F ∘ (flattenCLEquiv n (d + 1)).symm)
@@ -1020,12 +1020,12 @@ private theorem boundary_integral_convergence {m : ℕ}
         (nhdsWithin 0 (Set.Ioi 0))
         (nhds (T f)))
     (η : Fin m → ℝ) (hη : η ∈ C) :
-    ∀ (f : (Fin m → ℝ) → ℂ), MeasureTheory.Integrable f →
+    ∀ (f : SchwartzMap (Fin m → ℝ) ℂ),
       Filter.Tendsto (fun ε : ℝ =>
         ∫ x : Fin m → ℝ, F (fun i => ↑(x i) + ↑ε * ↑(η i) * Complex.I) * f x)
       (nhdsWithin 0 (Set.Ioi 0))
       (nhds (∫ x, F (SCV.realEmbed x) * f x)) := by
-  intro f hf
+  intro f
   -- Step 1: Pointwise convergence.
   -- For each x, F(x + iεη) → F(realEmbed x) as ε → 0⁺.
   -- Proof: x + iεη ∈ TubeDomain C (since εη ∈ C by cone) and x + iεη → realEmbed x.
@@ -1090,7 +1090,7 @@ private theorem boundary_integral_convergence {m : ℕ}
   --
   -- This is a consequence of the Fourier-Laplace theory (Vladimirov §25-26)
   -- captured in the infrastructure of LaplaceSchwartz.lean.
-  exact SCV.fourierLaplace_boundary_integral_convergence hC hconv hne hcone hF hRepr η hη f hf
+  exact SCV.fourierLaplace_boundary_integral_convergence hC hconv hne hcone hF hRepr η hη f
 
 /-- Helper: convert Schwartz-based boundary values on the forward tube to the
     flat-coordinate integrable-function form needed by `polynomial_growth_tube`.
@@ -1109,7 +1109,7 @@ theorem schwartz_bv_to_flat_bv {d n : ℕ} [NeZero d]
           (nhds (T f))) :
     ∀ (η : Fin (n * (d + 1)) → ℝ), η ∈ ForwardConeFlat d n →
       ∃ (T : (Fin (n * (d + 1)) → ℝ) → ℂ), ContinuousOn T Set.univ ∧
-        ∀ (f : (Fin (n * (d + 1)) → ℝ) → ℂ), MeasureTheory.Integrable f →
+        ∀ (f : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ),
           Filter.Tendsto (fun ε : ℝ =>
             ∫ x : Fin (n * (d + 1)) → ℝ,
               (F ∘ (flattenCLEquiv n (d + 1)).symm)
