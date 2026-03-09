@@ -71,30 +71,47 @@ Status:
    from actual Fourier-Laplace input with the right dual-cone support.
 3. Return to `BochnerTubeTheorem.lean`.
 
-### `SCV/DistributionalUniqueness.lean` (0) — NEW
+### `SCV/SchwartzComplete.lean` (0) — NEW, CODEX-OWNED
 
-New file with 0 sorrys providing:
+**Owner: Codex agent.** Sorry-free. Provides:
+- `SchwartzMap.instCompleteSpace` — completeness of `𝓢(E, F)`
+- `SchwartzMap.instBarrelledSpace` — barrelledness
+- `SchwartzMap.tempered_equicontinuous` — Banach-Steinhaus for tempered distributions
+- `SchwartzMap.tempered_uniform_schwartz_bound` — concrete finite seminorm bound
+- `SchwartzMap.tempered_equicontinuous_of_tendsto` — convergent sequences are equicontinuous
+
+### `SCV/DistributionalUniqueness.lean` (0) — NEW, CODEX-OWNED
+
+**Owner: Codex agent.** New file with 0 sorrys providing:
 - `translateSchwartz`: translate a Schwartz function by a fixed vector (PROVED)
 - `uniqueness_of_boundary_zero`: if G is holomorphic on T(C), vanishes pointwise
   on the real boundary, and has ContinuousWithinAt at all boundary points,
   then G = 0 on T(C). This is the 1D EOW slicing argument factored out from
   `distributional_uniqueness_tube_of_regular`. (PROVED)
+- Support transport lemmas for `translateSchwartz` (PROVED)
+- `uniqueness_of_boundary_zero_on_interval` — local 1D uniqueness on (a,b) (PROVED)
 
 ## ROOT BLOCKER: Distributional EOW / Banach-Steinhaus
+
+**Owner: Codex agent** (as of 2026-03-09). Claude Code should not edit these files
+without coordinating in `agents_chat.md` first.
 
 The main blocker for closing `distributional_uniqueness_forwardTube`
 (in `Wightman/Reconstruction/ForwardTubeDistributions.lean`) is:
 
 **Bare distributional BV → equality on the tube**
 
-Two approaches under development:
-1. **Distributional EOW** (codex building): edge-of-the-wedge with S'-convergence
-   instead of ContinuousWithinAt. Proof route: mollify boundary distributions →
-   honest smooth boundary data → classical identity theorem → pass to limit.
-   This directly feeds `distributional_uniqueness_forwardTube`.
-2. **Banach-Steinhaus** (on hold): if distributional EOW shows it's needed,
-   build minimal Schwartz-family uniform-boundedness. Chain:
-   CompleteSpace(SchwartzMap) → BaireSpace → BarrelledSpace → WithSeminorms.banach_steinhaus.
+### Status (2026-03-09):
+- **Banach-Steinhaus chain COMPLETE** in `SCV/SchwartzComplete.lean`:
+  - `CompleteSpace (SchwartzMap E F)` — PROVED
+  - `BarrelledSpace ℝ (SchwartzMap E F)` — PROVED
+  - `tempered_equicontinuous` — PROVED
+  - `tempered_uniform_schwartz_bound` — PROVED (concrete finite seminorm bound)
+  - `tempered_equicontinuous_of_tendsto` — PROVED
+- **Distributional EOW** (codex building): edge-of-the-wedge with S'-convergence
+  instead of ContinuousWithinAt. Proof route: mollify boundary distributions →
+  honest smooth boundary data → classical identity theorem → pass to limit.
+  This directly feeds `distributional_uniqueness_forwardTube`.
 
 The 3 overstrong theorems (`continuous_boundary_forwardTube`,
 `boundary_value_recovery_forwardTube`, `boundary_function_continuous_forwardTube`)

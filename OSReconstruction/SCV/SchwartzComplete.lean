@@ -412,11 +412,12 @@ instance instBarrelledSpace [CompleteSpace F] :
 
     In particular, there exist Schwartz seminorm indices and a constant `C`
     such that `‖T_i f‖ ≤ C · seminorm(f)` for all `i` and `f`. -/
-theorem tempered_equicontinuous [CompleteSpace F]
-    {ι : Type*} {T : ι → SchwartzMap E F →L[ℝ] F}
+theorem tempered_equicontinuous
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {ι : Type*} {T : ι → SchwartzMap E F →L[ℝ] G}
     (hT : ∀ f, ∃ C, ∀ i, ‖T i f‖ ≤ C) :
     UniformEquicontinuous (fun i f => T i f) := by
-  have hq := norm_withSeminorms ℝ F
+  have hq := norm_withSeminorms ℝ G
   apply hq.banach_steinhaus
   intro k x
   rw [BddAbove]
@@ -428,30 +429,32 @@ theorem tempered_equicontinuous [CompleteSpace F]
 This is the explicit Banach-Steinhaus payoff needed in distributional uniqueness arguments:
 once a family of continuous linear functionals on Schwartz space is pointwise bounded, there
 is a single finite supremum of Schwartz seminorms controlling all members of the family. -/
-theorem tempered_uniform_schwartz_bound [CompleteSpace F]
-    {ι : Type*} {T : ι → SchwartzMap E F →L[ℝ] F}
+theorem tempered_uniform_schwartz_bound
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {ι : Type*} {T : ι → SchwartzMap E F →L[ℝ] G}
     (hT : ∀ f, ∃ C, ∀ i, ‖T i f‖ ≤ C) :
     ∃ s : Finset (ℕ × ℕ), ∃ C : NNReal, C ≠ 0 ∧
       ∀ i : ι, ∀ f : SchwartzMap E F,
         ‖T i f‖ ≤ (C • s.sup (schwartzSeminormFamily ℝ E F)) f := by
   have hEqui : UniformEquicontinuous (fun i f => T i f) := tempered_equicontinuous hT
   have hq :=
-    ((norm_withSeminorms ℝ F).uniformEquicontinuous_iff_exists_continuous_seminorm
+    ((norm_withSeminorms ℝ G).uniformEquicontinuous_iff_exists_continuous_seminorm
       (f := fun i => (T i).toLinearMap)).mp hEqui
   obtain ⟨p, hp_cont, hp_bound⟩ := hq (0 : Fin 1)
   obtain ⟨s, C, hCne, hp_dominate⟩ :=
     Seminorm.bound_of_continuous (schwartz_withSeminorms ℝ E F) p hp_cont
   refine ⟨s, C, hCne, fun i f => ?_⟩
   calc
-    ‖T i f‖ = ((normSeminorm ℝ F).comp (T i).toLinearMap) f := by rfl
+    ‖T i f‖ = ((normSeminorm ℝ G).comp (T i).toLinearMap) f := by rfl
     _ ≤ p f := hp_bound i f
     _ ≤ (C • s.sup (schwartzSeminormFamily ℝ E F)) f := hp_dominate f
 
 /-- A convergent sequence of tempered distributions is uniformly bounded
     in some Schwartz seminorm. More precisely, if `T_n(f) → L(f)` for each
     Schwartz `f`, then `{T_n}` is equicontinuous. -/
-theorem tempered_equicontinuous_of_tendsto [CompleteSpace F]
-    {T : ℕ → SchwartzMap E F →L[ℝ] F}
+theorem tempered_equicontinuous_of_tendsto
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {T : ℕ → SchwartzMap E F →L[ℝ] G}
     (hT : ∀ f, ∃ L, Filter.Tendsto (fun n => T n f) atTop (nhds L)) :
     UniformEquicontinuous (fun n f => T n f) := by
   apply tempered_equicontinuous
@@ -470,6 +473,172 @@ theorem tempered_equicontinuous_of_tendsto [CompleteSpace F]
   · push_neg at hi
     exact le_max_of_le_right
       (Finset.le_sup' (fun n => ‖T n f‖) (Finset.mem_range.mpr (by omega)))
+
+/-- If a sequence of tempered distributions converges pointwise to `0`, then it also
+converges to `0` on any convergent sequence of Schwartz test functions.
+
+This is the exact Banach-Steinhaus payoff needed in distributional edge-of-the-wedge
+arguments: the test functions vary with the boundary point, but a common finite seminorm
+bound controls the error term. -/
+theorem tempered_apply_tendsto_zero_of_tendsto
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {T : ℕ → SchwartzMap E F →L[ℝ] G}
+    (hT : ∀ f : SchwartzMap E F, Filter.Tendsto (fun n => T n f) atTop (nhds 0))
+    {u : ℕ → SchwartzMap E F} {f : SchwartzMap E F}
+    (hu : Filter.Tendsto u atTop (nhds f)) :
+    Filter.Tendsto (fun n => T n (u n)) atTop (nhds 0) := by
+  have hTbdd : ∀ f : SchwartzMap E F, ∃ C, ∀ n, ‖T n f‖ ≤ C := by
+    intro f
+    have hbdd := (hT f).norm.isBoundedUnder_le
+    obtain ⟨b, hb⟩ := hbdd
+    simp only [Filter.Eventually, Filter.mem_map, Filter.mem_atTop_sets] at hb
+    obtain ⟨N, hN⟩ := hb
+    refine ⟨max b (Finset.sup' (Finset.range (N + 1))
+      ⟨0, Finset.mem_range.mpr (by omega)⟩ (fun n => ‖T n f‖)), fun i => ?_⟩
+    by_cases hi : N ≤ i
+    · exact le_max_of_le_left (hN i hi)
+    · push_neg at hi
+      exact le_max_of_le_right
+        (Finset.le_sup' (fun n => ‖T n f‖) (Finset.mem_range.mpr (by omega)))
+  obtain ⟨s, C, hCne, hbound⟩ := tempered_uniform_schwartz_bound hTbdd
+  have hCpos : 0 < (C : ℝ) := by
+    exact_mod_cast (show 0 < C from pos_iff_ne_zero.mpr hCne)
+  let p : Seminorm ℝ (SchwartzMap E F) := s.sup (schwartzSeminormFamily ℝ E F)
+  have hp_small : Filter.Tendsto (fun n => p (u n - f)) atTop (nhds 0) := by
+    have hsub : Filter.Tendsto (fun n => u n - f) atTop (nhds (0 : SchwartzMap E F)) := by
+      simpa using (hu.sub tendsto_const_nhds : Filter.Tendsto (fun n => u n - f) atTop
+        (nhds (f - f)))
+    have hws := schwartz_withSeminorms ℝ E F
+    have hp_cont : Continuous p := by
+      refine Seminorm.continuous_of_le ?_
+        (show p ≤ ∑ i ∈ s, schwartzSeminormFamily ℝ E F i by
+          simpa [p] using Seminorm.finset_sup_le_sum (schwartzSeminormFamily ℝ E F) s)
+      change Continuous (fun x => Seminorm.coeFnAddMonoidHom ℝ (SchwartzMap E F)
+        (∑ i ∈ s, schwartzSeminormFamily ℝ E F i) x)
+      simp_rw [map_sum, Finset.sum_apply]
+      exact continuous_finset_sum _ fun i _ => hws.continuous_seminorm i
+    simpa using (hp_cont.tendsto 0).comp hsub
+  refine Metric.tendsto_nhds.mpr ?_
+  intro ε hε
+  have hε2 : 0 < ε / 2 := by positivity
+  have h1 := (Metric.tendsto_nhds.mp (hT f)) (ε / 2) hε2
+  have h2 := (Metric.tendsto_nhds.mp hp_small) (ε / (2 * C)) (by
+    have hden : 0 < 2 * (C : ℝ) := by positivity
+    exact div_pos hε hden)
+  filter_upwards [h1, h2] with n hn1 hn2
+  have hn1' : ‖T n f‖ < ε / 2 := by
+    simpa [dist_eq_norm] using hn1
+  have hn2' : p (u n - f) < ε / (2 * C) := by
+    have hpnn : 0 ≤ p (u n - f) := apply_nonneg p _
+    simpa [Real.dist_eq, abs_of_nonneg hpnn] using hn2
+  have hsplit : T n (u n) = T n (u n - f) + T n f := by
+    calc
+      T n (u n) = T n ((u n - f) + f) := by
+        congr 1
+        abel
+      _ = T n (u n - f) + T n f := map_add _ _ _
+  calc
+    dist (T n (u n)) 0
+        = ‖T n (u n - f) + T n f‖ := by
+            rw [dist_eq_norm, hsplit, sub_zero]
+    _ ≤ ‖T n (u n - f)‖ + ‖T n f‖ := norm_add_le _ _
+    _ ≤ (C : ℝ) * p (u n - f) + ‖T n f‖ := by
+          gcongr
+          exact hbound n (u n - f)
+    _ < (C : ℝ) * (ε / (2 * C)) + ε / 2 := by
+          have hmul : (C : ℝ) * p (u n - f) < (C : ℝ) * (ε / (2 * C)) := by
+            nlinarith [hn2', hCpos]
+          exact add_lt_add hmul hn1'
+    _ = ε := by
+          field_simp [show (C : ℝ) ≠ 0 by exact_mod_cast hCne]
+          ring
+
+/-- Filter-version Banach-Steinhaus payoff for the zero-limit case.
+
+If `Tᵢ → 0` pointwise on Schwartz space along a countably generated filter `l`,
+and `uᵢ → f` in the Schwartz topology along `l`, then `Tᵢ (uᵢ) → 0` along `l`.
+
+This is the form needed for weak boundary-value arguments indexed by
+`nhdsWithin 0 (Set.Ioi 0)`, where the parameter is not naturally a sequence. -/
+theorem tempered_apply_tendsto_zero_of_tendsto_filter
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {α : Type*} {l : Filter α} [l.IsCountablyGenerated]
+    {T : α → SchwartzMap E F →L[ℝ] G}
+    (hT : ∀ f : SchwartzMap E F, Filter.Tendsto (fun a => T a f) l (nhds 0))
+    {u : α → SchwartzMap E F} {f : SchwartzMap E F}
+    (hu : Filter.Tendsto u l (nhds f)) :
+    Filter.Tendsto (fun a => T a (u a)) l (nhds 0) := by
+  apply Filter.tendsto_of_seq_tendsto
+  intro v hv
+  have hT' : ∀ g : SchwartzMap E F,
+      Filter.Tendsto (fun n => T (v n) g) atTop (nhds 0) := by
+    intro g
+    exact (hT g).comp hv
+  have hu' : Filter.Tendsto (fun n => u (v n)) atTop (nhds f) := hu.comp hv
+  simpa using tempered_apply_tendsto_zero_of_tendsto hT' hu'
+
+/-- If `Tₙ → S` pointwise on Schwartz space and `uₙ → f` in the Schwartz topology,
+then `Tₙ (uₙ) → S f`.
+
+This is the nonzero-limit Banach-Steinhaus payoff used when a mollified boundary
+trace converges to a continuous boundary functional rather than to `0`. -/
+theorem tempered_apply_tendsto_of_tendsto
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {T : ℕ → SchwartzMap E F →L[ℝ] G}
+    {S : SchwartzMap E F →L[ℝ] G}
+    (hT : ∀ f : SchwartzMap E F, Filter.Tendsto (fun n => T n f) atTop (nhds (S f)))
+    {u : ℕ → SchwartzMap E F} {f : SchwartzMap E F}
+    (hu : Filter.Tendsto u atTop (nhds f)) :
+    Filter.Tendsto (fun n => T n (u n)) atTop (nhds (S f)) := by
+  let T' : ℕ → SchwartzMap E F →L[ℝ] G := fun n => T n - S
+  have hT' : ∀ g : SchwartzMap E F, Filter.Tendsto (fun n => T' n g) atTop (nhds 0) := by
+    intro g
+    have h : Filter.Tendsto (fun n => T n g - S g) atTop (nhds (S g - S g)) :=
+      (hT g).sub tendsto_const_nhds
+    simpa [T', ContinuousLinearMap.sub_apply] using h
+  have hzero :
+      Filter.Tendsto (fun n => T' n (u n)) atTop (nhds 0) :=
+    tempered_apply_tendsto_zero_of_tendsto hT' hu
+  have hSu : Filter.Tendsto (fun n => S (u n)) atTop (nhds (S f)) :=
+    S.continuous.tendsto f |>.comp hu
+  have hsplit : (fun n => T n (u n)) = fun n => T' n (u n) + S (u n) := by
+    funext n
+    dsimp [T']
+    simp
+  rw [hsplit]
+  simpa using hzero.add hSu
+
+/-- Filter-version Banach-Steinhaus payoff for a nonzero pointwise limit.
+
+If `Tᵢ → S` pointwise on Schwartz space along a countably generated filter `l`,
+and `uᵢ → f` in the Schwartz topology along `l`, then `Tᵢ (uᵢ) → S f` along `l`. -/
+theorem tempered_apply_tendsto_of_tendsto_filter
+    [CompleteSpace F] {G : Type*} [NormedAddCommGroup G] [NormedSpace ℝ G] [CompleteSpace G]
+    {α : Type*} {l : Filter α} [l.IsCountablyGenerated]
+    {T : α → SchwartzMap E F →L[ℝ] G}
+    {S : SchwartzMap E F →L[ℝ] G}
+    (hT : ∀ f : SchwartzMap E F, Filter.Tendsto (fun a => T a f) l (nhds (S f)))
+    {u : α → SchwartzMap E F} {f : SchwartzMap E F}
+    (hu : Filter.Tendsto u l (nhds f)) :
+    Filter.Tendsto (fun a => T a (u a)) l (nhds (S f)) := by
+  let T' : α → SchwartzMap E F →L[ℝ] G := fun a => T a - S
+  have hT' : ∀ g : SchwartzMap E F,
+      Filter.Tendsto (fun a => T' a g) l (nhds 0) := by
+    intro g
+    have h : Filter.Tendsto (fun a => T a g - S g) l (nhds (S g - S g)) :=
+      (hT g).sub tendsto_const_nhds
+    simpa [T', ContinuousLinearMap.sub_apply] using h
+  have hzero :
+      Filter.Tendsto (fun a => T' a (u a)) l (nhds 0) :=
+    tempered_apply_tendsto_zero_of_tendsto_filter hT' hu
+  have hSu : Filter.Tendsto (fun a => S (u a)) l (nhds (S f)) :=
+    S.continuous.tendsto f |>.comp hu
+  have hsplit : (fun a => T a (u a)) = fun a => T' a (u a) + S (u a) := by
+    funext a
+    dsimp [T']
+    simp
+  rw [hsplit]
+  simpa using hzero.add hSu
 
 end SchwartzMap
 

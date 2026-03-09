@@ -104,7 +104,9 @@ by hypotheses):
 
 These are replaced by proved `_of_flatRegular` variants that take `HasFourierLaplaceReprRegular`.
 
-**ROOT BLOCKER**: Distributional EOW variant (codex building) or Banach-Steinhaus chain.
+**ROOT BLOCKER**: Distributional EOW variant (codex building).
+Banach-Steinhaus chain is COMPLETE (see `SCV/SchwartzComplete.lean`).
+**Owner: Codex agent** for distributional EOW development.
 
 New infrastructure (sorry-free, in `SCV/DistributionalUniqueness.lean`):
 - `SCV.uniqueness_of_boundary_zero`: factored 1D EOW slicing argument; takes
