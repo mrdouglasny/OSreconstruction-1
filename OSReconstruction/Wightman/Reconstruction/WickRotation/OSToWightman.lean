@@ -21,6 +21,7 @@ The proof proceeds through phases:
 -/
 
 open scoped Classical
+open BigOperators Finset
 
 noncomputable section
 
@@ -189,6 +190,110 @@ private theorem OSInnerProduct_timeShift_eq (OS : OsterwalderSchraderAxioms d)
   intro m hm
   simpa [timeShiftBorchers_funcs] using
     schwinger_shift_tensor_eq (d := d) OS (F.funcs n) (G.funcs m) s t
+
+/-- The OS inner product distributes over `linearCombo` in the right argument. -/
+private theorem OSInnerProduct_linearCombo_right (OS : OsterwalderSchraderAxioms d)
+    {ι : Type*} [DecidableEq ι] (s : Finset ι) (c : ι → ℂ)
+    (F : BorchersSequence d) (G : ι → BorchersSequence d) :
+    OSInnerProduct d OS.S F (BorchersSequence.linearCombo s c G) =
+      ∑ i ∈ s, c i • OSInnerProduct d OS.S F (G i) := by
+  induction s using Finset.induction_on with
+  | empty =>
+    simp only [Finset.sum_empty]
+    rw [OSInnerProduct_congr_right (d := d) OS.S OS.E0_linear _ _ _
+      (BorchersSequence.linearCombo_empty c G)]
+    exact OSInnerProduct_zero_right (d := d) _ OS.E0_linear _
+  | @insert a s ha ih =>
+    rw [Finset.sum_insert ha,
+      OSInnerProduct_congr_right (d := d) OS.S OS.E0_linear _ _ _
+        (BorchersSequence.linearCombo_insert ha c G),
+      OSInnerProduct_add_right (d := d) _ OS.E0_linear,
+      OSInnerProduct_smul_right (d := d) _ OS.E0_linear, ih, smul_eq_mul]
+
+/-- The OS inner product distributes over `linearCombo` in the left argument. -/
+private theorem OSInnerProduct_linearCombo_left (OS : OsterwalderSchraderAxioms d)
+    {ι : Type*} [DecidableEq ι] (s : Finset ι) (c : ι → ℂ)
+    (F : ι → BorchersSequence d) (G : BorchersSequence d) :
+    OSInnerProduct d OS.S (BorchersSequence.linearCombo s c F) G =
+      ∑ i ∈ s, starRingEnd ℂ (c i) • OSInnerProduct d OS.S (F i) G := by
+  induction s using Finset.induction_on with
+  | empty =>
+    simp only [Finset.sum_empty]
+    rw [OSInnerProduct_congr_left (d := d) OS.S OS.E0_linear _ _ _
+      (BorchersSequence.linearCombo_empty c F)]
+    exact OSInnerProduct_zero_left (d := d) _ OS.E0_linear _
+  | @insert a s ha ih =>
+    rw [Finset.sum_insert ha,
+      OSInnerProduct_congr_left (d := d) OS.S OS.E0_linear _ _ _
+        (BorchersSequence.linearCombo_insert ha c F),
+      OSInnerProduct_add_left (d := d) _ OS.E0_linear,
+      OSInnerProduct_smul_left (d := d) _ OS.E0_linear, ih, smul_eq_mul]
+
+omit [NeZero d] in
+private theorem timeShift_linearCombo_preserves_positive_support {ι : Type*} [DecidableEq ι]
+    (s : Finset ι) (c : ι → ℂ) (t : ι → ℝ)
+    (ht : ∀ i ∈ s, 0 < t i)
+    (F : BorchersSequence d)
+    (hF : ∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 → x ∈ PositiveTimeRegion d n) :
+    ∀ n, ∀ x : NPointDomain d n,
+      ((BorchersSequence.linearCombo s c
+          (fun i => timeShiftBorchers (d := d) (t i) F)).funcs n).toFun x ≠ 0 →
+        x ∈ PositiveTimeRegion d n := by
+  intro n x hx
+  by_contra hx_not_pos
+  apply hx
+  show ((BorchersSequence.linearCombo s c
+    (fun i => timeShiftBorchers (d := d) (t i) F)).funcs n).toFun x = 0
+  simp only [BorchersSequence.linearCombo_funcs]
+  -- Goal: (∑ i ∈ s, c i • ...).toFun x = 0
+  have : ∀ i ∈ s, (c i • (timeShiftBorchers (d := d) (t i) F).funcs n).toFun x = 0 := by
+    intro i hi
+    have h : ((timeShiftBorchers (d := d) (t i) F).funcs n).toFun x = 0 := by
+      by_contra hx_shift
+      exact hx_not_pos (timeShift_preserves_positive_support (d := d) (t i) (ht i hi) F hF n x hx_shift)
+    change c i • ((timeShiftBorchers (d := d) (t i) F).funcs n).toFun x = 0
+    rw [h, smul_zero]
+  rw [show (∑ i ∈ s, c i • (timeShiftBorchers (d := d) (t i) F).funcs n).toFun x =
+    ∑ i ∈ s, (c i • (timeShiftBorchers (d := d) (t i) F).funcs n).toFun x from
+    SchwartzMap.sum_apply _ _ _]
+  exact Finset.sum_eq_zero this
+
+/-- Positivity of the Euclidean time-shift kernel on the OS side.
+
+    For any Borchers sequence `F` supported in positive Euclidean times, the
+    Hankel kernel `K(s,t) = ⟪F, T_{s+t} F⟫_OS` is positive semidefinite on every
+    finite collection of positive times. This is the core positivity input for
+    the Laplace/spectral base-step route. -/
+theorem OSInnerProduct_timeShift_kernel_nonneg (OS : OsterwalderSchraderAxioms d)
+    {ι : Type*} [DecidableEq ι] (s : Finset ι) (c : ι → ℂ) (t : ι → ℝ)
+    (ht : ∀ i ∈ s, 0 < t i)
+    (F : BorchersSequence d)
+    (hF : ∀ n, ∀ x : NPointDomain d n, (F.funcs n).toFun x ≠ 0 → x ∈ PositiveTimeRegion d n) :
+    0 ≤ (∑ i ∈ s, ∑ j ∈ s,
+      starRingEnd ℂ (c i) * c j *
+        OSInnerProduct d OS.S F (timeShiftBorchers (d := d) (t i + t j) F)).re := by
+  classical
+  let H : BorchersSequence d := BorchersSequence.linearCombo s c
+    (fun i => timeShiftBorchers (d := d) (t i) F)
+  have hH :
+      ∀ n, ∀ x : NPointDomain d n, (H.funcs n).toFun x ≠ 0 → x ∈ PositiveTimeRegion d n :=
+    timeShift_linearCombo_preserves_positive_support (d := d) s c t ht F hF
+  have hpos : 0 ≤ (OSInnerProduct d OS.S H H).re := OS.E2_reflection_positive H hH
+  have hexpand :
+      OSInnerProduct d OS.S H H =
+        ∑ i ∈ s, ∑ j ∈ s,
+          starRingEnd ℂ (c i) * c j *
+            OSInnerProduct d OS.S F (timeShiftBorchers (d := d) (t i + t j) F) := by
+    rw [show H = BorchersSequence.linearCombo s c
+      (fun i => timeShiftBorchers (d := d) (t i) F) from rfl]
+    rw [OSInnerProduct_linearCombo_left]
+    congr 1; ext i
+    rw [OSInnerProduct_linearCombo_right]
+    simp only [smul_eq_mul, Finset.mul_sum]
+    congr 1; ext j
+    rw [OSInnerProduct_timeShift_eq (OS := OS) (F := F) (G := F)]
+    ring
+  rwa [hexpand] at hpos
 
 /- Phase 3: Analytic continuation from Euclidean to Minkowski.
 

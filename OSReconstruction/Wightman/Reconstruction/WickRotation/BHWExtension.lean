@@ -78,18 +78,19 @@ theorem W_analytic_lorentz_on_tube (Wfn : WightmanFunctions d) (n : ℕ) :
 
 /-- W_analytic extends continuously to the real boundary of the forward tube.
 
-    Proved using `continuous_boundary_forwardTube`: the distributional boundary value
-    condition from `spectrum_condition` provides the hypothesis.
+    BLOCKED: Previously depended on `continuous_boundary_forwardTube` which was
+    overstrong as stated (conclusion referenced F at boundary points unconstrained
+    by hypotheses). Will be unblocked by either:
+    (a) Distributional EOW infrastructure (codex building) → direct proof
+    (b) Constructing `HasFourierLaplaceReprRegular` from Wightman axioms →
+        use `_of_flatRegular` variant
 
     Ref: Streater-Wightman, Theorem 2-9 -/
 theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : ℕ) :
     ∀ (x : Fin n → Fin (d + 1) → ℝ),
       ContinuousWithinAt (Wfn.spectrum_condition n).choose
         (ForwardTube d n) (fun k μ => (x k μ : ℂ)) := by
-  intro x
-  exact continuous_boundary_forwardTube (d := d) (n := n)
-    (Wfn.spectrum_condition n).choose_spec.1
-    ⟨Wfn.W n, Wfn.tempered n, (Wfn.spectrum_condition n).choose_spec.2⟩ x
+  sorry
 
 /-- Distributional swap-agreement on boundary values in test-function form.
 
@@ -167,7 +168,11 @@ theorem W_analytic_swap_distributional_agree {d n : ℕ} [NeZero d]
 
     For test functions `f, g` related by adjacent swap on a spacelike support
     region, the real-boundary pairings of `W_analytic` coincide:
-    `∫ W_analytic(x) g(x) dx = ∫ W_analytic(x) f(x) dx`. -/
+    `∫ W_analytic(x) g(x) dx = ∫ W_analytic(x) f(x) dx`.
+
+    BLOCKED: Previously depended on `boundary_value_recovery_forwardTube` (overstrong,
+    deleted). Will be unblocked by distributional EOW infrastructure or by constructing
+    `HasFourierLaplaceReprRegular` → use `boundary_value_recovery_forwardTube_of_flatRegular`. -/
 theorem W_analytic_swap_boundary_pairing_eq {d n : ℕ} [NeZero d]
     (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
@@ -189,37 +194,18 @@ theorem W_analytic_swap_boundary_pairing_eq {d n : ℕ} [NeZero d]
         W_analytic (fun k μ => (x k μ : ℂ)) * (g x)) =
       (∫ x : NPointDomain d n,
         W_analytic (fun k μ => (x k μ : ℂ)) * (f x)) := by
-  intro f g hsep hswap
-  have hW_eq : W n g = W n f := (hLC n i ⟨i.val + 1, hi⟩ f g hsep hswap).symm
-  have hg_pair :
-      W n g =
-        ∫ x : NPointDomain d n, W_analytic (fun k μ => (x k μ : ℂ)) * (g x) :=
-    boundary_value_recovery_forwardTube
-      (d := d) (n := n) hW_hol hW_cont hBV g
-  have hf_pair :
-      W n f =
-        ∫ x : NPointDomain d n, W_analytic (fun k μ => (x k μ : ℂ)) * (f x) :=
-    boundary_value_recovery_forwardTube
-      (d := d) (n := n) hW_hol hW_cont hBV f
-  calc
-    (∫ x : NPointDomain d n, W_analytic (fun k μ => (x k μ : ℂ)) * (g x))
-        = W n g := hg_pair.symm
-    _ = W n f := hW_eq
-    _ = (∫ x : NPointDomain d n, W_analytic (fun k μ => (x k μ : ℂ)) * (f x)) := hf_pair
+  sorry
 
 /-- Pointwise local commutativity of the analytic continuation at spacelike boundary.
 
-    g(z) = W_analytic(swap(z)) - W_analytic(z) is holomorphic where defined.
-    By `W_analytic_swap_distributional_agree`, g has zero distributional boundary
-    values at real spacelike points. By the edge-of-the-wedge theorem (sorry-free
-    in `EdgeOfWedge.lean`), g extends holomorphically across the boundary.
-    Since g = 0 distributionally on an open real set, the identity theorem gives g = 0.
+    Proof strategy (preserved from previous version):
+    1. Construct bump function χ supported on spacelike region
+    2. Use `W_analytic_swap_boundary_pairing_eq` to show swap-invariance of boundary pairings
+    3. Localize via χ and `eq_zero_of_schwartz_integral_zero` to get pointwise equality
 
-    Blocked by: multi-tube EOW application (expressing the forward and swapped tubes
-    as tube domains) and the distributional-to-pointwise bridge (from vanishing
-    distributional boundary values on spacelike test supports to pointwise boundary
-    equality at a fixed spacelike configuration). The distributional swap-agreement
-    itself is now provided by `W_analytic_swap_distributional_agree`.
+    BLOCKED: Depends on `W_analytic_swap_boundary_pairing_eq` (blocked on boundary value
+    recovery) and `boundary_function_continuous_forwardTube` (overstrong, deleted).
+    Will be unblocked by distributional EOW infrastructure.
 
     Ref: Streater-Wightman Thm 3-5; Jost §IV.3 -/
 theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
@@ -240,198 +226,7 @@ theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
       (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0) :
     W_analytic (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
     W_analytic (fun k μ => (x k μ : ℂ)) := by
-  let j : Fin n := ⟨i.val + 1, hi⟩
-  let σ : Equiv.Perm (Fin n) := Equiv.swap i j
-  have _hSwapDist := W_analytic_swap_distributional_agree
-    (d := d) (n := n) W_analytic hW_hol W hW_cont hBV hLC i hi
-  have hSwapBdry := W_analytic_swap_boundary_pairing_eq
-    (d := d) (n := n) W_analytic hW_hol W hW_cont hBV hLC i hi
-  let B : NPointDomain d n → ℂ := fun y => W_analytic (fun k μ => (y k μ : ℂ))
-  have hB_cont : Continuous B :=
-    boundary_function_continuous_forwardTube (d := d) (n := n) hW_hol hW_cont hBV
-  have hBσ_cont : Continuous (fun y : NPointDomain d n => B (fun k => y (σ k))) :=
-    hB_cont.comp (continuous_pi fun k => continuous_apply (σ k))
-  let U : Set (NPointDomain d n) := {y : NPointDomain d n |
-      MinkowskiSpace.minkowskiNormSq d (fun μ => y j μ - y i μ) > 0}
-  have hU_nhds : U ∈ nhds x := by
-    have hcontU : Continuous (fun y : NPointDomain d n =>
-        MinkowskiSpace.minkowskiNormSq d (fun μ => y j μ - y i μ)) := by
-      exact (continuous_minkowskiNormSq d).comp
-        (continuous_pi fun μ =>
-          ((continuous_apply μ).comp (continuous_apply j)).sub
-            ((continuous_apply μ).comp (continuous_apply i)))
-    have hU_open : IsOpen U := isOpen_lt continuous_const hcontU
-    have hxU : x ∈ U := by simpa [U, j] using hx
-    exact hU_open.mem_nhds hxU
-  obtain ⟨χ, hχ_tsupport, hχ_compact, hχ_smooth, _, hχx⟩ :=
-    exists_contDiff_tsupport_subset (s := U) (x := x) (n := (⊤ : ℕ∞)) hU_nhds
-  let χC : NPointDomain d n → ℂ := fun y => (χ y : ℂ)
-  have hχC_compact : HasCompactSupport χC := hχ_compact.comp_left Complex.ofReal_zero
-  have hχC_smooth : ContDiff ℝ (⊤ : ℕ∞) χC :=
-    (Complex.ofRealCLM.contDiff.of_le le_top).comp hχ_smooth
-  have hχC_temp : χC.HasTemperateGrowth := hχC_compact.hasTemperateGrowth hχC_smooth
-  have hχC_cont : Continuous χC := (Complex.continuous_ofReal.comp hχ_smooth.continuous)
-  have hloc :
-      ∀ φ : SchwartzNPoint d n,
-        ∫ y : NPointDomain d n,
-          (B (fun k => y (σ k)) - B y) * (χC y * φ y) = 0 := by
-    intro φ
-    let f : SchwartzNPoint d n := SchwartzMap.smulLeftCLM ℂ χC φ
-    let eSwap : NPointDomain d n ≃L[ℝ] NPointDomain d n :=
-      ContinuousLinearEquiv.piCongrLeft ℝ
-        (fun _ : Fin n => Fin (d + 1) → ℝ) σ
-    let g : SchwartzNPoint d n := SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eSwap f
-    have hsep : ∀ y : NPointDomain d n, f.toFun y ≠ 0 →
-        MinkowskiSpace.AreSpacelikeSeparated d (y i) (y j) := by
-      intro y hy
-      have hf_eval : f.toFun y = χC y * φ y := by
-        simpa [f, smul_eq_mul] using
-          (SchwartzMap.smulLeftCLM_apply_apply hχC_temp φ y)
-      have hχC_ne : χC y ≠ 0 := by
-        intro hzero
-        apply hy
-        rw [hf_eval, hzero]
-        simp
-      have hχ_ne : χ y ≠ 0 := by
-        intro hzero
-        exact hχC_ne (by simp [χC, hzero])
-      have hy_support : y ∈ Function.support χ := by
-        simpa [Function.mem_support] using hχ_ne
-      have hy_tsupport : y ∈ tsupport χ := subset_closure hy_support
-      have hyU : y ∈ U := hχ_tsupport hy_tsupport
-      have hy_spacelike :
-          MinkowskiSpace.minkowskiNormSq d (fun μ => y i μ - y j μ) > 0 := by
-        have hsymm :
-            MinkowskiSpace.minkowskiNormSq d (fun μ => y i μ - y j μ) =
-            MinkowskiSpace.minkowskiNormSq d (fun μ => y j μ - y i μ) := by
-          unfold MinkowskiSpace.minkowskiNormSq MinkowskiSpace.minkowskiInner
-          refine Finset.sum_congr rfl ?_
-          intro μ _
-          ring
-        exact hsymm ▸ (by simpa [U] using hyU)
-      simpa [MinkowskiSpace.AreSpacelikeSeparated, MinkowskiSpace.IsSpacelike]
-        using hy_spacelike
-    have hswap : ∀ y : NPointDomain d n,
-        g.toFun y = f.toFun (fun k => y (σ k)) := by
-      intro y
-      simpa [g, eSwap] using
-        (show (SchwartzMap.compCLMOfContinuousLinearEquiv ℂ
-          (ContinuousLinearEquiv.piCongrLeft ℝ
-            (fun _ : Fin n => Fin (d + 1) → ℝ) σ) f) y
-            = f (fun k => y (σ k)) from by
-              change f ((Equiv.piCongrLeft (fun _ : Fin n => Fin (d + 1) → ℝ) σ) y) =
-                f (fun k => y (σ k))
-              congr 1
-              ext k μ
-              simpa [σ] using (congrArg (fun u => u μ)
-                (Equiv.piCongrLeft_apply
-                  (P := fun _ : Fin n => Fin (d + 1) → ℝ)
-                  (e := σ) y k)))
-    have hpair :
-        (∫ y : NPointDomain d n, B y * g y) =
-        (∫ y : NPointDomain d n, B y * f y) := by
-      exact hSwapBdry f g hsep hswap
-    have hpair' :
-        (∫ y : NPointDomain d n, B y * f (fun k => y (σ k))) =
-        (∫ y : NPointDomain d n, B y * f y) := by
-      have hfg_eq :
-          (fun y : NPointDomain d n => B y * f (fun k => y (σ k))) =
-          (fun y : NPointDomain d n => B y * g y) := by
-        funext y
-        change B y * f.toFun (fun k => y (σ k)) = B y * g.toFun y
-        rw [hswap y]
-      calc
-        (∫ y : NPointDomain d n, B y * f (fun k => y (σ k)))
-            = (∫ y : NPointDomain d n, B y * g y) := by
-                simp [hfg_eq]
-        _ = (∫ y : NPointDomain d n, B y * f y) := hpair
-    have hswap_int :
-        (∫ y : NPointDomain d n, B y * f (fun k => y (σ k))) =
-        (∫ y : NPointDomain d n, B (fun k => y (σ k)) * f y) := by
-      have htmp := integral_swap_eq_self (d := d) (n := n) i j
-        (h := fun t : NPointDomain d n => B (fun k => t (σ k)) * f t)
-      simpa [σ] using htmp
-    have hB_eq :
-        (∫ y : NPointDomain d n, B (fun k => y (σ k)) * f y) =
-        (∫ y : NPointDomain d n, B y * f y) := hswap_int.symm.trans hpair'
-    have hf_eval : ∀ y : NPointDomain d n, f y = χC y * φ y := by
-      intro y
-      simp [f, SchwartzMap.smulLeftCLM_apply_apply hχC_temp, smul_eq_mul]
-    have hf_compact : HasCompactSupport (fun y : NPointDomain d n => f y) := by
-      have hf_eq : (fun y : NPointDomain d n => f y) = (fun y => χC y * φ y) := by
-        funext y
-        rw [hf_eval y]
-      rw [hf_eq]
-      exact hχC_compact.mul_right
-    have hInt₁_cont : Continuous (fun y : NPointDomain d n => B (fun k => y (σ k)) * f y) :=
-      hBσ_cont.mul f.continuous
-    have hInt₂_cont : Continuous (fun y : NPointDomain d n => B y * f y) :=
-      hB_cont.mul f.continuous
-    have hInt₁_compact : HasCompactSupport (fun y : NPointDomain d n => B (fun k => y (σ k)) * f y) :=
-      HasCompactSupport.mul_left hf_compact
-    have hInt₂_compact : HasCompactSupport (fun y : NPointDomain d n => B y * f y) :=
-      HasCompactSupport.mul_left hf_compact
-    have hInt₁_integrable : MeasureTheory.Integrable (fun y : NPointDomain d n => B (fun k => y (σ k)) * f y) :=
-      hInt₁_cont.integrable_of_hasCompactSupport hInt₁_compact
-    have hInt₂_integrable : MeasureTheory.Integrable (fun y : NPointDomain d n => B y * f y) :=
-      hInt₂_cont.integrable_of_hasCompactSupport hInt₂_compact
-    have hdiff_zero :
-        ∫ y : NPointDomain d n, (B (fun k => y (σ k)) - B y) * f y = 0 := by
-      have hIntegrand :
-          (fun y : NPointDomain d n => (B (fun k => y (σ k)) - B y) * f y) =
-          (fun y : NPointDomain d n => B (fun k => y (σ k)) * f y - B y * f y) := by
-        funext y
-        ring
-      calc
-        ∫ y : NPointDomain d n, (B (fun k => y (σ k)) - B y) * f y
-            = (∫ y : NPointDomain d n, B (fun k => y (σ k)) * f y) -
-              (∫ y : NPointDomain d n, B y * f y) := by
-                rw [hIntegrand, MeasureTheory.integral_sub hInt₁_integrable hInt₂_integrable]
-        _ = 0 := sub_eq_zero.mpr hB_eq
-    calc
-      ∫ y : NPointDomain d n, (B (fun k => y (σ k)) - B y) * (χC y * φ y)
-          = ∫ y : NPointDomain d n, (B (fun k => y (σ k)) - B y) * f y := by
-              congr 1
-              ext y
-              rw [hf_eval y]
-      _ = 0 := hdiff_zero
-  let G : NPointDomain d n → ℂ := fun y =>
-    (B (fun k => y (σ k)) - B y) * χC y
-  have hG_cont : Continuous G := (hBσ_cont.sub hB_cont).mul hχC_cont
-  let eR : NPointDomain d n ≃L[ℝ] (Fin (n * (d + 1)) → ℝ) := flattenCLEquivReal n (d + 1)
-  let Gflat : (Fin (n * (d + 1)) → ℝ) → ℂ := fun z => G (eR.symm z)
-  have hGflat_cont : Continuous Gflat := hG_cont.comp eR.symm.continuous
-  have hG_zero_pairing : ∀ φ : SchwartzNPoint d n,
-      ∫ y : NPointDomain d n, G y * φ y = 0 := by
-    intro φ
-    simpa [G, mul_assoc, mul_comm, mul_left_comm] using hloc φ
-  have hGflat_zero_pairing : ∀ ψ : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ,
-      ∫ z : Fin (n * (d + 1)) → ℝ, Gflat z * ψ z = 0 := by
-    intro ψ
-    let pullback : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ →L[ℂ]
-        SchwartzMap (Fin n → Fin (d + 1) → ℝ) ℂ :=
-      SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR
-    have hprod : ∫ y : NPointDomain d n, G y * (pullback ψ) y = 0 :=
-      hG_zero_pairing (pullback ψ)
-    have hchange :
-        ∫ z : Fin (n * (d + 1)) → ℝ, Gflat z * ψ z =
-        ∫ y : NPointDomain d n, G y * (pullback ψ) y := by
-      rw [integral_flatten_change_of_variables]
-      congr 1
-      ext y
-      simp [Gflat, pullback, eR]
-    exact hchange.trans hprod
-  have hGflat_zero : ∀ z : Fin (n * (d + 1)) → ℝ, Gflat z = 0 :=
-    SCV.eq_zero_of_schwartz_integral_zero hGflat_cont hGflat_zero_pairing
-  have hχxC : χC x = 1 := by
-    simp [χC, hχx]
-  have hBx_diff : B (fun k => x (σ k)) - B x = 0 := by
-    have hx0 : G x = 0 := by
-      simpa [Gflat, eR] using hGflat_zero (eR x)
-    change (B (fun k => x (σ k)) - B x) * χC x = 0 at hx0
-    simpa [hχxC] using hx0
-  have hBx_eq : B (fun k => x (σ k)) = B x := sub_eq_zero.mp hBx_diff
-  simpa [B, σ, j] using hBx_eq
+  sorry
 
 /-- Local commutativity of W_analytic at spacelike-separated boundary points.
 

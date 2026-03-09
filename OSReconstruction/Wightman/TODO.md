@@ -91,17 +91,20 @@ Status:
 Status:
 - the old generic gluing theorem was too strong and has been replaced by the honest compatible-family theorem
 
-### 3. `Reconstruction/ForwardTubeDistributions.lean` (4)
+### 3. `Reconstruction/ForwardTubeDistributions.lean` (1)
 
 Current direct blockers:
-- `continuous_boundary_forwardTube` — BLOCKED: needs Banach-Steinhaus
-- `distributional_uniqueness_forwardTube` — BLOCKED: needs Banach-Steinhaus
-- `boundary_value_recovery_forwardTube` — BLOCKED + statement issue (evaluates F at boundary)
-- `boundary_function_continuous_forwardTube` — BLOCKED: needs Banach-Steinhaus
+- `distributional_uniqueness_forwardTube` — BLOCKED: needs distributional EOW infrastructure
 
-**ROOT BLOCKER**: All 4 sorrys trace to the same gap: bare distributional BV does NOT
-imply ContinuousWithinAt at boundary without polynomial growth bounds. Polynomial growth
-comes from Banach-Steinhaus for S'(ℝᵐ), which Mathlib does not have.
+**DELETED** (overstrong as stated — conclusions referenced F at boundary points unconstrained
+by hypotheses):
+- `continuous_boundary_forwardTube`
+- `boundary_value_recovery_forwardTube`
+- `boundary_function_continuous_forwardTube`
+
+These are replaced by proved `_of_flatRegular` variants that take `HasFourierLaplaceReprRegular`.
+
+**ROOT BLOCKER**: Distributional EOW variant (codex building) or Banach-Steinhaus chain.
 
 New infrastructure (sorry-free, in `SCV/DistributionalUniqueness.lean`):
 - `SCV.uniqueness_of_boundary_zero`: factored 1D EOW slicing argument; takes

@@ -196,6 +196,38 @@ instance : Sub (BorchersSequence d) where
 @[simp] theorem add_bound (F G : BorchersSequence d) :
     (F + G).bound = max F.bound G.bound := rfl
 
+/-- Linear combination of Borchers sequences over a Finset.
+    Defined componentwise via `Finset.sum` on `SchwartzNPoint` (which has `AddCommMonoid`).
+    Avoids the need for a full `AddCommMonoid` instance on `BorchersSequence`. -/
+noncomputable def linearCombo {ι : Type*} [DecidableEq ι]
+    (s : Finset ι) (c : ι → ℂ) (G : ι → BorchersSequence d) : BorchersSequence d where
+  funcs n := ∑ i ∈ s, c i • (G i).funcs n
+  bound := s.sup (fun i => (G i).bound)
+  bound_spec n hn := by
+    apply Finset.sum_eq_zero
+    intro i hi
+    have hbi : (G i).bound < n := by
+      calc (G i).bound ≤ s.sup (fun i => (G i).bound) :=
+            Finset.le_sup (f := fun i => (G i).bound) hi
+        _ < n := hn
+    simp [(G i).bound_spec n hbi]
+
+@[simp] theorem linearCombo_empty {ι : Type*} [DecidableEq ι]
+    (c : ι → ℂ) (G : ι → BorchersSequence d) (n : ℕ) :
+    (linearCombo ∅ c G).funcs n = (0 : BorchersSequence d).funcs n := by
+  simp [linearCombo]
+
+@[simp] theorem linearCombo_funcs {ι : Type*} [DecidableEq ι]
+    (s : Finset ι) (c : ι → ℂ) (G : ι → BorchersSequence d) (n : ℕ) :
+    (linearCombo s c G).funcs n = ∑ i ∈ s, c i • (G i).funcs n := rfl
+
+theorem linearCombo_insert {ι : Type*} [DecidableEq ι]
+    {a : ι} {s : Finset ι} (ha : a ∉ s)
+    (c : ι → ℂ) (G : ι → BorchersSequence d) (n : ℕ) :
+    (linearCombo (insert a s) c G).funcs n =
+      (c a • G a + linearCombo s c G).funcs n := by
+  simp [linearCombo_funcs, Finset.sum_insert ha, add_funcs, smul_funcs]
+
 end BorchersSequence
 
 /-! ### Wightman Inner Product -/
@@ -1398,6 +1430,52 @@ theorem OSInnerProduct_eq_extended (S : (n : ℕ) → SchwartzNPoint d n → ℂ
   rw [OSInnerProduct_eq_N,
     ← OSInnerProductN_extend_right d S hlin F G (F.bound + 1) N₂ hN₂,
     ← OSInnerProductN_extend_left d S hlin F G N₁ N₂ hN₁]
+
+/-- The OS inner product depends only on `funcs`, not on `bound`. -/
+theorem OSInnerProduct_congr_right (S : (n : ℕ) → SchwartzNPoint d n → ℂ)
+    (hlin : ∀ n, IsLinearMap ℂ (S n))
+    (F G₁ G₂ : BorchersSequence d)
+    (h : ∀ n, G₁.funcs n = G₂.funcs n) :
+    OSInnerProduct d S F G₁ = OSInnerProduct d S F G₂ := by
+  let N₂ := max G₁.bound G₂.bound + 1
+  rw [OSInnerProduct_eq_extended d S hlin F G₁ (F.bound + 1) N₂ le_rfl
+        (by omega : G₁.bound + 1 ≤ N₂),
+      OSInnerProduct_eq_extended d S hlin F G₂ (F.bound + 1) N₂ le_rfl
+        (by omega : G₂.bound + 1 ≤ N₂)]
+  unfold OSInnerProductN
+  congr 1; ext n; congr 1; ext m; rw [h m]
+
+/-- The OS inner product depends only on `funcs`, not on `bound` (left argument). -/
+theorem OSInnerProduct_congr_left (S : (n : ℕ) → SchwartzNPoint d n → ℂ)
+    (hlin : ∀ n, IsLinearMap ℂ (S n))
+    (F₁ F₂ G : BorchersSequence d)
+    (h : ∀ n, F₁.funcs n = F₂.funcs n) :
+    OSInnerProduct d S F₁ G = OSInnerProduct d S F₂ G := by
+  let N₁ := max F₁.bound F₂.bound + 1
+  rw [OSInnerProduct_eq_extended d S hlin F₁ G N₁ (G.bound + 1)
+        (by omega : F₁.bound + 1 ≤ N₁) le_rfl,
+      OSInnerProduct_eq_extended d S hlin F₂ G N₁ (G.bound + 1)
+        (by omega : F₂.bound + 1 ≤ N₁) le_rfl]
+  unfold OSInnerProductN
+  congr 1; ext n; congr 1; ext m; rw [h n]
+
+/-- The OS inner product with zero in the right argument vanishes. -/
+theorem OSInnerProduct_zero_right (S : (n : ℕ) → SchwartzNPoint d n → ℂ)
+    (hlin : ∀ n, IsLinearMap ℂ (S n))
+    (F : BorchersSequence d) :
+    OSInnerProduct d S F 0 = 0 := by
+  simp only [OSInnerProduct, BorchersSequence.zero_funcs,
+    SchwartzNPoint.osConjTensorProduct_zero_right, (hlin _).map_zero,
+    Finset.sum_const_zero]
+
+/-- The OS inner product with zero in the left argument vanishes. -/
+theorem OSInnerProduct_zero_left (S : (n : ℕ) → SchwartzNPoint d n → ℂ)
+    (hlin : ∀ n, IsLinearMap ℂ (S n))
+    (G : BorchersSequence d) :
+    OSInnerProduct d S 0 G = 0 := by
+  simp only [OSInnerProduct, BorchersSequence.zero_funcs,
+    SchwartzNPoint.osConjTensorProduct_zero_left, (hlin _).map_zero,
+    Finset.sum_const_zero]
 
 /-- The OS inner product is additive in the second argument. -/
 theorem OSInnerProduct_add_right (S : (n : ℕ) → SchwartzNPoint d n → ℂ)

@@ -80,29 +80,26 @@ New file with 0 sorrys providing:
   then G = 0 on T(C). This is the 1D EOW slicing argument factored out from
   `distributional_uniqueness_tube_of_regular`. (PROVED)
 
-## ROOT BLOCKER: Banach-Steinhaus Gap
+## ROOT BLOCKER: Distributional EOW / Banach-Steinhaus
 
 The main blocker for closing `distributional_uniqueness_forwardTube`
 (in `Wightman/Reconstruction/ForwardTubeDistributions.lean`) is:
 
-**Bare distributional BV → ContinuousWithinAt at boundary**
+**Bare distributional BV → equality on the tube**
 
-The distributional BV hypothesis says: for all Schwartz f and all η ∈ C,
-∫ G(x+iεη) f(x) dx → T(f) as ε → 0+. To get ContinuousWithinAt, one needs
-polynomial growth bounds on G(x+iy) as y → 0, which in the standard theory
-come from Banach-Steinhaus for the Fréchet space S'(ℝᵐ). Mathlib does not
-have Banach-Steinhaus for Fréchet spaces.
+Two approaches under development:
+1. **Distributional EOW** (codex building): edge-of-the-wedge with S'-convergence
+   instead of ContinuousWithinAt. Proof route: mollify boundary distributions →
+   honest smooth boundary data → classical identity theorem → pass to limit.
+   This directly feeds `distributional_uniqueness_forwardTube`.
+2. **Banach-Steinhaus** (on hold): if distributional EOW shows it's needed,
+   build minimal Schwartz-family uniform-boundedness. Chain:
+   CompleteSpace(SchwartzMap) → BaireSpace → BarrelledSpace → WithSeminorms.banach_steinhaus.
 
-Approaches considered:
-1. **Convolution/mollification** (Vladimirov §25): convolve G with Schwartz ψ
-   in real direction. G_ψ has vanishing distributional BV (Fubini at fixed ε,
-   no growth needed). But ContinuousWithinAt of G_ψ at boundary still needs
-   growth control → same gap.
-2. **Direct 1D reduction** (slice by lines through cone): 1D distributional
-   uniqueness has the same gap.
-3. **Distributional EOW** (edge-of-the-wedge with S'-convergence instead of
-   ContinuousWithinAt): would bypass the gap, but requires building a new EOW
-   variant for distributional boundary values.
+The 3 overstrong theorems (`continuous_boundary_forwardTube`,
+`boundary_value_recovery_forwardTube`, `boundary_function_continuous_forwardTube`)
+were DELETED — their conclusions referenced F at boundary points unconstrained by
+hypotheses. Proved `_of_flatRegular` variants exist.
 
 Documented in: `Proofideas/distributional_uniqueness_strategy.lean`
 

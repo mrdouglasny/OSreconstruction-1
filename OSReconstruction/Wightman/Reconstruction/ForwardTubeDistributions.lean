@@ -15,14 +15,9 @@ the general tube domain axioms in `SCV.TubeDistributions`.
 
 ## Main results
 
-Weak placeholder interfaces still carried for downstream compatibility:
+Open target (sound statement, blocked on distributional EOW infrastructure):
 
-* `continuous_boundary_forwardTube`
 * `distributional_uniqueness_forwardTube`
-* `boundary_value_recovery_forwardTube`
-
-These remain open or depend on open SCV placeholder theory and should not be
-treated as settled mathematics.
 
 Rigorous proved transport results under regular flattened-tube input:
 
@@ -519,35 +514,6 @@ private theorem differentiableOn_flatten {n : ℕ} {d : ℕ} [NeZero d]
 
 /-! ### Main Theorems -/
 
-/-- **Continuous boundary values for the forward tube.**
-
-    Warning: this is currently a placeholder interface, not a completed theorem.
-
-    The previous proof flattened to a weak SCV boundary-continuity front that has
-    since been removed: bare distributional boundary values do not, by themselves,
-    imply pointwise boundary continuity.
-
-    The honest forward-tube repair is:
-    1. build the strong regular Fourier-Laplace package on the flattened tube, then
-    2. transport the resulting boundary continuity theorem back through the
-       flattening equivalence.
-
-    Ref: Vladimirov §26.2; Streater-Wightman, Theorem 2-9 -/
-theorem continuous_boundary_forwardTube {d n : ℕ} [NeZero d]
-    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
-    (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    (h_bv : ∃ (T : SchwartzNPoint d n → ℂ), Continuous T ∧
-      ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-        InForwardCone d n η →
-        Filter.Tendsto
-          (fun ε : ℝ => ∫ x : NPointDomain d n,
-            F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-          (nhdsWithin 0 (Set.Ioi 0))
-          (nhds (T f)))
-    (x : Fin n → Fin (d + 1) → ℝ) :
-    ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)) := by
-  sorry
-
 /-- **Distributional uniqueness for the forward tube.**
 
     Current status:
@@ -570,62 +536,6 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
           (nhdsWithin 0 (Set.Ioi 0))
           (nhds 0)) :
     ∀ z ∈ ForwardTube d n, F₁ z = F₂ z := by
-  sorry
-
-/-! ### Boundary Value Recovery on Forward Tube -/
-
-/-- Distributional boundary values on the forward tube are recovered by
-    integrating the real-boundary trace.
-
-    Warning: this is currently the forward-tube analogue of the overstrong weak-BV
-    recovery theorem in `SCV.TubeDistributions`.
-
-    The previous proof flattened to a weak SCV recovery front. The honest route
-    needs the strong regular Fourier-Laplace package on the flattened tube. -/
-theorem boundary_value_recovery_forwardTube {d n : ℕ} [NeZero d]
-    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
-    (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    {T : SchwartzNPoint d n → ℂ}
-    (hT_cont : Continuous T)
-    (h_bv : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      InForwardCone d n η →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-          (nhdsWithin 0 (Set.Ioi 0))
-          (nhds (T f)))
-    (f : SchwartzNPoint d n) :
-    T f = ∫ x : NPointDomain d n, F (fun k μ => (x k μ : ℂ)) * (f x) := by
-  sorry
-
-/-- The real-boundary trace of a holomorphic forward-tube function with tempered
-    distributional boundary values is continuous.
-
-    This is the forward-tube specialization of Vladimirov's boundary continuity
-    theorem transported through the flattening equivalence.
-
-    Current status:
-    the previous proof incorrectly upgraded bare Schwartz distributional boundary
-    values to the strong regular Fourier-Laplace package on the flattened tube.
-    That upgrade is not presently available. The honest repair is to prove the
-    flat strong-input theorem first, then transport it back. -/
-theorem boundary_function_continuous_forwardTube {d n : ℕ} [NeZero d]
-    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
-    (hF : DifferentiableOn ℂ F (ForwardTube d n))
-    {T : SchwartzNPoint d n → ℂ}
-    (hT_cont : Continuous T)
-    (h_bv : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      InForwardCone d n η →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          F (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-        (nhdsWithin 0 (Set.Ioi 0))
-        (nhds (T f))) :
-    Continuous (fun x : NPointDomain d n => F (fun k μ => (x k μ : ℂ))) := by
-  -- Blocked: after flattening to a standard tube domain, the available SCV theorem
-  -- needs strong boundary-value input data / `HasFourierLaplaceReprRegular`, not only
-  -- bare distributional boundary-value data. The previous proof incorrectly passed
-  -- through `exists_fourierLaplaceRepr`, which is the weak BV package only.
   sorry
 
 /-! ### Proved versions under regular flattened FL input -/
