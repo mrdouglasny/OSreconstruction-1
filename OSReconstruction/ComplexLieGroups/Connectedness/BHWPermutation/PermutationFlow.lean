@@ -1,4 +1,5 @@
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.Adjacency
+import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.AdjacencyDistributional
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.IndexSetD1
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.JostWitnessGeneralSigma
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.PermutationFlowBlocker
@@ -118,21 +119,22 @@ private theorem adjacent_permSector_overlap_nonempty [NeZero d]
 
 /-- Adjacent-swap equality for `extendF` on neighboring permutation sectors,
 specialized to the `d ≥ 2` connected-overlap route. -/
-private theorem extendF_perm_adjacent_eq_on_sector_overlap_hd2
+private theorem extendF_perm_adjacent_eq_on_sector_overlap_hd2 [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (hd2 : 2 ≤ d)
     (hFwd_conn : ∀ (i : Fin n) (hi : i.val + 1 < n),
       IsConnected (adjSwapForwardOverlapSet (d := d) n i hi))
@@ -153,10 +155,21 @@ private theorem extendF_perm_adjacent_eq_on_sector_overlap_hd2
     have hEtMul : permAct (d := d) (π * Equiv.swap i ⟨i.val + 1, hi⟩) z ∈ ExtendedTube d n :=
       hzπs
     simpa [hyMul, permAct] using hEtMul
+  have hD_conn :
+      IsConnected
+        {z : Fin n → Fin (d + 1) → ℂ |
+          z ∈ ExtendedTube d n ∧
+          (fun k => z (Equiv.swap i ⟨i.val + 1, hi⟩ k)) ∈ ExtendedTube d n} := by
+    simpa [adjSwapExtendedOverlapSet] using
+      isConnected_adjSwapExtendedOverlap_of_forwardOverlapConnected
+        n i hi (hFwd_conn i hi)
+  rcases adjacent_overlap_real_spacelike_witness_exists
+      (d := d) (n := n) hd2 i hi with
+    ⟨x0, hx0_sp, hx0_ET, hx0_swapET⟩
   have hswap :=
-    extendF_adjSwap_eq_of_connected_forwardOverlap_hd2
-      (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 i hi (hFwd_conn i hi)
-      y hyET hswapET
+    extendF_adjSwap_eq_of_connected_overlap_of_distributional_local_commutativity
+      (d := d) (n := n) F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+      i hi hD_conn x0 hx0_sp hx0_ET hx0_swapET y hyET hswapET
   simpa [y, permAct, Equiv.Perm.mul_apply] using hswap
 
 /-- One adjacent-swap step in permutation space that preserves ET-membership
@@ -201,21 +214,22 @@ private theorem etAdj_chain_of_midCond
 /-- Reduction wrapper: if adjacent-swap overlap invariance is available in each
 forward-overlap slice and a permutation chain staying in ET-overlaps is provided,
 then `extendF` is permutation-invariant on ET-overlaps. -/
-private theorem extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
+private theorem extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2 [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (hd2 : 2 ≤ d)
     (hFwd_conn : ∀ (i : Fin n) (hi : i.val + 1 < n),
       IsConnected (adjSwapForwardOverlapSet (d := d) n i hi))
@@ -241,7 +255,8 @@ private theorem extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
       simpa [permSector, hπ₂] using hπ₂ET
     have hswap_eq :=
       extendF_perm_adjacent_eq_on_sector_overlap_hd2
-        (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 hFwd_conn π₁ i hi hzπ hzπs
+        (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+        hd2 hFwd_conn π₁ i hi hzπ hzπs
     simpa [hπ₂] using hswap_eq
   have hchain := hChain σ z hz hσz
   have hchain_eq :
@@ -261,21 +276,22 @@ private theorem extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
 if all adjacent forward-overlap slices are connected and one can always drop a
 final adjacent swap while staying in ET, then overlap permutation-invariance of
 `extendF` follows. -/
-private theorem extendF_perm_overlap_of_adjSwap_connected_and_midCond_hd2
+private theorem extendF_perm_overlap_of_adjSwap_connected_and_midCond_hd2 [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (hd2 : 2 ≤ d)
     (hFwd_conn : ∀ (i : Fin n) (hi : i.val + 1 < n),
       IsConnected (adjSwapForwardOverlapSet (d := d) n i hi))
@@ -302,7 +318,8 @@ private theorem extendF_perm_overlap_of_adjSwap_connected_and_midCond_hd2
       exact hmidCond y σ i hi h
     exact etAdj_chain_of_midCond (d := d) n y hmidCond_y τ hy hτy
   exact extendF_perm_overlap_of_adjSwap_connected_and_chain_hd2
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local hd2 hFwd_conn hChain
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+    hd2 hFwd_conn hChain
 
 /-- One right-adjacent permutation step on forward-tube invariance, assuming the
 intermediate point `Γ · (σ · w)` already lies in `FT`.
@@ -2534,8 +2551,17 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
     set ψ := fun z : Fin n → Fin (d + 1) → ℂ =>
       fun k => (complexLorentzAction (Λ₀⁻¹ : ComplexLorentzGroup d) z) (π₀ k) with hψ_def
     have hψ_diff : Differentiable ℂ ψ := by
-      apply differentiable_pi.mpr; intro k
-      exact (differentiable_apply (π₀ k)).comp (differentiable_complexLorentzAction_snd Λ₀⁻¹)
+      have hAction : Differentiable ℂ
+          (fun z : Fin n → Fin (d + 1) → ℂ =>
+            complexLorentzAction (Λ₀⁻¹ : ComplexLorentzGroup d) z) :=
+        BHWCore.differentiable_complexLorentzAction_snd Λ₀⁻¹
+      have hPerm : Differentiable ℂ
+          (fun z : Fin n → Fin (d + 1) → ℂ =>
+            fun k => z (π₀ k)) := by
+        apply differentiable_pi.mpr
+        intro k
+        exact differentiable_apply (π₀ k)
+      simpa [ψ, hψ_def] using hPerm.comp hAction
     have hψz₀ : ψ z₀ = fun k => w₀ (π₀ k) := by
       simp only [ψ, hz₀_eq]
       rw [← complexLorentzAction_mul, inv_mul_cancel, complexLorentzAction_one]

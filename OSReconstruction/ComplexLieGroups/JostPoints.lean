@@ -1044,19 +1044,19 @@ theorem extendF_eq_boundary_value (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ)
 /-- Generalized boundary value: `extendF F (realEmbed x) = F (realEmbed x)` for any
     real `x` with `realEmbed x ∈ ExtendedTube`. This follows from the same limit-uniqueness
     argument as `extendF_eq_boundary_value` without requiring `ForwardJostSet` membership. -/
-theorem extendF_eq_boundary_value_ET (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+theorem extendF_eq_boundary_value_ET_of_continuousWithinAt
+    (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_cinv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
       z ∈ ForwardTube d n → complexLorentzAction Λ z ∈ ForwardTube d n →
       F (complexLorentzAction Λ z) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (x : Fin n → Fin (d + 1) → ℝ) (hx_ET : realEmbed x ∈ ExtendedTube d n) :
+    (x : Fin n → Fin (d + 1) → ℝ) (hx_ET : realEmbed x ∈ ExtendedTube d n)
+    (hF_bv_x : ContinuousWithinAt F (ForwardTube d n) (realEmbed x)) :
     extendF F (realEmbed x) = F (realEmbed x) := by
   have hextend_holo := extendF_holomorphicOn n F hF_holo hF_cinv
   have h1 : ContinuousWithinAt (extendF F) (ForwardTube d n) (realEmbed x) :=
     (hextend_holo.continuousOn _ hx_ET).mono forwardTube_subset_extendedTube
-  have h2 : ContinuousWithinAt F (ForwardTube d n) (realEmbed x) := hF_bv x
+  have h2 : ContinuousWithinAt F (ForwardTube d n) (realEmbed x) := hF_bv_x
   have h3 : extendF F =ᶠ[nhdsWithin (realEmbed x) (ForwardTube d n)] F :=
     Filter.eventually_of_mem self_mem_nhdsWithin
       (fun z hz => extendF_eq_on_forwardTube n F hF_cinv z hz)
@@ -1066,6 +1066,21 @@ theorem extendF_eq_boundary_value_ET (n : ℕ) (F : (Fin n → Fin (d + 1) → �
       (nhds (extendF F (realEmbed x))) :=
     (Filter.map_congr h3).symm.le.trans h1
   exact tendsto_nhds_unique h4 h2
+
+/-- Generalized boundary value: `extendF F (realEmbed x) = F (realEmbed x)` for any
+    real `x` with `realEmbed x ∈ ExtendedTube`. This follows from the same limit-uniqueness
+    argument as `extendF_eq_boundary_value` without requiring `ForwardJostSet` membership. -/
+theorem extendF_eq_boundary_value_ET (n : ℕ) (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_cinv : ∀ (Λ : ComplexLorentzGroup d) (z : Fin n → Fin (d + 1) → ℂ),
+      z ∈ ForwardTube d n → complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z)
+    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
+      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
+    (x : Fin n → Fin (d + 1) → ℝ) (hx_ET : realEmbed x ∈ ExtendedTube d n) :
+    extendF F (realEmbed x) = F (realEmbed x) := by
+  exact extendF_eq_boundary_value_ET_of_continuousWithinAt
+    n F hF_holo hF_cinv x hx_ET (hF_bv x)
 
 /-! ### Swap-compatible configurations -/
 
