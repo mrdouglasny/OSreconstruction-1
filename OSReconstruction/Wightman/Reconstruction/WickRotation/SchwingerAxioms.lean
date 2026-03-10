@@ -657,10 +657,9 @@ theorem integral_orthogonal_eq_self (R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ)
   exact hmp.integral_comp' h
 
 omit [NeZero d] in
-/-- Time reflection preserves Lebesgue measure on Euclidean `n`-point configurations. -/
-private theorem integral_timeReflection_eq_self (h : NPointDomain d n → ℂ) :
-    ∫ x : NPointDomain d n, h (timeReflectionN d x) =
-    ∫ x : NPointDomain d n, h x := by
+private theorem measurePreserving_timeReflectionN :
+    MeasureTheory.MeasurePreserving (timeReflectionN d : NPointDomain d n → NPointDomain d n)
+      MeasureTheory.volume MeasureTheory.volume := by
   let R : Matrix (Fin (d + 1)) (Fin (d + 1)) ℝ :=
     Matrix.diagonal (Function.update (fun _ : Fin (d + 1) => (1 : ℝ)) 0 (-1))
   have hR : R.transpose * R = 1 := by
@@ -674,7 +673,8 @@ private theorem integral_timeReflection_eq_self (h : NPointDomain d n → ℂ) :
     by_cases hij : i = j
     · subst hij
       by_cases hi0 : i = 0
-      · subst hi0; simp [Function.update]
+      · subst hi0
+        simp [Function.update]
       · simp [Matrix.diagonal, Function.update]
     · simp [Matrix.diagonal, hij]
   have hTR : (fun x : NPointDomain d n => timeReflectionN d x) =
@@ -685,7 +685,130 @@ private theorem integral_timeReflection_eq_self (h : NPointDomain d n → ℂ) :
     · subst hμ
       simp [R, timeReflectionN, timeReflection, Matrix.mulVec_diagonal, Function.update]
     · simp [R, timeReflectionN, timeReflection, Matrix.mulVec_diagonal, Function.update, hμ]
-  simpa [hTR] using integral_orthogonal_eq_self R hR h
+  have hdet : R.det ≠ 0 := by
+    intro h
+    have := congr_arg Matrix.det hR
+    rw [Matrix.det_mul, Matrix.det_transpose, Matrix.det_one, h, mul_zero] at this
+    exact zero_ne_one this
+  have habs : |R.det| = 1 := by
+    have h1 : R.det * R.det = 1 := by
+      have := congr_arg Matrix.det hR
+      rwa [Matrix.det_mul, Matrix.det_transpose, Matrix.det_one] at this
+    rcases mul_self_eq_one_iff.mp h1 with h | h <;> simp [h]
+  have hR' : R * R.transpose = 1 := mul_eq_one_comm.mpr hR
+  have hmv : (fun v => R.mulVec v) = Matrix.toLin' R := by
+    ext v
+    simp [Matrix.toLin'_apply]
+  have hcont_R : Continuous (Matrix.toLin' R) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hcont_Rt : Continuous (Matrix.toLin' R.transpose) :=
+    LinearMap.continuous_of_finiteDimensional _
+  have hmp_factor : MeasureTheory.MeasurePreserving
+      (fun v : Fin (d + 1) → ℝ => R.mulVec v)
+      MeasureTheory.volume MeasureTheory.volume := by
+    rw [hmv]
+    constructor
+    · exact hcont_R.measurable
+    · rw [Real.map_matrix_volume_pi_eq_smul_volume_pi hdet]
+      simp [abs_inv, habs]
+  let e : (Fin n → Fin (d + 1) → ℝ) ≃ᵐ (Fin n → Fin (d + 1) → ℝ) :=
+    { toEquiv := {
+        toFun := fun a i => R.mulVec (a i)
+        invFun := fun a i => R.transpose.mulVec (a i)
+        left_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hR]
+        right_inv := fun a => by ext i j; simp [Matrix.mulVec_mulVec, hR'] }
+      measurable_toFun :=
+        measurable_pi_lambda _ fun i => hcont_R.measurable.comp (measurable_pi_apply i)
+      measurable_invFun :=
+        measurable_pi_lambda _ fun i => hcont_Rt.measurable.comp (measurable_pi_apply i) }
+  have hmp : MeasureTheory.MeasurePreserving (⇑e)
+      MeasureTheory.volume MeasureTheory.volume :=
+    MeasureTheory.volume_preserving_pi (fun (_ : Fin n) => hmp_factor)
+  simpa [hTR] using hmp
+
+omit [NeZero d] in
+/-- Time reflection preserves Lebesgue measure on Euclidean `n`-point configurations. -/
+private theorem integral_timeReflection_eq_self (h : NPointDomain d n → ℂ) :
+    ∫ x : NPointDomain d n, h (timeReflectionN d x) =
+    ∫ x : NPointDomain d n, h x := by
+  have hTR_meas : Measurable (timeReflectionN d : NPointDomain d n → NPointDomain d n) := by
+    apply Continuous.measurable
+    apply continuous_pi
+    intro i
+    apply continuous_pi
+    intro μ
+    by_cases hμ : μ = 0
+    · subst hμ
+      have hi0 : Continuous (fun a : NPointDomain d n => a i 0) :=
+        (continuous_apply (0 : Fin (d + 1))).comp (continuous_apply i)
+      simpa [timeReflectionN, timeReflection] using hi0.neg
+    · have hiμ : Continuous (fun a : NPointDomain d n => a i μ) :=
+        (continuous_apply μ).comp (continuous_apply i)
+      simpa [timeReflectionN, timeReflection, hμ] using hiμ
+  let e : NPointDomain d n ≃ᵐ NPointDomain d n :=
+    { toEquiv := {
+        toFun := timeReflectionN d
+        invFun := timeReflectionN d
+        left_inv := by
+          intro x
+          ext i μ
+          by_cases hμ : μ = 0
+          · subst hμ
+            simp [timeReflectionN, timeReflection]
+          · simp [timeReflectionN, timeReflection, hμ]
+        right_inv := by
+          intro x
+          ext i μ
+          by_cases hμ : μ = 0
+          · subst hμ
+            simp [timeReflectionN, timeReflection]
+          · simp [timeReflectionN, timeReflection, hμ] }
+      measurable_toFun := hTR_meas
+      measurable_invFun := hTR_meas }
+  exact (measurePreserving_timeReflectionN (d := d) (n := n)).integral_comp' (f := e) h
+
+omit [NeZero d] in
+private theorem measurePreserving_revPerm :
+    MeasureTheory.MeasurePreserving
+      (fun x : NPointDomain d n => fun i => x (Fin.rev i))
+      MeasureTheory.volume MeasureTheory.volume := by
+  simpa [Fin.revPerm] using
+    (MeasureTheory.volume_measurePreserving_piCongrLeft
+      (fun _ : Fin n => Fin (d + 1) → ℝ) Fin.revPerm).symm
+
+/-- Reflected-reversed Euclidean configurations also lie in PET a.e.
+
+    This closes the geometric side of Euclidean BHW reality: the target point
+    `wick(timeReflection(x ∘ rev))` is defined on the same full-measure PET set
+    as `wick(x)`. The remaining gap in `bhw_euclidean_reality_ae` is therefore
+    purely the analytic Schwarz-reflection argument. -/
+theorem ae_reflected_reversed_euclidean_points_in_permutedTube {d n : ℕ} [NeZero d] :
+    ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      (fun k => wickRotatePoint (timeReflection d (x (Fin.rev k)))) ∈
+        PermutedExtendedTube d n := by
+  let T : NPointDomain d n → NPointDomain d n :=
+    fun x => timeReflectionN d (fun i => x (Fin.rev i))
+  have hT :
+      MeasureTheory.MeasurePreserving T MeasureTheory.volume MeasureTheory.volume :=
+    (measurePreserving_timeReflectionN (d := d) (n := n)).comp
+      (measurePreserving_revPerm (d := d) (n := n))
+  rw [Filter.Eventually, MeasureTheory.mem_ae_iff]
+  let s : Set (NPointDomain d n) :=
+    {x | (fun k => wickRotatePoint (x k)) ∉ PermutedExtendedTube d n}
+  have hs_null : MeasureTheory.volume s = 0 := by
+    simpa [s] using
+      (MeasureTheory.mem_ae_iff.mp (ae_euclidean_points_in_permutedTube (d := d) (n := n)))
+  simpa [T, s, timeReflectionN] using hT.preimage_null hs_null
+
+/-- Original and reflected-reversed Euclidean configurations lie in PET simultaneously a.e. -/
+theorem ae_euclidean_points_in_permutedTube_overlap {d n : ℕ} [NeZero d] :
+    ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      (fun k => wickRotatePoint (x k)) ∈ PermutedExtendedTube d n ∧
+      (fun k => wickRotatePoint (timeReflection d (x (Fin.rev k)))) ∈
+        PermutedExtendedTube d n := by
+  filter_upwards [ae_euclidean_points_in_permutedTube (d := d) (n := n),
+    ae_reflected_reversed_euclidean_points_in_permutedTube (d := d) (n := n)] with x hx hx'
+  exact ⟨hx, hx'⟩
 
 /-- The Schwinger functions satisfy rotation invariance (E1b).
 
@@ -736,6 +859,88 @@ theorem wickRotatePoint_timeReflection (x : Fin (d + 1) → ℝ) (μ : Fin (d + 
   by_cases hμ : μ = 0
   · subst hμ; simp [Complex.conj_ofReal]
   · simp [hμ, Complex.conj_ofReal]
+
+/-- Reverse the point order and conjugate each complex coordinate. This is the
+    complex-geometric involution underlying Wightman Hermiticity on Euclidean
+    Wick points. -/
+private def hermitianReverse {d n : ℕ} :
+    (Fin n → Fin (d + 1) → ℂ) → (Fin n → Fin (d + 1) → ℂ) :=
+  fun z k μ => starRingEnd ℂ (z (Fin.rev k) μ)
+
+/-- The honest PET overlap for Euclidean Hermiticity: points whose conjugate-reverse
+    image also lies in the permuted extended tube. -/
+private def hermitianReverseOverlap {d n : ℕ} [NeZero d] :
+    Set (Fin n → Fin (d + 1) → ℂ) :=
+  { z | z ∈ PermutedExtendedTube d n ∧ hermitianReverse z ∈ PermutedExtendedTube d n }
+
+private theorem hermitianReverse_involutive {d n : ℕ}
+    (z : Fin n → Fin (d + 1) → ℂ) :
+    hermitianReverse (hermitianReverse z) = z := by
+  ext k μ
+  simp [hermitianReverse, Fin.rev_rev]
+
+private theorem continuous_hermitianReverse {d n : ℕ} :
+    Continuous (hermitianReverse (d := d) (n := n)) := by
+  refine continuous_pi ?_
+  intro k
+  refine continuous_pi ?_
+  intro μ
+  have hcoord : Continuous fun z : Fin n → Fin (d + 1) → ℂ => z (Fin.rev k) μ :=
+    (continuous_apply μ).comp ((continuous_apply (Fin.rev k)).comp continuous_id)
+  simpa [hermitianReverse] using hcoord.star
+
+private theorem isOpen_hermitianReverseOverlap {d n : ℕ} [NeZero d] :
+    IsOpen (hermitianReverseOverlap (d := d) (n := n)) := by
+  have hPET_open : IsOpen (PermutedExtendedTube d n) :=
+    BHW_permutedExtendedTube_eq (d := d) (n := n) ▸ BHW.isOpen_permutedExtendedTube
+  exact hPET_open.inter (hPET_open.preimage (continuous_hermitianReverse (d := d) (n := n)))
+
+private theorem hermitianReverse_wickRotate {d n : ℕ}
+    (x : NPointDomain d n) :
+    hermitianReverse (fun k => wickRotatePoint (x k)) =
+      (fun k => wickRotatePoint (timeReflection d (x (Fin.rev k)))) := by
+  ext k μ
+  simp [hermitianReverse, wickRotatePoint_timeReflection]
+
+/-- If `F` is holomorphic on PET, then its conjugate-reverse partner
+    `z ↦ conj(F(conj-rev z))` is holomorphic on the reflected overlap domain. -/
+private theorem differentiableOn_hermitianReverse_partner {d n : ℕ} [NeZero d]
+    {F : (Fin n → Fin (d + 1) → ℂ) → ℂ}
+    (hF : DifferentiableOn ℂ F (PermutedExtendedTube d n)) :
+    DifferentiableOn ℂ (fun z => starRingEnd ℂ (F (hermitianReverse z)))
+      {z | hermitianReverse z ∈ PermutedExtendedTube d n} := by
+  let ρ : (Fin n → Fin (d + 1) → ℂ) ≃L[ℂ] (Fin n → Fin (d + 1) → ℂ) :=
+    (LinearEquiv.funCongrLeft ℂ (Fin (d + 1) → ℂ) Fin.revPerm).toContinuousLinearEquiv
+  have hρ_apply :
+      ∀ z : Fin n → Fin (d + 1) → ℂ, ρ z = fun k => z (Fin.rev k) := by
+    intro z
+    ext k μ
+    simp [ρ, LinearEquiv.funCongrLeft_apply, LinearMap.funLeft_apply, Fin.revPerm]
+  have hFρ :
+      DifferentiableOn ℂ (F ∘ ρ) (ρ ⁻¹' PermutedExtendedTube d n) := by
+    refine hF.comp (fun z _ => ρ.differentiableAt.differentiableWithinAt) ?_
+    intro z hz
+    exact hz
+  have hPET_open : IsOpen (PermutedExtendedTube d n) :=
+    BHW_permutedExtendedTube_eq (d := d) (n := n) ▸ BHW.isOpen_permutedExtendedTube
+  have hρ_open : IsOpen (ρ ⁻¹' PermutedExtendedTube d n) :=
+    hPET_open.preimage ρ.continuous
+  intro z hz
+  have hz' : star z ∈ ρ ⁻¹' PermutedExtendedTube d n := by
+    simpa [Set.preimage, hermitianReverse, hρ_apply] using hz
+  have hdiffAt : DifferentiableAt ℂ (F ∘ ρ) (star z) :=
+    (hFρ (star z) hz').differentiableAt (hρ_open.mem_nhds hz')
+  have hstarstar : DifferentiableAt ℂ (star ∘ (F ∘ ρ) ∘ star) z := by
+    simpa [Function.comp] using hdiffAt.star_star
+  simpa [Function.comp, hermitianReverse, hρ_apply] using hstarstar.differentiableWithinAt
+
+/-- Euclidean Wick points lie in the Hermiticity overlap a.e. -/
+private theorem ae_euclidean_points_in_hermitianReverseOverlap {d n : ℕ} [NeZero d] :
+    ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      (fun k => wickRotatePoint (x k)) ∈ hermitianReverseOverlap (d := d) (n := n) := by
+  filter_upwards [ae_euclidean_points_in_permutedTube_overlap (d := d) (n := n)] with x hx
+  refine ⟨hx.1, ?_⟩
+  simpa [hermitianReverse_wickRotate] using hx.2
 
 /-- Each (n,m)-term of the OS inner product with the constructed Schwinger functions
     equals the corresponding term of the Wightman inner product.
@@ -1010,6 +1215,24 @@ theorem bhw_euclidean_reality_ae (Wfn : WightmanFunctions d) (n : ℕ) :
       starRingEnd ℂ ((W_analytic_BHW Wfn n).val (fun k => wickRotatePoint (x k))) =
         (W_analytic_BHW Wfn n).val
           (fun k => wickRotatePoint (timeReflection d (x (Fin.rev k)))) := by
+  let F : (Fin n → Fin (d + 1) → ℂ) → ℂ := (W_analytic_BHW Wfn n).val
+  let G : (Fin n → Fin (d + 1) → ℂ) → ℂ :=
+    fun z => starRingEnd ℂ (F (hermitianReverse z))
+  let D : Set (Fin n → Fin (d + 1) → ℂ) := hermitianReverseOverlap (d := d) (n := n)
+  have hF_holo : DifferentiableOn ℂ F (PermutedExtendedTube d n) :=
+    (W_analytic_BHW Wfn n).property.1
+  have hG_holo : DifferentiableOn ℂ G D := by
+    refine (differentiableOn_hermitianReverse_partner (d := d) (n := n) hF_holo).mono ?_
+    intro z hz
+    exact hz.2
+  have hwick_mem : ∀ᵐ (x : NPointDomain d n) ∂MeasureTheory.volume,
+      (fun k => wickRotatePoint (x k)) ∈ D :=
+    ae_euclidean_points_in_hermitianReverseOverlap (d := d) (n := n)
+  -- The remaining genuine gap is now concentrated at the correct analytic surface:
+  -- prove `F = G` on the connected PET overlap `D` from the real Jost-support
+  -- distributional Hermiticity statement `wightman_real_on_jost_support`.
+  let _ := hG_holo
+  let _ := hwick_mem
   sorry
 
 /-- The Schwinger functions constructed from Wightman functions satisfy the

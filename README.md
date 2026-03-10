@@ -49,18 +49,19 @@ Priority note:
 Recent progress (2026-03-10):
 - **Distributional EOW is complete.** The full chain from distributional boundary values through distributional uniqueness, distributional BHW swap equality, pointwise extraction, and connected-overlap propagation is proved with 0 sorrys. Key new files: `SCV/DistributionalUniqueness.lean` (0 sorrys), `SCV/SchwartzComplete.lean` (0 sorrys), `ComplexLieGroups/Connectedness/BHWPermutation/AdjacencyDistributional.lean` (0 sorrys).
 - **BHW permutation flow rewired to distributional hypotheses.** The entire BHW permutation chain (`PermutationFlow.lean`) now runs on distributional boundary-value data instead of pointwise boundary continuity — the honest interface.
-- **BHWExtension sorry #2 closed.** `W_analytic_swap_boundary_pairing_eq` now proved via the distributional chain. Two new proved theorems: `analytic_extended_local_commutativity` (extendF-level), `analytic_boundary_local_commutativity_of_boundary_continuous` (raw W_analytic with honest ContinuousWithinAt hypotheses).
+- **BHWExtension now carries only the honest theorem surface.** `W_analytic_swap_boundary_pairing_eq` and `analytic_extended_local_commutativity` are proved, and the obsolete raw-boundary placeholders have been removed. The optional raw-value bridge that remains is `analytic_boundary_local_commutativity_of_boundary_continuous`, which isolates the true extra input: boundary continuity on the real ET edge.
+- **Euclidean Hermiticity is now localized to the true PET overlap problem.** `SchwingerAxioms.lean` now exposes the conjugate-reversal overlap domain and proves the reflected partner `z ↦ conj(F(conj-rev z))` is holomorphic there. The remaining gap in `bhw_euclidean_reality_ae` is exactly to prove equality of the two holomorphic functions on that overlap from `wightman_real_on_jost_support`.
 - **ForwardTubeDistributions.lean** is now sorry-free (was 4 sorrys).
 
 Snapshot (2026-03-10, counted with `rg -c '^\s*sorry\b' OSReconstruction --glob '*.lean'`):
 
 | Module | Direct `sorry` lines |
 |--------|-----------------------|
-| `Wightman/` | 34 |
+| `Wightman/` | 32 |
 | `SCV/` | 2 |
 | `ComplexLieGroups/` | 2 |
 | `vNA/` | 40 |
-| **Total** | **78** |
+| **Total** | **76** |
 
 ### OS-Critical Sorry Flow Toward Reconstruction
 

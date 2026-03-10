@@ -114,6 +114,16 @@ Infrastructure (sorry-free):
 - `bhw_pointwise_cluster_euclidean`
 - `W_analytic_cluster_integral`
 
+Current blocker sharpening (2026-03-10):
+- `bhw_euclidean_reality_ae` is now reduced to the honest overlap problem on
+  `D = {z ∈ PET | hermitianReverse z ∈ PET}`.
+- Infrastructure now present in `SchwingerAxioms.lean`:
+  `hermitianReverseOverlap`, `differentiableOn_hermitianReverse_partner`,
+  `ae_euclidean_points_in_hermitianReverseOverlap`.
+- What still needs to be proved is the Schwarz-reflection identity `F = conj(F ∘ hermitianReverse)`
+  on that overlap, extracted from the real Jost-support boundary theorem
+  `wightman_real_on_jost_support`.
+
 `WickRotation/ForwardTubeLorentz.lean` (2):
 - `polynomial_growth_on_slice`
 - `wickRotation_not_in_PET_null`
@@ -121,9 +131,10 @@ Infrastructure (sorry-free):
 `WickRotation/BHWTranslation.lean` (1):
 - `isConnected_permutedExtendedTube_inter_translate`
 
-`WickRotation/BHWExtension.lean` (2):
-- `W_analytic_continuous_boundary` — global boundary continuity (Vladimirov growth theorem; bypassed by distributional chain)
-- `analytic_boundary_local_commutativity` — overstrong pointwise swap without ET/boundary-continuity hypotheses (superseded by `analytic_boundary_local_commutativity_of_boundary_continuous` which is proved)
+`WickRotation/BHWExtension.lean` (0):
+- Honest extendF-level adjacent-swap theorems are complete.
+- If raw real-edge values are ever needed again, the remaining mathematical input is
+  boundary continuity of the spectrum witness on the real ET edge, not more EOW/BHW infrastructure.
 
 New proved theorems (2026-03-10):
 - `W_analytic_swap_boundary_pairing_eq` — PROVED via distributional chain

@@ -5,7 +5,6 @@ Authors: Michael Douglas, ModularPhysics Contributors
 -/
 import OSReconstruction.Wightman.Reconstruction.WickRotation.ForwardTubeLorentz
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.AdjacencyDistributional
-import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
 
 /-!
 # BHW Extension
@@ -21,39 +20,6 @@ noncomputable section
 
 variable {d : ℕ} [NeZero d]
 /-! #### BHW extension (needed before constructing Schwinger functions) -/
-
-private theorem continuous_minkowskiNormSq (d : ℕ) :
-    Continuous (fun η : Fin (d + 1) → ℝ => MinkowskiSpace.minkowskiNormSq d η) := by
-  simp only [MinkowskiSpace.minkowskiNormSq, MinkowskiSpace.minkowskiInner]
-  apply continuous_finset_sum
-  intro i _
-  exact ((continuous_const.mul (continuous_apply i)).mul (continuous_apply i))
-
-private theorem integral_swap_eq_self {d n : ℕ} [NeZero d]
-    (i j : Fin n) (h : NPointDomain d n → ℂ) :
-    ∫ x : NPointDomain d n, h (fun k => x (Equiv.swap i j k)) =
-    ∫ x : NPointDomain d n, h x := by
-  let σ : Equiv.Perm (Fin n) := Equiv.swap i j
-  let e : NPointDomain d n ≃ᵐ NPointDomain d n :=
-    MeasurableEquiv.piCongrLeft (fun _ : Fin n => Fin (d + 1) → ℝ) σ
-  have hmp : MeasureTheory.MeasurePreserving (⇑e) MeasureTheory.volume MeasureTheory.volume :=
-    MeasureTheory.volume_measurePreserving_piCongrLeft
-      (fun _ : Fin n => Fin (d + 1) → ℝ) σ
-  have hEq : ∫ x : NPointDomain d n, h (e x) = ∫ x : NPointDomain d n, h x := hmp.integral_comp' h
-  rw [MeasurableEquiv.coe_piCongrLeft] at hEq
-  calc
-    ∫ x : NPointDomain d n, h (fun k => x (Equiv.swap i j k))
-        = ∫ x : NPointDomain d n,
-            h ((Equiv.piCongrLeft (fun _ : Fin n => Fin (d + 1) → ℝ) σ) x) := by
-            congr 1
-            ext x
-            congr 1
-            ext k μ
-            simpa [σ] using (congrArg (fun u => u μ)
-              (Equiv.piCongrLeft_apply
-                (P := fun _ : Fin n => Fin (d + 1) → ℝ)
-                (e := σ) x k)).symm
-    _ = ∫ x : NPointDomain d n, h x := hEq
 
 /-- W_analytic inherits real Lorentz invariance from the Wightman distribution.
 
@@ -103,94 +69,6 @@ theorem W_analytic_lorentz_on_tube (Wfn : WightmanFunctions d) (n : ℕ) :
       simpa [sub_mul] using hInt₁.sub hInt₂)
     (W_analytic_lorentz_bv_agree Wfn n Λ)
   exact huniq z hz
-
-/-- W_analytic extends continuously to the real boundary of the forward tube.
-
-    BLOCKED: Previously depended on `continuous_boundary_forwardTube` which was
-    overstrong as stated (conclusion referenced F at boundary points unconstrained
-    by hypotheses). Will be unblocked by either:
-    (a) Distributional EOW infrastructure (codex building) → direct proof
-    (b) Constructing `HasFourierLaplaceReprRegular` from Wightman axioms →
-        use `_of_flatRegular` variant
-
-    Ref: Streater-Wightman, Theorem 2-9 -/
-theorem W_analytic_continuous_boundary (Wfn : WightmanFunctions d) (n : ℕ) :
-    ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt (Wfn.spectrum_condition n).choose
-        (ForwardTube d n) (fun k μ => (x k μ : ℂ)) := by
-  sorry
-
-/-- Distributional swap-agreement on boundary values in test-function form.
-
-    Fix adjacent indices `i, i+1`. If `g` is obtained from `f` by swapping those
-    coordinates and `f` is supported on configurations where the swapped pair is
-    spacelike separated, then local commutativity gives `W n g = W n f`.
-
-    Combining this with the boundary-value convergence for `f` and `g` along the
-    same forward direction `η`, the smeared boundary-value difference converges to 0:
-    `∫ W_analytic(x+iεη) * (g-f) → 0`. -/
-theorem W_analytic_swap_distributional_agree {d n : ℕ} [NeZero d]
-    (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
-    (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
-    (hW_cont : Continuous (W n))
-    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      InForwardCone d n η →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-        (nhdsWithin 0 (Set.Ioi 0)) (nhds (W n f)))
-    (hLC : IsLocallyCommutativeWeak d W)
-    (i : Fin n) (hi : i.val + 1 < n) :
-    ∀ (f g : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      (∀ x : NPointDomain d n, f.toFun x ≠ 0 →
-        MinkowskiSpace.AreSpacelikeSeparated d (x i) (x ⟨i.val + 1, hi⟩)) →
-      (∀ x : NPointDomain d n, g.toFun x = f.toFun (fun k => x (Equiv.swap i ⟨i.val + 1, hi⟩ k))) →
-      InForwardCone d n η →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (g x - f x))
-        (nhdsWithin 0 (Set.Ioi 0))
-        (nhds 0) := by
-  intro f g η hsep hswap hη
-  have h_g : Filter.Tendsto
-      (fun ε : ℝ => ∫ x : NPointDomain d n,
-        W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (g x))
-      (nhdsWithin 0 (Set.Ioi 0))
-      (nhds (W n g)) := hBV g η hη
-  have h_f : Filter.Tendsto
-      (fun ε : ℝ => ∫ x : NPointDomain d n,
-        W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-      (nhdsWithin 0 (Set.Ioi 0))
-      (nhds (W n f)) := hBV f η hη
-  have h_diff : Filter.Tendsto
-      (fun ε : ℝ =>
-        (∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (g x)) -
-        (∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x)))
-      (nhdsWithin 0 (Set.Ioi 0))
-      (nhds (W n g - W n f)) := Filter.Tendsto.sub h_g h_f
-  have hW_eq : W n g = W n f := (hLC n i ⟨i.val + 1, hi⟩ f g hsep hswap).symm
-  have h_diff_zero : Filter.Tendsto
-      (fun ε : ℝ =>
-        (∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (g x)) -
-        (∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x)))
-      (nhdsWithin 0 (Set.Ioi 0))
-      (nhds 0) := by
-    simpa [hW_eq] using h_diff
-  refine h_diff_zero.congr' ?_
-  filter_upwards [self_mem_nhdsWithin] with ε hε
-  rw [← MeasureTheory.integral_sub]
-  · congr 1
-    ext x
-    ring
-  · exact forward_tube_bv_integrable
-      W_analytic hW_hol ⟨W n, hW_cont, hBV⟩ g η hη ε (Set.mem_Ioi.mp hε)
-  · exact forward_tube_bv_integrable
-      W_analytic hW_hol ⟨W n, hW_cont, hBV⟩ f η hη ε (Set.mem_Ioi.mp hε)
 
 /-- Distributional adjacent-swap equality on compactly supported ET-supported tests.
 
@@ -301,12 +179,11 @@ theorem analytic_extended_local_commutativity {d n : ℕ} [NeZero d]
     the exact local boundary-identification hypotheses needed to compare it with
     the ET holomorphic extension.
 
-    This theorem isolates the remaining gap behind the old
-    `analytic_boundary_local_commutativity` statement: distributional EOW already
-    gives the equality for `BHW.extendF W_analytic`; to descend to the raw
-    `W_analytic(realEmbed x)` values, one additionally needs boundary
-    continuity of `W_analytic` from the forward tube at the two relevant real
-    ET points. -/
+    This theorem isolates the remaining gap behind the old raw-boundary local
+    commutativity surface: distributional EOW already gives the equality for
+    `BHW.extendF W_analytic`; to descend to the raw `W_analytic(realEmbed x)`
+    values, one additionally needs boundary continuity of `W_analytic` from
+    the forward tube at the two relevant real ET points. -/
 theorem analytic_boundary_local_commutativity_of_boundary_continuous {d n : ℕ} [NeZero d]
     (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
@@ -378,64 +255,6 @@ theorem analytic_boundary_local_commutativity_of_boundary_continuous {d n : ℕ}
             exact hbd_swap.symm
     _ = BHW.extendF W_analytic (BHW.realEmbed x) := hExt
     _ = W_analytic (fun k μ => (x k μ : ℂ)) := hbd_x
-
-/-- Pointwise local commutativity of the analytic continuation at spacelike boundary.
-
-    Proof strategy (preserved from previous version):
-    1. Construct bump function χ supported on spacelike region
-    2. Use `W_analytic_swap_boundary_pairing_eq` to show swap-invariance of boundary pairings
-    3. Localize via χ and `eq_zero_of_schwartz_integral_zero` to get pointwise equality
-
-    BLOCKED: Depends on `W_analytic_swap_boundary_pairing_eq` (blocked on boundary value
-    recovery) and `boundary_function_continuous_forwardTube` (overstrong, deleted).
-    Will be unblocked by distributional EOW infrastructure.
-
-    Ref: Streater-Wightman Thm 3-5; Jost §IV.3 -/
-theorem analytic_boundary_local_commutativity {d n : ℕ} [NeZero d]
-    (W_analytic : (Fin n → Fin (d + 1) → ℂ) → ℂ)
-    (hW_hol : DifferentiableOn ℂ W_analytic (ForwardTube d n))
-    (W : (n' : ℕ) → SchwartzNPoint d n' → ℂ)
-    (hW_cont : Continuous (W n))
-    (hBV : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
-      InForwardCone d n η →
-      Filter.Tendsto
-        (fun ε : ℝ => ∫ x : NPointDomain d n,
-          W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x))
-        (nhdsWithin 0 (Set.Ioi 0)) (nhds (W n f)))
-    (hLC : IsLocallyCommutativeWeak d W)
-    (i : Fin n) (hi : i.val + 1 < n)
-    (x : Fin n → Fin (d + 1) → ℝ)
-    (hx : MinkowskiSpace.minkowskiNormSq d
-      (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0) :
-    W_analytic (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-    W_analytic (fun k μ => (x k μ : ℂ)) := by
-  sorry
-
-/-- Local commutativity of W_analytic at spacelike-separated boundary points.
-
-    At real points where consecutive arguments are spacelike separated
-    (Minkowski norm > 0), swapping those arguments doesn't change the boundary
-    value. This follows from `analytic_boundary_local_commutativity` applied to
-    the analytic continuation from `spectrum_condition`.
-
-    Ref: Streater-Wightman, §3.3; Jost, §IV.3 -/
-theorem W_analytic_local_commutativity (Wfn : WightmanFunctions d) (n : ℕ) :
-    ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        MinkowskiSpace.minkowskiNormSq d
-          (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0 →
-        (Wfn.spectrum_condition n).choose
-          (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        (Wfn.spectrum_condition n).choose (fun k μ => (x k μ : ℂ)) := by
-  intro i hi x hx
-  exact analytic_boundary_local_commutativity (d := d) (n := n)
-    (Wfn.spectrum_condition n).choose
-    (Wfn.spectrum_condition n).choose_spec.1
-    Wfn.W
-    (Wfn.tempered n)
-    (Wfn.spectrum_condition n).choose_spec.2
-    Wfn.locally_commutative
-    i hi x hx
 
 /-- The BHW extension of W_analytic from the forward tube to the permuted extended tube.
 
