@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.TubeDistributions
 import OSReconstruction.SCV.LaplaceSchwartz
+import OSReconstruction.SCV.DistributionalUniqueness
 import OSReconstruction.Wightman.Reconstruction
 
 /-!
@@ -527,6 +528,12 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
     {F₁ F₂ : (Fin n → Fin (d + 1) → ℂ) → ℂ}
     (hF₁ : DifferentiableOn ℂ F₁ (ForwardTube d n))
     (hF₂ : DifferentiableOn ℂ F₂ (ForwardTube d n))
+    (h_integrable : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ)
+      (ε : ℝ), 0 < ε → InForwardCone d n η →
+      MeasureTheory.Integrable
+        (fun x : NPointDomain d n =>
+          (F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) -
+           F₂ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I)) * (f x)))
     (h_agree : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
       InForwardCone d n η →
       Filter.Tendsto
@@ -536,7 +543,80 @@ theorem distributional_uniqueness_forwardTube {d n : ℕ} [NeZero d]
           (nhdsWithin 0 (Set.Ioi 0))
           (nhds 0)) :
     ∀ z ∈ ForwardTube d n, F₁ z = F₂ z := by
-  sorry
+  let e := flattenCLEquiv n (d + 1)
+  let eR := flattenCLEquivReal n (d + 1)
+  let G : (Fin (n * (d + 1)) → ℂ) → ℂ := fun z => F₁ (e.symm z) - F₂ (e.symm z)
+  have hG_diff : DifferentiableOn ℂ G (SCV.TubeDomain (ForwardConeFlat d n)) := by
+    exact (differentiableOn_flatten hF₁).sub (differentiableOn_flatten hF₂)
+  have hG_int :
+      ∀ y ∈ ForwardConeFlat d n, ∀ ψ : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ,
+        MeasureTheory.Integrable
+          (fun x : Fin (n * (d + 1)) → ℝ =>
+            G (fun i => (x i : ℂ) + (y i : ℂ) * Complex.I) * ψ x) := by
+    intro y hy ψ
+    obtain ⟨η, hη, rfl⟩ := hy
+    have hηcone : InForwardCone d n η := (inForwardCone_iff_mem_forwardConeAbs η).2 hη
+    let f : SchwartzNPoint d n :=
+      (SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR) ψ
+    let g : (Fin (n * (d + 1)) → ℝ) → ℂ := fun x =>
+      G (fun i => (x i : ℂ) + ((eR η) i : ℂ) * Complex.I) * ψ x
+    have hInt_old :
+        MeasureTheory.Integrable
+          (fun x : NPointDomain d n =>
+            (F₁ (fun k μ => ↑(x k μ) + (η k μ : ℂ) * Complex.I) -
+             F₂ (fun k μ => ↑(x k μ) + (η k μ : ℂ) * Complex.I)) * f x) := by
+      simpa using h_integrable f η 1 zero_lt_one hηcone
+    have hEq :
+        (fun x : NPointDomain d n =>
+          (F₁ (fun k μ => ↑(x k μ) + (η k μ : ℂ) * Complex.I) -
+           F₂ (fun k μ => ↑(x k μ) + (η k μ : ℂ) * Complex.I)) * f x) =
+        g ∘ flattenMeasurableEquiv n (d + 1) := by
+      funext x
+      have hflatx : flattenMeasurableEquiv n (d + 1) x = eR x := by
+        ext i
+        simp [flattenMeasurableEquiv_apply, eR, flattenCLEquivReal_apply]
+      have harg :
+          (fun k μ => ↑(x k μ) + (η k μ : ℂ) * Complex.I) =
+            e.symm (fun i => ↑((flattenMeasurableEquiv n (d + 1) x) i) + ↑((eR η) i) * Complex.I) := by
+        funext k μ
+        rw [flattenCLEquiv_symm_apply]
+        simp [flattenMeasurableEquiv_apply, eR, flattenCLEquivReal_apply]
+      simp [g, G, f, hflatx, harg]
+    have hInt_comp : MeasureTheory.Integrable (g ∘ flattenMeasurableEquiv n (d + 1)) := by
+      simpa [hEq] using hInt_old
+    exact
+      ((flattenMeasurableEquiv_measurePreserving n (d + 1)).integrable_comp_emb
+        (flattenMeasurableEquiv n (d + 1)).measurableEmbedding).1 hInt_comp
+  have h_bv_zero :
+    ∀ (f : SchwartzMap (Fin (n * (d + 1)) → ℝ) ℂ) (η : Fin (n * (d + 1)) → ℝ),
+      η ∈ ForwardConeFlat d n →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : Fin (n * (d + 1)) → ℝ,
+          G (fun i => (x i : ℂ) + ε * (η i : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds 0) := by
+    intro ψ y hy
+    obtain ⟨η, hη, rfl⟩ := hy
+    have hηcone : InForwardCone d n η := (inForwardCone_iff_mem_forwardConeAbs η).2 hη
+    let f : SchwartzNPoint d n :=
+      (SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eR) ψ
+    have h_old := h_agree f η hηcone
+    refine h_old.congr' ?_
+    filter_upwards [Filter.Eventually.of_forall (fun ε => ?_)] with ε _
+    rw [integral_flatten_change_of_variables n (d + 1)]
+    simp [G, f, e, eR, flattenCLEquivReal_apply]
+  have huniq := SCV.distributional_uniqueness_tube_of_zero_bv
+    (forwardConeFlat_isOpen d n)
+    (forwardConeFlat_convex d n)
+    (forwardConeFlat_nonempty d n)
+    (forwardConeFlat_isCone d n)
+    hG_diff hG_int h_bv_zero
+  intro z hz
+  have hmem : e z ∈ SCV.TubeDomain (ForwardConeFlat d n) := by
+    rw [← forwardTube_flatten_eq_tubeDomain]
+    exact Set.mem_image_of_mem e hz
+  have hzero := huniq (e z) hmem
+  simpa [G, e] using sub_eq_zero.mp hzero
 
 /-! ### Proved versions under regular flattened FL input -/
 

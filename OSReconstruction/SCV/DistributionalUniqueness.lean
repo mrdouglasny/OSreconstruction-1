@@ -6,6 +6,7 @@ Authors: ModularPhysics Contributors
 import OSReconstruction.SCV.SchwartzComplete
 import OSReconstruction.SCV.TubeDistributions
 import Mathlib.Analysis.Distribution.SchwartzSpace.Deriv
+import Mathlib.Analysis.Calculus.BumpFunction.Convolution
 import Mathlib.Analysis.Calculus.BumpFunction.FiniteDimension
 
 /-!
@@ -36,6 +37,7 @@ machinery (specifically, the 1D EOW slicing argument). Taking ψ → δ gives G 
 noncomputable section
 
 open Complex MeasureTheory Topology Metric Set Filter
+open scoped Convolution
 
 namespace SCV
 
@@ -595,6 +597,115 @@ theorem tendsto_apply_translateSchwartz_of_tendsto_filter
   apply SchwartzMap.tempered_apply_tendsto_of_tendsto_filter hT
   exact (tendsto_translateSchwartz_nhds_of_isCompactSupport ψ hψ_compact t₀).comp hu
 
+/-- Integration against a continuous kernel over a closed ball defines a continuous
+Schwartz functional.
+
+This is the truncation step for the weak distributional-EOW argument: one first
+constructs compact-ball slice functionals, then recovers the full slice
+functional as a pointwise limit. -/
+theorem exists_closedBall_integral_clm
+    {g : (Fin m → ℝ) → ℂ} (R : ℕ)
+    (hg_cont : Continuous g) :
+    ∃ T : SchwartzMap (Fin m → ℝ) ℂ →L[ℂ] ℂ,
+      ∀ ψ : SchwartzMap (Fin m → ℝ) ℂ,
+        T ψ = ∫ x in Metric.closedBall (0 : Fin m → ℝ) (R : ℝ), g x * ψ x := by
+  let s : Set (Fin m → ℝ) := Metric.closedBall (0 : Fin m → ℝ) (R : ℝ)
+  have hs_compact : IsCompact s := isCompact_closedBall _ _
+  have hs_meas : MeasurableSet s := hs_compact.measurableSet
+  obtain ⟨C, hC⟩ := hs_compact.exists_bound_of_continuousOn hg_cont.continuousOn
+  let C' : ℝ := max C 0
+  have hC'_nonneg : 0 ≤ C' := by
+    simp [C']
+  have hs_fin : volume s < ⊤ := measure_closedBall_lt_top
+  refine ⟨SchwartzMap.mkCLMtoNormedSpace (𝕜 := ℂ)
+      (fun ψ : SchwartzMap (Fin m → ℝ) ℂ => ∫ x in s, g x * ψ x) ?_ ?_ ?_, ?_⟩
+  · intro ψ φ
+    simpa [mul_add] using
+      (MeasureTheory.integral_add
+        (μ := volume.restrict s)
+        (f := fun x : Fin m → ℝ => g x * ψ x)
+        (g := fun x : Fin m → ℝ => g x * φ x)
+        ((hg_cont.mul ψ.continuous).continuousOn.integrableOn_compact hs_compact)
+        ((hg_cont.mul φ.continuous).continuousOn.integrableOn_compact hs_compact))
+  · intro a ψ
+    have hmul :
+        (fun x : Fin m → ℝ => g x * (a * ψ x)) =
+          fun x => a * (g x * ψ x) := by
+      funext x
+      ring
+    change ∫ x in s, g x * (a * ψ x) = a * ∫ x in s, g x * ψ x
+    rw [hmul]
+    simpa using
+      (MeasureTheory.integral_const_mul a (fun x : Fin m → ℝ => g x * ψ x) : _)
+  · refine ⟨{(0, 0)}, C' * (volume s).toReal, ?_, ?_⟩
+    · exact mul_nonneg hC'_nonneg ENNReal.toReal_nonneg
+    · intro ψ
+      calc
+        ‖∫ x in s, g x * ψ x‖
+            ≤ (C' * SchwartzMap.seminorm ℂ 0 0 ψ) * (volume s).toReal := by
+              refine MeasureTheory.norm_setIntegral_le_of_norm_le_const hs_fin ?_
+              intro x hx
+              have hgx : ‖g x‖ ≤ C' := le_trans (hC x hx) (le_max_left _ _)
+              calc
+                ‖g x * ψ x‖ = ‖g x‖ * ‖ψ x‖ := norm_mul _ _
+                _ ≤ C' * SchwartzMap.seminorm ℂ 0 0 ψ := by
+                  gcongr
+                  simpa using (SchwartzMap.le_seminorm ℂ 0 0 ψ x)
+        _ = (C' * (volume s).toReal) * SchwartzMap.seminorm ℂ 0 0 ψ := by
+              ring
+        _ = (C' * (volume s).toReal) * ({(0, 0)} : Finset (ℕ × ℕ)).sup
+              (schwartzSeminormFamily ℂ (Fin m → ℝ) ℂ) ψ := by
+              simp [mul_left_comm, mul_comm]
+  · intro ψ
+    rfl
+
+/-- If `g` is continuous and defines an absolutely convergent pairing with every
+Schwartz test function, then the map `ψ ↦ ∫ g(x) ψ(x) dx` is a continuous linear
+functional on Schwartz space.
+
+The proof is the standard truncation argument: integrate first over compact balls,
+obtain continuous linear maps on Schwartz space, and then pass to the pointwise
+limit using `continuousLinearMapOfTendsto` on the barrelled Schwartz space. -/
+theorem exists_integral_clm_of_continuous
+    {g : (Fin m → ℝ) → ℂ} (hg_cont : Continuous g)
+    (hg_int : ∀ ψ : SchwartzMap (Fin m → ℝ) ℂ,
+      Integrable (fun x : Fin m → ℝ => g x * ψ x)) :
+    ∃ T : SchwartzMap (Fin m → ℝ) ℂ →L[ℝ] ℂ,
+      ∀ ψ : SchwartzMap (Fin m → ℝ) ℂ, T ψ = ∫ x, g x * ψ x := by
+  let TRc : ℕ → SchwartzMap (Fin m → ℝ) ℂ →L[ℂ] ℂ :=
+    fun R => (exists_closedBall_integral_clm R hg_cont).choose
+  let TR : ℕ → SchwartzMap (Fin m → ℝ) ℂ →L[ℝ] ℂ := fun R => (TRc R).restrictScalars ℝ
+  have hTR :
+      ∀ R ψ,
+        TR R ψ = ∫ x in Metric.closedBall (0 : Fin m → ℝ) (R : ℝ), g x * ψ x := by
+    intro R ψ
+    simpa [TR] using (exists_closedBall_integral_clm R hg_cont).choose_spec ψ
+  let f : SchwartzMap (Fin m → ℝ) ℂ → ℂ := fun ψ => ∫ x, g x * ψ x
+  have hconv : Tendsto (fun R ψ => TR R ψ) atTop (𝓝 f) := by
+    rw [tendsto_pi_nhds]
+    intro ψ
+    have hmono : Monotone (fun R : ℕ => Metric.closedBall (0 : Fin m → ℝ) (R : ℝ)) := by
+      intro i j hij
+      exact Metric.closedBall_subset_closedBall (by exact_mod_cast hij)
+    have hint :
+        IntegrableOn (fun x : Fin m → ℝ => g x * ψ x)
+          (⋃ R : ℕ, Metric.closedBall (0 : Fin m → ℝ) (R : ℝ)) volume := by
+      simpa [Metric.iUnion_closedBall_nat] using hg_int ψ
+    convert
+      MeasureTheory.tendsto_setIntegral_of_monotone
+        (f := fun x : Fin m → ℝ => g x * ψ x)
+        (μ := volume)
+        (s := fun R : ℕ => Metric.closedBall (0 : Fin m → ℝ) (R : ℝ))
+        (hsm := fun R => (isCompact_closedBall (0 : Fin m → ℝ) (R : ℝ)).measurableSet)
+        hmono hint
+    · exact hTR _ ψ
+    · simp [Metric.iUnion_closedBall_nat]
+  let T : SchwartzMap (Fin m → ℝ) ℂ →L[ℝ] ℂ :=
+    continuousLinearMapOfTendsto (fun R => (TR R : _ →L[ℝ] ℂ)) hconv
+  refine ⟨T, ?_⟩
+  intro ψ
+  simp [T, f, continuousLinearMapOfTendsto]
+
 /-- Weak boundary-value zero is stable under translating a compactly supported
     Schwartz test function in the real directions.
 
@@ -1112,6 +1223,65 @@ theorem differentiableOn_realMollify_tubeDomain
       hs hF_meas hF_int hF'_meas h_bound hbound_int h_diff
   simpa [F] using hderiv.differentiableAt.differentiableWithinAt
 
+/-- Approximate-identity convergence for the real-direction mollification of a
+holomorphic tube function at an interior point, using normalized bump functions.
+
+This is the final analytic step needed after showing every compactly supported
+real mollification vanishes: if the bump support shrinks to `0`, the mollified
+values converge back to the original interior value. -/
+theorem tendsto_realMollify_normedBump_tubeDomain
+    {C : Set (Fin m → ℝ)} {G : (Fin m → ℂ) → ℂ}
+    (hC : IsOpen C) (hG_cont : ContinuousOn G (TubeDomain C))
+    {z : Fin m → ℂ} (hz : z ∈ TubeDomain C)
+    {ι : Type*} {φ : ι → ContDiffBump (0 : Fin m → ℝ)} {l : Filter ι}
+    (hφ : Tendsto (fun i => (φ i).rOut) l (𝓝 0)) :
+    Tendsto
+      (fun i => ∫ t : Fin m → ℝ,
+        G (z + realEmbed t) * (((φ i).normed volume t : ℝ) : ℂ))
+      l
+      (nhds (G z)) := by
+  let g : (Fin m → ℝ) → ℂ := fun t => G (z - realEmbed t)
+  have hg_cont : Continuous g := by
+    refine continuous_iff_continuousAt.2 ?_
+    intro t
+    have hzt : z - realEmbed t ∈ TubeDomain C := by
+      simpa [TubeDomain, realEmbed, Complex.sub_im, Complex.ofReal_im, Set.mem_setOf_eq]
+        using hz
+    have hsub_cont : Continuous fun u : Fin m → ℝ => z - realEmbed u := by
+      refine continuous_pi ?_
+      intro i
+      exact continuous_const.sub (Complex.continuous_ofReal.comp (continuous_apply i))
+    exact ContinuousAt.comp
+      ((hG_cont (z - realEmbed t) hzt).continuousAt
+        ((tubeDomain_isOpen hC).mem_nhds hzt))
+      hsub_cont.continuousAt
+  have hconv :=
+    ContDiffBump.convolution_tendsto_right_of_continuous (μ := volume)
+      (φ := φ) (l := l) hφ hg_cont 0
+  have hreal0 : realEmbed (0 : Fin m → ℝ) = 0 := by
+    ext i
+    simp [realEmbed]
+  have hg0 : g 0 = G z := by
+    simp [g, hreal0]
+  have hconv' :
+      Tendsto
+        (fun i => ((φ i).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] g) 0)
+        l
+        (𝓝 (G z)) := by
+    simpa [hg0] using hconv
+  have hEq :
+      (fun i => ((φ i).normed volume ⋆[ContinuousLinearMap.lsmul ℝ ℝ, volume] g) 0) =
+      (fun i => ∫ t : Fin m → ℝ,
+        G (z + realEmbed t) * (((φ i).normed volume t : ℝ) : ℂ)) := by
+    funext i
+    have hreal_neg : ∀ t : Fin m → ℝ, -realEmbed (-t) = realEmbed t := by
+      intro t
+      ext j
+      simp [realEmbed]
+    simp [MeasureTheory.convolution, g, ContinuousLinearMap.lsmul_apply, sub_eq_add_neg,
+      add_comm, mul_comm, hreal_neg]
+  simpa [hEq] using hconv'
+
 /-- Local distribution-theory lemma: if a continuous function pairs to zero against every
     compactly supported Schwartz test function supported in an open set `U`, then it vanishes
     pointwise on `U`. -/
@@ -1549,6 +1719,326 @@ theorem uniqueness_of_boundary_zero_on_interval (a b : ℝ) (hab : a < b)
   calc
     g z = F z := (hF_plus z ⟨hzU, hzUHP⟩).symm
     _ = 0 := hF_zero_on_U z hzU
+
+/-- Tube-domain uniqueness from weak boundary-value zero along every cone ray.
+
+For each compactly supported real mollifier `ψ`, the real-direction convolution
+of `G` is holomorphic on the tube. Restricting that mollified function to the
+one-dimensional slice `ζ ↦ re z + ζ • im z`, the weak boundary-value-zero
+hypothesis shows that the boundary trace vanishes on the whole real axis. The
+one-dimensional interval uniqueness theorem then forces the mollified function
+to vanish at `ζ = I`, and an approximate-identity argument recovers `G z = 0`.
+
+This is the honest weak theorem underlying `distributional_uniqueness_forwardTube`:
+no boundary continuity or regularity package is assumed a priori, but the
+boundary pairings are required to be actual integrable slices rather than
+vacuous Bochner integrals. -/
+theorem distributional_uniqueness_tube_of_zero_bv
+    {C : Set (Fin m → ℝ)} (hC : IsOpen C) (_hconv : Convex ℝ C) (_hne : C.Nonempty)
+    (hcone : ∀ (t : ℝ), 0 < t → ∀ y ∈ C, t • y ∈ C)
+    {G : (Fin m → ℂ) → ℂ}
+    (hG_diff : DifferentiableOn ℂ G (TubeDomain C))
+    (hG_int : ∀ y ∈ C, ∀ ψ : SchwartzMap (Fin m → ℝ) ℂ,
+      Integrable (fun x : Fin m → ℝ =>
+        G (fun i => (x i : ℂ) + (y i : ℂ) * Complex.I) * ψ x))
+    (h_bv_zero : ∀ (f : SchwartzMap (Fin m → ℝ) ℂ) (η : Fin m → ℝ), η ∈ C →
+      Tendsto
+        (fun ε : ℝ => ∫ x : Fin m → ℝ,
+          G (fun i => (x i : ℂ) + ε * (η i : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds 0)) :
+    ∀ z ∈ TubeDomain C, G z = 0 := by
+  intro z hz
+  let x₀ : Fin m → ℝ := fun i => (z i).re
+  let y₀ : Fin m → ℝ := fun i => (z i).im
+  have hy₀ : y₀ ∈ C := hz
+  let φ : ℕ → ContDiffBump (0 : Fin m → ℝ) := fun n =>
+    { rIn := (2 * (n + 1 : ℝ))⁻¹
+      rOut := ((n + 1 : ℝ))⁻¹
+      rIn_pos := by positivity
+      rIn_lt_rOut := by
+        have hn : (0 : ℝ) < (n + 1 : ℝ) := by positivity
+        field_simp [hn.ne']
+        ring_nf
+        linarith }
+  have hφ_tendsto : Tendsto (fun n => (φ n).rOut) atTop (𝓝 0) := by
+    have hplus : Tendsto (fun n : ℕ => ((n + 1 : ℕ) : ℝ)) atTop atTop := by
+      exact tendsto_natCast_atTop_atTop.comp (tendsto_add_atTop_nat 1)
+    simpa [φ] using
+      tendsto_inv_atTop_zero.comp hplus
+  let ψ : ℕ → SchwartzMap (Fin m → ℝ) ℂ := fun n =>
+    let ψR : (Fin m → ℝ) → ℂ := fun x => (((φ n).normed volume x : ℝ) : ℂ)
+    let hψR_smooth : ContDiff ℝ ((⊤ : ENat) : WithTop ENat) ψR := by
+      simpa [ψR] using
+        (Complex.ofRealCLM.contDiff.comp ((φ n).contDiff_normed (μ := volume)))
+    let hψR_compact : HasCompactSupport ψR := by
+      exact ((φ n).hasCompactSupport_normed (μ := volume)).comp_left Complex.ofReal_zero
+    hψR_compact.toSchwartzMap hψR_smooth
+  have hψ_apply : ∀ n x, ψ n x = (((φ n).normed volume x : ℝ) : ℂ) := by
+    intro n x
+    simp [ψ]
+  have hψ_compact :
+      ∀ n, HasCompactSupport ((ψ n : (Fin m → ℝ) → ℂ)) := by
+    intro n
+    simpa [ψ] using (((φ n).hasCompactSupport_normed (μ := volume)).comp_left Complex.ofReal_zero)
+  have hmoll_zero :
+      ∀ n, ∫ t : Fin m → ℝ, G (z + realEmbed t) * ψ n t = 0 := by
+    intro n
+    let M : (Fin m → ℂ) → ℂ := fun w => ∫ t : Fin m → ℝ, G (w + realEmbed t) * ψ n t
+    have hM_diff : DifferentiableOn ℂ M (TubeDomain C) :=
+      differentiableOn_realMollify_tubeDomain hC hG_diff (ψ n) (hψ_compact n)
+    let line : ℂ → (Fin m → ℂ) := fun w i => (x₀ i : ℂ) + w * (y₀ i : ℂ)
+    let g : ℂ → ℂ := M ∘ line
+    let gPlus : ℂ → ℂ := fun w => if w.im = 0 then 0 else g w
+    have hExistsCLM :
+        ∀ ε : ℝ, 0 < ε →
+          ∃ T : SchwartzMap (Fin m → ℝ) ℂ →L[ℝ] ℂ,
+            ∀ ψ' : SchwartzMap (Fin m → ℝ) ℂ,
+              T ψ' =
+                ∫ x : Fin m → ℝ,
+                  G (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) * ψ' x := by
+      intro ε hε
+      let gε : (Fin m → ℝ) → ℂ := fun x =>
+        G (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I)
+      have hgε_cont : Continuous gε := by
+        refine continuous_iff_continuousAt.2 ?_
+        intro x
+        have hεy : ε • y₀ ∈ C := hcone ε hε y₀ hy₀
+        have hxTube :
+            (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) ∈ TubeDomain C := by
+          change
+            (fun i => ((x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I).im) ∈ C
+          simpa [Complex.add_im, Complex.mul_im, Complex.ofReal_im, Complex.ofReal_re,
+            mul_assoc, mul_comm, mul_left_comm] using hεy
+        have hcontG : ContinuousAt G (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) :=
+          (hG_diff.continuousOn
+            (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) hxTube).continuousAt
+              ((tubeDomain_isOpen hC).mem_nhds hxTube)
+        have harg_cont :
+            Continuous (fun u : Fin m → ℝ =>
+              fun i => (u i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) := by
+          refine continuous_pi ?_
+          intro i
+          exact (Complex.continuous_ofReal.comp (continuous_apply i)).add continuous_const
+        exact hcontG.comp harg_cont.continuousAt
+      have hgε_int :
+          ∀ ψ' : SchwartzMap (Fin m → ℝ) ℂ,
+            Integrable (fun x : Fin m → ℝ =>
+              G (fun i => (x i : ℂ) + ε * (y₀ i : ℂ) * Complex.I) * ψ' x) := by
+        intro ψ'
+        have hεy : ε • y₀ ∈ C := hcone ε hε y₀ hy₀
+        simpa using hG_int (ε • y₀) hεy ψ'
+      exact exists_integral_clm_of_continuous hgε_cont hgε_int
+    have hline_UHP : ∀ w : ℂ, w.im > 0 → line w ∈ TubeDomain C := by
+      intro w hw
+      change (fun i => (line w i).im) ∈ C
+      have him : (fun i => (line w i).im) = w.im • y₀ := by
+        ext i
+        simp [line, x₀, y₀, Complex.add_im, Complex.mul_im,
+          Complex.ofReal_re, Complex.ofReal_im]
+      rw [him]
+      exact hcone w.im hw y₀ hy₀
+    have hline_cont : Continuous line :=
+      continuous_pi fun i =>
+        (continuous_const.add (continuous_id.mul continuous_const))
+    have hg_diff : DifferentiableOn ℂ g EOW.UpperHalfPlane := by
+      show DifferentiableOn ℂ (M ∘ line) EOW.UpperHalfPlane
+      exact hM_diff.comp
+        (fun w _ => by
+          apply DifferentiableAt.differentiableWithinAt
+          exact differentiableAt_pi.mpr fun i =>
+            (differentiableAt_const _).add
+              (differentiableAt_id.mul (differentiableAt_const _)))
+        (fun w hw => hline_UHP w hw)
+    have hgPlus_diff : DifferentiableOn ℂ gPlus EOW.UpperHalfPlane := by
+      intro w hw
+      refine (hg_diff w hw).congr ?_ ?_
+      · intro z hz
+        have hz' : z.im > 0 := by simpa [EOW.UpperHalfPlane] using hz
+        simp [gPlus, ne_of_gt hz']
+      · have hw' : w.im > 0 := by simpa [EOW.UpperHalfPlane] using hw
+        simp [gPlus, ne_of_gt hw']
+    have hline_real : ∀ a : ℝ, line (a : ℂ) = realEmbed (x₀ + a • y₀) := by
+      intro a
+      ext i
+      simp [line, x₀, y₀, realEmbed]
+    have htrace_plus :
+        ∀ a : ℝ, -3 < a → a < 3 →
+          Tendsto gPlus (nhdsWithin (a : ℂ) EOW.UpperHalfPlane) (nhds (gPlus a)) := by
+      intro a _ _
+      have hga : gPlus (a : ℂ) = 0 := by simp [gPlus]
+      rw [hga]
+      let l := nhdsWithin (a : ℂ) EOW.UpperHalfPlane
+      let Tslice : ℂ → SchwartzMap (Fin m → ℝ) ℂ →L[ℝ] ℂ := fun w =>
+        if hw : 0 < w.im then
+          (hExistsCLM w.im hw).choose
+        else 0
+      have him :
+          Tendsto (fun w : ℂ => w.im) l (nhdsWithin 0 (Set.Ioi 0)) := by
+        let imMap : ℂ → ℝ := fun w => w.im
+        have him_cont : Continuous imMap := Complex.continuous_im
+        have him_maps : MapsTo imMap EOW.UpperHalfPlane (Set.Ioi 0) := by
+          intro w hw
+          simpa [imMap, EOW.UpperHalfPlane] using hw
+        simpa [l, imMap] using
+          him_cont.continuousAt.continuousWithinAt.tendsto_nhdsWithin him_maps
+      have hre :
+          Tendsto (fun w : ℂ => - (x₀ + (w.re) • y₀)) l (nhds (- (x₀ + a • y₀))) := by
+        have hcont :
+            Continuous (fun w : ℂ => - (x₀ + (w.re) • y₀)) := by
+          refine continuous_pi ?_
+          intro i
+          exact (continuous_const.add (Complex.continuous_re.mul continuous_const)).neg
+        simpa [l] using
+          hcont.continuousAt.tendsto.comp
+            (tendsto_id'.2 (show l ≤ nhds (a : ℂ) by exact nhdsWithin_le_nhds))
+      have hT_comp :
+          ∀ f : SchwartzMap (Fin m → ℝ) ℂ,
+            Tendsto (fun w : ℂ => Tslice w f) l (nhds 0) := by
+        intro f
+        have hray := h_bv_zero f y₀ hy₀
+        refine Tendsto.congr' ?_ (hray.comp him)
+        filter_upwards [self_mem_nhdsWithin] with w hw
+        have hw' : 0 < w.im := by simpa [EOW.UpperHalfPlane] using hw
+        simpa [Tslice, hw'] using ((hExistsCLM w.im hw').choose_spec f).symm
+      have hzero :=
+        SchwartzMap.tempered_apply_tendsto_zero_of_tendsto_filter hT_comp
+          ((tendsto_translateSchwartz_nhds_of_isCompactSupport
+              (ψ n) (hψ_compact n) (- (x₀ + a • y₀))).comp hre)
+      refine Tendsto.congr' ?_ hzero
+      filter_upwards [self_mem_nhdsWithin] with w hw
+      have hw' : 0 < w.im := by simpa [EOW.UpperHalfPlane] using hw
+      have hgplusw : gPlus w = g w := by
+        simpa [gPlus] using (if_neg (ne_of_gt hw') : ite (w.im = 0) 0 (g w) = g w)
+      have hswap :
+          ∫ t : Fin m → ℝ, G (line w + realEmbed t) * ψ n t =
+            ∫ t : Fin m → ℝ, G (realEmbed t + line w) * ψ n t := by
+        refine MeasureTheory.integral_congr_ae ?_
+        filter_upwards with t
+        have hpt : line w + realEmbed t = realEmbed t + line w := by
+          ext i
+          simp [line, realEmbed, add_comm]
+        rw [hpt]
+      have hshift :
+          g w =
+            ∫ t : Fin m → ℝ,
+              G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                (ψ n) (t + (-(x₀ + (w.re) • y₀))) := by
+        have hpre :
+            ∫ t : Fin m → ℝ, G (realEmbed t + line w) * ψ n t =
+              ∫ x : Fin m → ℝ,
+                (G fun i => ↑((x + (x₀ + w.re • y₀)) i) + ↑w.im * ↑(y₀ i) * I) *
+                  (ψ n) (x + (x₀ + w.re • y₀) + -(x₀ + w.re • y₀)) := by
+          refine MeasureTheory.integral_congr_ae ?_
+          filter_upwards with x
+          have hwdecomp : w = (w.re : ℂ) + (w.im : ℂ) * Complex.I := by
+            simp [Complex.re_add_im]
+          have harg :
+              realEmbed x + line w =
+                fun i => ↑((x + (x₀ + w.re • y₀)) i) + ↑w.im * ↑(y₀ i) * I := by
+            ext i
+            rw [hwdecomp]
+            simp [line, realEmbed, add_assoc, add_left_comm, add_comm, mul_add, mul_left_comm,
+              mul_comm]
+          have hcancelx :
+              x + (x₀ + w.re • y₀) + -(x₀ + w.re • y₀) = x := by
+            ext i
+            simp [add_assoc]
+          rw [harg, hcancelx]
+        have hshift_raw0 :=
+          (MeasureTheory.integral_add_right_eq_self
+            (μ := (volume : Measure (Fin m → ℝ)))
+            (fun t : Fin m → ℝ =>
+              G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                (ψ n) (t + (-(x₀ + (w.re) • y₀))))
+            (x₀ + (w.re) • y₀))
+        have hshift_raw :
+            ∫ t : Fin m → ℝ, G (realEmbed t + line w) * ψ n t =
+              ∫ t : Fin m → ℝ,
+                G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                  (ψ n) (t + (-(x₀ + (w.re) • y₀))) := by
+          exact hpre.trans hshift_raw0
+        calc
+          g w = ∫ t : Fin m → ℝ, G (line w + realEmbed t) * ψ n t := by simp [g, M]
+          _ = ∫ t : Fin m → ℝ, G (realEmbed t + line w) * ψ n t := hswap
+          _ = ∫ t : Fin m → ℝ,
+                G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                  (ψ n) (t + (-(x₀ + (w.re) • y₀))) := hshift_raw
+      have htarget :
+          ∫ t : Fin m → ℝ,
+            G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+              translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n) t =
+            ∫ t : Fin m → ℝ,
+              G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                (ψ n) (t + (-(x₀ + (w.re) • y₀))) := by
+        simp [translateSchwartz_apply]
+      have hspec :
+          ∫ t : Fin m → ℝ,
+            G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+              translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n) t =
+            Tslice w (translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n)) := by
+        simpa [Tslice, hw'] using
+          ((hExistsCLM w.im hw').choose_spec
+            (translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n))).symm
+      have harg_eq :
+          (((fun t => translateSchwartz t (ψ n)) ∘ fun w => -(x₀ + w.re • y₀)) w) =
+            translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n) := rfl
+      calc
+        (Tslice w) (((fun t => translateSchwartz t (ψ n)) ∘ fun w => -(x₀ + w.re • y₀)) w)
+            = (Tslice w) (translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n)) := by
+                rfl
+        _ = ∫ t : Fin m → ℝ,
+              G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                translateSchwartz (- (x₀ + (w.re) • y₀)) (ψ n) t := by
+                  symm
+                  exact hspec
+        _ = ∫ t : Fin m → ℝ,
+              G (fun i => (t i : ℂ) + (w.im : ℂ) * (y₀ i : ℂ) * Complex.I) *
+                (ψ n) (t + (-(x₀ + (w.re) • y₀))) := by
+                  exact htarget
+        _ = g w := by symm; exact hshift
+        _ = gPlus w := by symm; exact hgplusw
+    have htrace_boundary :
+        ∀ a : ℝ, -3 < a → a < 3 →
+          Tendsto gPlus (nhdsWithin (a : ℂ) {c : ℂ | c.im = 0}) (nhds (gPlus a)) := by
+      intro a _ _
+      have hga : gPlus (a : ℂ) = 0 := by simp [gPlus]
+      rw [hga]
+      apply Filter.Tendsto.congr' _ tendsto_const_nhds
+      filter_upwards [self_mem_nhdsWithin] with w hw
+      simp [gPlus, hw]
+    have hboundary_zero : ∀ a : ℝ, -3 < a → a < 3 → gPlus (a : ℂ) = 0 := by
+      intro a _ _
+      simp [gPlus]
+    have hIinball : Complex.I ∈ Metric.ball (((( -3 : ℝ) + 3) / 2 : ℝ) : ℂ) ((3 - (-3)) / 2) := by
+      norm_num [Metric.mem_ball]
+    have hIim : 0 < Complex.I.im := by
+      simp
+    have hzero := uniqueness_of_boundary_zero_on_interval (-3) 3 (by norm_num)
+      hgPlus_diff hboundary_zero htrace_plus htrace_boundary
+      Complex.I hIinball hIim
+    have hline_I : line Complex.I = z := by
+      ext i
+      calc
+        line Complex.I i
+            = (x₀ i : ℂ) + Complex.I * (y₀ i : ℂ) := by simp [line]
+        _ = ((z i).re : ℂ) + Complex.I * ((z i).im : ℂ) := by simp [x₀, y₀]
+        _ = z i := by simpa [mul_comm] using (Complex.re_add_im (z i))
+    have hgI : gPlus Complex.I = g Complex.I := by
+      norm_num [gPlus]
+    rw [hgI] at hzero
+    simpa [g, M, hline_I] using hzero
+  have hconv :
+      Tendsto (fun n => ∫ t : Fin m → ℝ, G (z + realEmbed t) * ψ n t) atTop (𝓝 (G z)) := by
+    simpa [hψ_apply] using
+      (tendsto_realMollify_normedBump_tubeDomain hC hG_diff.continuousOn hz
+        (φ := φ) (l := atTop) hφ_tendsto)
+  have hzero_seq :
+      Tendsto (fun n => ∫ t : Fin m → ℝ, G (z + realEmbed t) * ψ n t) atTop (𝓝 0) := by
+    apply Tendsto.congr' _ tendsto_const_nhds
+    filter_upwards [Filter.Eventually.of_forall hmoll_zero] with n hn
+    simpa using hn.symm
+  exact tendsto_nhds_unique hconv hzero_seq
 
 /-- Tube-domain uniqueness from an explicit family of continuous boundary-value
     functionals vanishing at the edge.

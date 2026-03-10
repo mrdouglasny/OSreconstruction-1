@@ -73,6 +73,33 @@ theorem W_analytic_lorentz_on_tube (Wfn : WightmanFunctions d) (n : ℕ) :
   have huniq := distributional_uniqueness_forwardTube
     (W_analytic_lorentz_holomorphic Wfn n Λ)
     (Wfn.spectrum_condition n).choose_spec.1
+    (fun f η ε hε hη => by
+      have hInt₁ : MeasureTheory.Integrable
+          (fun x : NPointDomain d n =>
+            (Wfn.spectrum_condition n).choose
+              (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) *
+                (↑(x k ν) + ε * ↑(η k ν) * Complex.I)) * f x) := by
+        exact forward_tube_bv_integrable
+          (fun z => (Wfn.spectrum_condition n).choose
+            (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν))
+          (W_analytic_lorentz_holomorphic Wfn n Λ)
+          ⟨Wfn.W n, Wfn.tempered n, fun f' η' hη' =>
+            lorentz_covariant_distributional_bv (d := d) (n := n)
+              Wfn (Wfn.spectrum_condition n).choose
+              (Wfn.spectrum_condition n).choose_spec.1
+              (Wfn.spectrum_condition n).choose_spec.2
+              Λ f' η' hη'⟩
+          f η hη ε hε
+      have hInt₂ : MeasureTheory.Integrable
+          (fun x : NPointDomain d n =>
+            (Wfn.spectrum_condition n).choose
+              (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * f x) := by
+        exact forward_tube_bv_integrable
+          (Wfn.spectrum_condition n).choose
+          (Wfn.spectrum_condition n).choose_spec.1
+          ⟨Wfn.W n, Wfn.tempered n, (Wfn.spectrum_condition n).choose_spec.2⟩
+          f η hη ε hε
+      simpa [sub_mul] using hInt₁.sub hInt₂)
     (W_analytic_lorentz_bv_agree Wfn n Λ)
   exact huniq z hz
 

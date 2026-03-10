@@ -270,7 +270,44 @@ theorem W_analytic_translation_on_forwardTube {d n : ℕ} [NeZero d]
       congr 1
       ext x
       ring
-    have huniq := distributional_uniqueness_forwardTube hF₁_holo hW_holo h_agree
+    have huniq := distributional_uniqueness_forwardTube
+      hF₁_holo hW_holo
+      (fun f η ε hε hη => by
+        have hInt_F₁f : MeasureTheory.Integrable (fun x : NPointDomain d n =>
+            F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x)) := by
+          let g : SchwartzNPoint d n := fun x => f (x - aN)
+          have hg_add : ∀ x, g (x + aN) = f x := by
+            intro x
+            simp [g, aN, sub_eq_add_neg, add_assoc, add_left_comm, add_comm]
+          let hεg : NPointDomain d n → ℂ := fun x =>
+            W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (g x)
+          have hInt_hεg : MeasureTheory.Integrable hεg := by
+            exact forward_tube_bv_integrable
+              W_analytic hW_holo ⟨Wfn.W n, Wfn.tempered n, hW_bv⟩ g η hη ε hε
+          have hEq :
+              (fun x : NPointDomain d n =>
+                F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x)) =
+              (fun x : NPointDomain d n => hεg (x + aN)) := by
+            funext x
+            have harg :
+                F₁ (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) =
+                W_analytic (fun k μ => ↑((x + aN) k μ) + ε * ↑(η k μ) * Complex.I) := by
+              have hsum :
+                  (fun x μ => (a μ : ℂ)) + (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) =
+                  (fun k μ => (a μ : ℂ) + (↑(x k μ) + ε * ↑(η k μ) * Complex.I)) := by
+                ext k μ
+                rfl
+              simp [F₁, shiftW, aN, hsum, add_assoc, add_comm]
+            rw [harg]
+            simp [hεg, hg_add]
+          rw [hEq]
+          exact hInt_hεg.comp_add_right aN
+        have hInt_Wf : MeasureTheory.Integrable (fun x : NPointDomain d n =>
+            W_analytic (fun k μ => ↑(x k μ) + ε * ↑(η k μ) * Complex.I) * (f x)) := by
+          exact forward_tube_bv_integrable
+            W_analytic hW_holo ⟨Wfn.W n, Wfn.tempered n, hW_bv⟩ f η hη ε hε
+        simpa [sub_mul] using hInt_F₁f.sub hInt_Wf)
+      h_agree
     exact huniq w hw
 
   let D : Set (Fin (d + 1) → ℂ) :=
