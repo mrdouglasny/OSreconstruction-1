@@ -1,6 +1,6 @@
 # Wightman TODO: OS Reconstruction Priority Queue
 
-Last updated: 2026-03-08
+Last updated: 2026-03-10
 
 This file tracks the active blocker picture on the OS reconstruction path.
 Policy lock: no wrappers, no useless lemmas, no code bloat; close `sorry`s with substantial mathematical proofs.
@@ -11,13 +11,13 @@ Count convention: direct tactic holes only (`^[[:space:]]*sorry([[:space:]]|$)`)
 
 | Scope | Direct `sorry` lines |
 |-------|----------------------:|
-| `OSReconstruction/Wightman` | 33 |
+| `OSReconstruction/Wightman` | 34 |
 | `OSReconstruction/SCV` | 2 |
 | `OSReconstruction/ComplexLieGroups` | 2 |
-| `OSReconstruction/vNA` | 39 |
-| **Whole project** | **76** |
+| `OSReconstruction/vNA` | 40 |
+| **Whole project** | **78** |
 
-Count cross-checked on 2026-03-08 with:
+Count cross-checked on 2026-03-10 with:
 ```bash
 rg -c '^[[:space:]]*sorry([[:space:]]|$)' OSReconstruction --glob '*.lean'
 ```
@@ -91,42 +91,26 @@ Status:
 Status:
 - the old generic gluing theorem was too strong and has been replaced by the honest compatible-family theorem
 
-### 3. `Reconstruction/ForwardTubeDistributions.lean` (1)
+### 3. `Reconstruction/ForwardTubeDistributions.lean` (0) — COMPLETE
 
-Current direct blockers:
-- `distributional_uniqueness_forwardTube` — BLOCKED: needs distributional EOW infrastructure
+**`distributional_uniqueness_forwardTube` — PROVED** (commit 5813d37).
+Proof: flattening via `flattenCLEquiv` + `distributional_uniqueness_tube_of_zero_bv`.
 
-**DELETED** (overstrong as stated — conclusions referenced F at boundary points unconstrained
-by hypotheses):
-- `continuous_boundary_forwardTube`
-- `boundary_value_recovery_forwardTube`
-- `boundary_function_continuous_forwardTube`
+All weak-BV sorrys eliminated. Only proved regular variants remain.
 
-These are replaced by proved `_of_flatRegular` variants that take `HasFourierLaplaceReprRegular`.
-
-**ROOT BLOCKER**: Distributional EOW variant (codex building).
-Banach-Steinhaus chain is COMPLETE (see `SCV/SchwartzComplete.lean`).
-**Owner: Codex agent** for distributional EOW development.
-
-New infrastructure (sorry-free, in `SCV/DistributionalUniqueness.lean`):
-- `SCV.uniqueness_of_boundary_zero`: factored 1D EOW slicing argument; takes
-  boundary=0 + ContinuousWithinAt directly (no `HasFourierLaplaceReprRegular`)
-- `SCV.translateSchwartz`: translate Schwartz function by fixed vector
-
-Status:
-- proved regular flattened-input transport theorems exist for:
-  - boundary continuity of the real trace
-  - boundary-value recovery
-  - distributional uniqueness for a difference with zero flat boundary functional
-  - polynomial growth on compact forward-cone slices
-- see `Proofideas/distributional_uniqueness_strategy.lean` for detailed gap analysis
+Infrastructure (sorry-free):
+- `SCV/DistributionalUniqueness.lean`: `distributional_uniqueness_tube_of_zero_bv`,
+  `exists_integral_clm_of_continuous` (truncation → CLM via Banach-Steinhaus),
+  `eqOn_open_of_compactSupport_schwartz_integral_eq_of_continuousOn`
+- `SCV/SchwartzComplete.lean`: `CompleteSpace`, `BarrelledSpace`, Banach-Steinhaus chain
 
 ### 4. Wick rotation downstream
 
-`WickRotation/SchwingerAxioms.lean` (5):
+`WickRotation/SchwingerAxioms.lean` (6):
 - `polynomial_growth_forwardTube_full`
 - `polynomial_growth_on_PET`
 - `schwinger_os_term_eq_wightman_term`
+- `bhw_euclidean_reality_ae`
 - `bhw_pointwise_cluster_euclidean`
 - `W_analytic_cluster_integral`
 
@@ -137,8 +121,14 @@ Status:
 `WickRotation/BHWTranslation.lean` (1):
 - `isConnected_permutedExtendedTube_inter_translate`
 
-`WickRotation/BHWExtension.lean`:
-- sorry-free
+`WickRotation/BHWExtension.lean` (2):
+- `W_analytic_continuous_boundary` — global boundary continuity (Vladimirov growth theorem; bypassed by distributional chain)
+- `analytic_boundary_local_commutativity` — overstrong pointwise swap without ET/boundary-continuity hypotheses (superseded by `analytic_boundary_local_commutativity_of_boundary_continuous` which is proved)
+
+New proved theorems (2026-03-10):
+- `W_analytic_swap_boundary_pairing_eq` — PROVED via distributional chain
+- `analytic_extended_local_commutativity` — pointwise swap for `extendF` at real ET points
+- `analytic_boundary_local_commutativity_of_boundary_continuous` — raw W_analytic with honest ContinuousWithinAt hypotheses
 
 ## Secondary Blockers
 

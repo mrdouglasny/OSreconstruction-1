@@ -667,10 +667,10 @@ theorem BHW_permutedExtendedTube_eq :
     3. Unique (any other holomorphic extension agreeing with F on the forward tube
        must equal F_ext on the permuted extended tube)
 
-    **Note on `hF_bv`:** Real points lie outside the forward tube (Im = 0 ∉ V₊),
-    so F is not a priori meaningful at real points. The `hF_bv` hypothesis ensures
-    that F(x_ℂ) equals the distributional boundary value lim_{ε→0⁺} F(x + iεη),
-    making `hF_local` well-defined.
+    **Note on the boundary data:** Real points lie outside the forward tube
+    (Im = 0 ∉ V₊), so the theorem is phrased using the honest distributional
+    boundary functional `W` and weak local commutativity on Schwartz tests,
+    rather than pointwise values of a total function on the real edge.
 
     **Proof:** Delegates to `BHW.bargmann_hall_wightman_theorem` from
     `Connectedness.lean` via the `AxiomBridge` type conversions.
@@ -685,14 +685,15 @@ theorem bargmann_hall_wightman (n : ℕ)
     (hF_lorentz : ∀ (Λ : LorentzGroup.Restricted (d := d))
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        MinkowskiSpace.minkowskiNormSq d
-          (fun μ => x ⟨i.val + 1, hi⟩ μ - x i μ) > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ))) :
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W) :
     ∃ (F_ext : (Fin n → Fin (d + 1) → ℂ) → ℂ),
       DifferentiableOn ℂ F_ext (PermutedExtendedTube d n) ∧
       (∀ z ∈ ForwardTube d n, F_ext z = F z) ∧
@@ -717,20 +718,9 @@ theorem bargmann_hall_wightman (n : ℕ)
     intro Λ z hz
     have hz' : z ∈ ForwardTube d n := hft_eq ▸ hz
     exact hF_lorentz (restrictedLorentzGroupToWightman Λ) z hz'
-  have hF_bv' : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (BHW.ForwardTube d n) (fun k μ => (x k μ : ℂ)) :=
-    fun x => hft_eq ▸ hF_bv x
-  have hF_local' : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, LorentzLieGroup.minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)) := by
-    intro i hi x hsp
-    exact hF_local i hi x ((spacelike_condition_iff _).mp hsp)
   -- Apply BHW theorem from Connectedness.lean
   obtain ⟨F_ext, h1, h2, h3, h4, h5⟩ :=
-    BHW.bargmann_hall_wightman_theorem n F hF_holo' hF_lorentz' hF_bv' hF_local'
+    BHW.bargmann_hall_wightman_theorem n F hF_holo' hF_lorentz' W hF_bv_dist hF_local_dist
   -- Convert the result back from BHW types to Wightman types
   refine ⟨F_ext, ?_, ?_, ?_, ?_, ?_⟩
   · -- DifferentiableOn on PermutedExtendedTube

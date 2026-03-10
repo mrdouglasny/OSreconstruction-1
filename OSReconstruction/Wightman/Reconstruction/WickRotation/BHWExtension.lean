@@ -439,11 +439,9 @@ theorem W_analytic_local_commutativity (Wfn : WightmanFunctions d) (n : ℕ) :
 
 /-- The BHW extension of W_analytic from the forward tube to the permuted extended tube.
 
-    Proved by applying the `bargmann_hall_wightman` axiom (AnalyticContinuation.lean) to
-    the holomorphic extension `W_analytic` from `spectrum_condition`, with:
-    - Lorentz invariance from `W_analytic_lorentz_on_tube`
-    - Continuous boundary values from `W_analytic_continuous_boundary`
-    - Local commutativity from `W_analytic_local_commutativity`
+    Proved by applying the repaired `bargmann_hall_wightman` theorem
+    (AnalyticContinuation.lean) directly to the spectrum-condition witness,
+    using its honest distributional boundary values and weak local commutativity.
 
     Ref: Streater-Wightman, Theorem 2-11; Jost, Ch. IV -/
 noncomputable def W_analytic_BHW (Wfn : WightmanFunctions d) (n : ℕ) :
@@ -461,8 +459,9 @@ noncomputable def W_analytic_BHW (Wfn : WightmanFunctions d) (n : ℕ) :
       (Wfn.spectrum_condition n).choose
       (Wfn.spectrum_condition n).choose_spec.1
       (W_analytic_lorentz_on_tube Wfn n)
-      (W_analytic_continuous_boundary Wfn n)
-      (W_analytic_local_commutativity Wfn n)
+      Wfn.W
+      (Wfn.spectrum_condition n).choose_spec.2
+      Wfn.locally_commutative
   exact ⟨h.choose, h.choose_spec.1, h.choose_spec.2.1, h.choose_spec.2.2.1,
     h.choose_spec.2.2.2.1⟩
 
@@ -482,8 +481,9 @@ theorem W_analytic_BHW_unique (Wfn : WightmanFunctions d) (n : ℕ)
       (Wfn.spectrum_condition n).choose
       (Wfn.spectrum_condition n).choose_spec.1
       (W_analytic_lorentz_on_tube Wfn n)
-      (W_analytic_continuous_boundary Wfn n)
-      (W_analytic_local_commutativity Wfn n)
+      Wfn.W
+      (Wfn.spectrum_condition n).choose_spec.2
+      Wfn.locally_commutative
   have hchosen : (W_analytic_BHW Wfn n).val = h.choose := by
     rfl
   intro z hz

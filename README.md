@@ -46,15 +46,21 @@ Priority note:
 - `StoneTheorem` and the broader `vNA` operator-theoretic lane are not on that critical path. They are needed later for the GNS/operator reconstruction theorem `wightman_reconstruction`, specifically the `spectrum_condition` and `vacuum_unique` branches of `gnsQFT`.
 - So, for the key OS reconstruction theorems in `Main.lean`, the immediate priorities are `wightman_to_os` and `os_to_wightman`, not Stone/self-adjoint-generator machinery.
 
-Snapshot (2026-03-08, counted with `rg -c '^\s*sorry\b' OSReconstruction --glob '*.lean'`):
+Recent progress (2026-03-10):
+- **Distributional EOW is complete.** The full chain from distributional boundary values through distributional uniqueness, distributional BHW swap equality, pointwise extraction, and connected-overlap propagation is proved with 0 sorrys. Key new files: `SCV/DistributionalUniqueness.lean` (0 sorrys), `SCV/SchwartzComplete.lean` (0 sorrys), `ComplexLieGroups/Connectedness/BHWPermutation/AdjacencyDistributional.lean` (0 sorrys).
+- **BHW permutation flow rewired to distributional hypotheses.** The entire BHW permutation chain (`PermutationFlow.lean`) now runs on distributional boundary-value data instead of pointwise boundary continuity — the honest interface.
+- **BHWExtension sorry #2 closed.** `W_analytic_swap_boundary_pairing_eq` now proved via the distributional chain. Two new proved theorems: `analytic_extended_local_commutativity` (extendF-level), `analytic_boundary_local_commutativity_of_boundary_continuous` (raw W_analytic with honest ContinuousWithinAt hypotheses).
+- **ForwardTubeDistributions.lean** is now sorry-free (was 4 sorrys).
+
+Snapshot (2026-03-10, counted with `rg -c '^\s*sorry\b' OSReconstruction --glob '*.lean'`):
 
 | Module | Direct `sorry` lines |
 |--------|-----------------------|
-| `Wightman/` | 33 |
+| `Wightman/` | 34 |
 | `SCV/` | 2 |
 | `ComplexLieGroups/` | 2 |
-| `vNA/` | 39 |
-| **Total** | **76** |
+| `vNA/` | 40 |
+| **Total** | **78** |
 
 ### OS-Critical Sorry Flow Toward Reconstruction
 
@@ -68,9 +74,10 @@ flowchart TD
 
   RE --> SA["WickRotation/SchwingerAxioms (6 sorrys)"]
   SA --> BT["WickRotation/BHWTranslation (1)"]
-  BT --> BE["WickRotation/BHWExtension (0)"]
+  BT --> BE["WickRotation/BHWExtension (2)"]
   BE --> FL["WickRotation/ForwardTubeLorentz (2)"]
-  FL --> FTD["ForwardTubeDistributions (4)"]
+  FL --> FTD["ForwardTubeDistributions (0)"]
+  FTD --> DU["SCV/DistributionalUniqueness (0)"]
   FL --> AC["Reconstruction/AnalyticContinuation (0)"]
   AC --> CL["ComplexLieGroups/Connectedness/* (2)"]
   AC --> JP["ComplexLieGroups/JostPoints (0)"]
@@ -90,9 +97,9 @@ flowchart TD
 | `Wightman/WightmanAxioms.lean` | 4 | nuclear extension + spectrum/BV infrastructure |
 | `Wightman/NuclearSpaces/BochnerMinlos.lean` | 5 | Bochner-Minlos measure construction |
 | `Wightman/NuclearSpaces/NuclearSpace.lean` | 2 | nuclear space infrastructure |
-| `Wightman/Reconstruction/ForwardTubeDistributions.lean` | 4 | weak-BV interface sorrys (proved `_of_flatRegular` variants exist) |
+| `Wightman/Reconstruction/ForwardTubeDistributions.lean` | 0 | distributional uniqueness proved via EOW infrastructure |
 | `Wightman/Reconstruction/WickRotation/ForwardTubeLorentz.lean` | 2 | poly growth slice + PET measure zero |
-| `Wightman/Reconstruction/WickRotation/BHWExtension.lean` | 0 | completed |
+| `Wightman/Reconstruction/WickRotation/BHWExtension.lean` | 2 | boundary continuity + overstrong pointwise swap (bypassed by distributional chain) |
 | `Wightman/Reconstruction/WickRotation/BHWTranslation.lean` | 1 | PET intersection connectivity |
 | `Wightman/Reconstruction/WickRotation/SchwingerAxioms.lean` | 6 | poly growth, reality, cluster, OS=W term |
 | `Wightman/Reconstruction/WickRotation/OSToWightman.lean` | 8 | FL regularity + base step + BV transfer chain |
@@ -168,6 +175,8 @@ OSReconstruction/
 │   ├── EOWMultiDim.lean          # Multi-dimensional edge-of-the-wedge helpers
 │   ├── MoebiusMap.lean           # Möbius transformations for conformal maps
 │   ├── TubeDistributions.lean    # Distributional boundary values on tubes
+│   ├── DistributionalUniqueness.lean  # Distributional EOW: tube uniqueness from BV=0
+│   ├── SchwartzComplete.lean     # Schwartz completeness + barrelledness
 │   ├── BochnerTubeTheorem.lean   # Bochner tube theorem
 │   ├── LaplaceSchwartz.lean      # Fourier-Laplace representation
 │   └── PaleyWiener.lean          # Paley-Wiener theorems

@@ -3,6 +3,7 @@ import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.IndexSetD1
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.JostWitnessGeneralSigma
 import OSReconstruction.ComplexLieGroups.Connectedness.BHWPermutation.SeedSlices
 import OSReconstruction.ComplexLieGroups.D1OrbitSet
+import OSReconstruction.Wightman.Reconstruction
 
 noncomputable section
 
@@ -94,14 +95,15 @@ theorem blocker_iterated_eow_hExtPerm_d1_nontrivial
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup 1)
       (z : Fin n → Fin (1 + 1) → ℂ), z ∈ ForwardTube 1 n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (1 + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube 1 n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (1 + 1) → ℝ),
-        ∑ μ, minkowskiSignature 1 μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint 1 m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint 1 n) (η : Fin n → Fin (1 + 1) → ℝ),
+      InForwardCone 1 n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain 1 n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak 1 W)
     (σ : Equiv.Perm (Fin n))
     (_hσ : σ ≠ 1)
     (_hn : ¬ n ≤ 1) :
@@ -111,8 +113,9 @@ theorem blocker_iterated_eow_hExtPerm_d1_nontrivial
       extendF F (fun k => z (σ k)) = extendF F z := by
   let _ := hF_holo
   let _ := hF_lorentz
-  let _ := hF_bv
-  let _ := hF_local
+  let _ := W
+  let _ := hF_bv_dist
+  let _ := hF_local_dist
   sorry
 
 end BHW

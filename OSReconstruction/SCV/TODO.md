@@ -1,6 +1,6 @@
 # SCV TODO: OS-Critical Analytic Continuation Chain
 
-Last updated: 2026-03-08
+Last updated: 2026-03-10
 
 This TODO tracks the remaining `SCV` blockers on the OS reconstruction path.
 
@@ -11,11 +11,13 @@ Count convention in this file: direct tactic holes only,
 
 | Scope | Direct `sorry` lines |
 |---|---:|
-| `OSReconstruction/SCV` | 4 |
+| `OSReconstruction/SCV` | 2 |
 
 Breakdown:
-- `SCV/LaplaceSchwartz.lean`: 2
+- `SCV/LaplaceSchwartz.lean`: 0
 - `SCV/TubeDistributions.lean`: 0
+- `SCV/DistributionalUniqueness.lean`: 0
+- `SCV/SchwartzComplete.lean`: 0
 - `SCV/BochnerTubeTheorem.lean`: 2
 - `SCV/PaleyWiener.lean`: 0
 
@@ -91,34 +93,25 @@ Status:
 - Support transport lemmas for `translateSchwartz` (PROVED)
 - `uniqueness_of_boundary_zero_on_interval` — local 1D uniqueness on (a,b) (PROVED)
 
-## ROOT BLOCKER: Distributional EOW / Banach-Steinhaus
+## Distributional EOW — COMPLETE (2026-03-10)
 
-**Owner: Codex agent** (as of 2026-03-09). Claude Code should not edit these files
-without coordinating in `agents_chat.md` first.
+**All distributional EOW infrastructure is proved with 0 sorrys.**
 
-The main blocker for closing `distributional_uniqueness_forwardTube`
-(in `Wightman/Reconstruction/ForwardTubeDistributions.lean`) is:
-
-**Bare distributional BV → equality on the tube**
-
-### Status (2026-03-09):
-- **Banach-Steinhaus chain COMPLETE** in `SCV/SchwartzComplete.lean`:
-  - `CompleteSpace (SchwartzMap E F)` — PROVED
-  - `BarrelledSpace ℝ (SchwartzMap E F)` — PROVED
-  - `tempered_equicontinuous` — PROVED
-  - `tempered_uniform_schwartz_bound` — PROVED (concrete finite seminorm bound)
-  - `tempered_equicontinuous_of_tendsto` — PROVED
-- **Distributional EOW** (codex building): edge-of-the-wedge with S'-convergence
-  instead of ContinuousWithinAt. Proof route: mollify boundary distributions →
-  honest smooth boundary data → classical identity theorem → pass to limit.
-  This directly feeds `distributional_uniqueness_forwardTube`.
-
-The 3 overstrong theorems (`continuous_boundary_forwardTube`,
-`boundary_value_recovery_forwardTube`, `boundary_function_continuous_forwardTube`)
-were DELETED — their conclusions referenced F at boundary points unconstrained by
-hypotheses. Proved `_of_flatRegular` variants exist.
-
-Documented in: `Proofideas/distributional_uniqueness_strategy.lean`
+Full chain:
+1. `SCV/SchwartzComplete.lean` (0 sorrys): `CompleteSpace`, `BarrelledSpace`, Banach-Steinhaus chain
+2. `SCV/DistributionalUniqueness.lean` (0 sorrys):
+   - `exists_integral_clm_of_continuous` — truncation → CLM via Banach-Steinhaus
+   - `distributional_uniqueness_tube_of_zero_bv` — tube uniqueness from distributional BV = 0
+   - `eqOn_open_of_compactSupport_schwartz_integral_eq_of_continuousOn` — pointwise extraction
+3. `Wightman/Reconstruction/ForwardTubeDistributions.lean` (0 sorrys):
+   - `distributional_uniqueness_forwardTube` — PROVED (flattening + tube uniqueness)
+4. `ComplexLieGroups/Connectedness/BHWPermutation/AdjacencyDistributional.lean` (0 sorrys):
+   - Distributional pairing → pointwise on real open → connected-overlap propagation
+5. `Wightman/Reconstruction/WickRotation/BHWExtension.lean`:
+   - `W_analytic_swap_boundary_pairing_eq` — PROVED via distributional chain
+   - `analytic_extended_local_commutativity` — PROVED (extendF-level pointwise swap)
+   - `analytic_boundary_local_commutativity_of_boundary_continuous` — PROVED
+6. `PermutationFlow.lean` fully rewired to distributional hypotheses (0 sorrys)
 
 ## Stable Completed Core
 

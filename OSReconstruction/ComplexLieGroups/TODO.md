@@ -1,6 +1,6 @@
 # ComplexLieGroups Module TODO
 
-Last updated: 2026-02-27
+Last updated: 2026-03-10
 
 Plan sync:
 - Source recommendations: `claude_to_codex.md`
@@ -44,10 +44,21 @@ All `sorry`s removed in `JostPoints.lean`.
 - `forwardJostSet_subset_jostSet` ✅ — ForwardJostSet ⊂ JostSet
 - `jostSet_nonempty`, `forwardJostSet_nonempty`, `forwardJostSet_isOpen` ✅
 
-### Connectedness/* — 1 sorry
-| # | File | Line | Name | Status |
-|---|------|------|------|--------|
-| 1 | `Connectedness/BHWPermutation/PermutationFlow.lean` | 2156 | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
+### Connectedness/* — 2 sorrys + new distributional infrastructure
+| # | File | Name | Status |
+|---|------|------|--------|
+| 1 | `Connectedness/BHWPermutation/PermutationFlow.lean` | `iterated_eow_permutation_extension` | **1 local sorry hole** — remaining nontrivial permutation branch (`d > 0`, `n ≥ 2`, `σ ≠ 1`) via `hExtPerm` |
+| 2 | `Connectedness/BHWPermutation/PermutationFlowBlocker.lean` | 2 sorrys | permutation flow blocker infrastructure |
+
+**New (2026-03-10, 0 sorrys):**
+- `Connectedness/BHWPermutation/AdjacencyDistributional.lean`: distributional BHW chain
+  - `extendF_adjSwap_pairing_eq_of_distributional_local_commutativity`
+  - `extendF_adjSwap_eq_on_realOpen_of_distributional_local_commutativity`
+  - `extendF_adjSwap_eq_of_connected_overlap_of_distributional_local_commutativity`
+
+**PermutationFlow.lean rewired (2026-03-10):**
+- All `hd2` theorems now take distributional hypotheses (`W`, `hF_bv_dist`, `hF_local_dist`)
+  instead of pointwise boundary continuity + pointwise locality — the honest interface
 
 ### GeodesicConvexity.lean — 0 sorrys ✓
 The prior placeholder theorems (`cartan_exp_embedding`, `polar_decomposition`)
@@ -171,7 +182,7 @@ Previously proved infrastructure:
 - `extendF`, `extendF_eq_on_forwardTube`, `extendF_preimage_eq`, etc.
 - BHW theorem statement with all hypotheses
 
-**Total: 1 sorry across 1 file** (`PermutationFlow.lean`: 1)
+**Total: 2 sorrys across 2 files** (`PermutationFlowBlocker.lean`: 2)
 
 ---
 

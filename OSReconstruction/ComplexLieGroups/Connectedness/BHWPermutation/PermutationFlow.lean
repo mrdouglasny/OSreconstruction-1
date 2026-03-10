@@ -1311,23 +1311,308 @@ private theorem extendF_perm_eq_on_realJost
     _ = F (realEmbed x) := hFperm
     _ = extendF F (realEmbed x) := hbdx.symm
 
+/-- Permutations preserve the ambient product volume on `NPointDomain d n`. -/
+private theorem integral_perm_eq_self {n : ℕ} (σ : Equiv.Perm (Fin n))
+    (h : NPointDomain d n → ℂ) :
+    ∫ x : NPointDomain d n, h (fun k => x (σ k)) =
+    ∫ x : NPointDomain d n, h x :=
+  (MeasureTheory.volume_measurePreserving_piCongrLeft
+    (fun _ : Fin n => Fin (d + 1) → ℝ) σ).symm.integral_comp' h
+
+/-- Local light-cone bridge for the real-edge perturbation path used below. -/
+private theorem bhw_inOpenForwardCone_iff_wightman [NeZero d]
+    (η : Fin (d + 1) → ℝ) :
+    BHW.InOpenForwardCone d η ↔ _root_.InOpenForwardCone d η := by
+  unfold BHW.InOpenForwardCone _root_.InOpenForwardCone
+  unfold MinkowskiSpace.minkowskiNormSq MinkowskiSpace.minkowskiInner
+  constructor <;> intro h <;> refine ⟨h.1, ?_⟩
+  · convert h.2 using 1
+    apply Finset.sum_congr rfl
+    intro i _
+    simp [MinkowskiSpace.metricSignature, LorentzLieGroup.minkowskiSignature]
+    ring
+  · convert h.2 using 1
+    apply Finset.sum_congr rfl
+    intro i _
+    simp [MinkowskiSpace.metricSignature, LorentzLieGroup.minkowskiSignature]
+    ring
+
+private abbrev permuteSchwartz {n : ℕ} (σ : Equiv.Perm (Fin n))
+    (f : SchwartzNPoint d n) : SchwartzNPoint d n :=
+  SchwartzMap.compCLMOfContinuousLinearEquiv ℂ
+    ((LinearEquiv.funCongrLeft ℝ (Fin (d + 1) → ℝ) σ).toContinuousLinearEquiv) f
+
+@[simp] private theorem permuteSchwartz_apply {n : ℕ} (σ : Equiv.Perm (Fin n))
+    (f : SchwartzNPoint d n) (x : NPointDomain d n) :
+    permuteSchwartz (d := d) σ f x = f (fun i => x (σ i)) := by
+  rfl
+
+@[simp] private theorem permuteSchwartz_one {n : ℕ} (f : SchwartzNPoint d n) :
+    permuteSchwartz (d := d) (1 : Equiv.Perm (Fin n)) f = f := by
+  ext x
+  simp [permuteSchwartz]
+
+@[simp] private theorem permuteSchwartz_mul {n : ℕ}
+    (σ τ : Equiv.Perm (Fin n)) (f : SchwartzNPoint d n) :
+    permuteSchwartz (d := d) (σ * τ) f =
+      permuteSchwartz (d := d) σ (permuteSchwartz (d := d) τ f) := by
+  ext x
+  simp [permuteSchwartz]
+
+private theorem permute_support_jost {n : ℕ} (σ : Equiv.Perm (Fin n))
+    (f : SchwartzNPoint d n)
+    (hf : ∀ x : NPointDomain d n, f x ≠ 0 → x ∈ JostSet d n) :
+    ∀ x : NPointDomain d n, permuteSchwartz (d := d) σ f x ≠ 0 → x ∈ JostSet d n := by
+  intro x hx
+  have hy : (fun i => x (σ i)) ∈ JostSet d n := hf _ hx
+  simpa using jostSet_permutation_invariant (d := d) (n := n) σ.symm hy
+
+private theorem areSpacelikeSeparated_of_jost_pair (x y : Fin (d + 1) → ℝ)
+    (h : IsSpacelike d (fun μ => x μ - y μ)) :
+    MinkowskiSpace.AreSpacelikeSeparated d x y := by
+  unfold MinkowskiSpace.AreSpacelikeSeparated MinkowskiSpace.IsSpacelike
+  have hs :
+      MinkowskiSpace.minkowskiNormSq d (x - y)
+        =
+      (∑ μ, if μ = 0 then (y μ - x μ) * (x μ - y μ)
+             else (x μ - y μ) * (x μ - y μ)) := by
+    unfold MinkowskiSpace.minkowskiNormSq MinkowskiSpace.minkowskiInner
+    refine Finset.sum_congr rfl ?_
+    intro μ _
+    by_cases h0 : μ = 0
+    · subst h0
+      simp [MinkowskiSpace.metricSignature]
+    · simp [MinkowskiSpace.metricSignature, h0]
+  have ht :
+      (∑ μ, if μ = 0 then (y μ - x μ) * (x μ - y μ)
+             else (x μ - y μ) * (x μ - y μ))
+        =
+      (∑ μ, if μ = 0 then -((x μ - y μ) * (x μ - y μ))
+             else (x μ - y μ) * (x μ - y μ)) := by
+    refine Finset.sum_congr rfl ?_
+    intro μ _
+    by_cases h0 : μ = 0
+    · subst h0
+      ring_nf
+    · simp [h0]
+  rw [hs, ht]
+  simpa [IsSpacelike, LorentzLieGroup.minkowskiSignature, sq] using h
+
+private theorem distributional_perm_invariant_on_jost_support
+    (n : ℕ)
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
+    (f : SchwartzNPoint d n)
+    (hf : ∀ x : NPointDomain d n, f x ≠ 0 → x ∈ JostSet d n)
+    (σ : Equiv.Perm (Fin n)) :
+    W n (permuteSchwartz (d := d) σ f) = W n f := by
+  refine Fin.Perm.adjSwap_induction (n := n)
+    (motive := fun τ => W n (permuteSchwartz (d := d) τ f) = W n f) ?_ ?_ σ
+  · simp [permuteSchwartz]
+  · intro τ i hi hτ
+    let gτ : SchwartzNPoint d n := permuteSchwartz (d := d) τ f
+    have hsupp :
+        ∀ x : NPointDomain d n, gτ x ≠ 0 →
+          MinkowskiSpace.AreSpacelikeSeparated d (x i) (x ⟨i.val + 1, hi⟩) := by
+      intro x hx
+      have hxJ : x ∈ JostSet d n :=
+        permute_support_jost (d := d) (n := n) τ f hf x hx
+      have hij : i ≠ ⟨i.val + 1, hi⟩ := by
+        intro hEq
+        have : i.val = i.val + 1 := by simpa using congrArg Fin.val hEq
+        omega
+      exact areSpacelikeSeparated_of_jost_pair (d := d) (x i) (x ⟨i.val + 1, hi⟩)
+        (hxJ.2 i ⟨i.val + 1, hi⟩ hij)
+    have hswap0 :
+        W n gτ =
+          W n (permuteSchwartz (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) gτ) := by
+      refine hF_local_dist n i ⟨i.val + 1, hi⟩ gτ
+        (permuteSchwartz (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) gτ) hsupp ?_
+      intro x
+      change permuteSchwartz (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) gτ x =
+        gτ (fun k => x ((Equiv.swap i ⟨i.val + 1, hi⟩) k))
+      rw [permuteSchwartz_apply]
+    calc
+      W n (permuteSchwartz (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩ * τ) f)
+          = W n (permuteSchwartz (d := d) (Equiv.swap i ⟨i.val + 1, hi⟩) gτ) := by
+              simp [gτ, permuteSchwartz_mul]
+      _ = W n gτ := hswap0.symm
+      _ = W n f := hτ
+
+/-- Pointwise permutation equality for `extendF` on a real Jost open edge,
+proved from distributional boundary values and weak local commutativity. -/
+private theorem extendF_perm_eq_on_realOpen_of_distributional_local_commutativity [NeZero d]
+    (n : ℕ)
+    (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
+    (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
+    (hF_real_inv : ∀ (Λ : RestrictedLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
+    (σ : Equiv.Perm (Fin n))
+    (V : Set (Fin n → Fin (d + 1) → ℝ))
+    (hV_open : IsOpen V)
+    (hV_jost : ∀ x ∈ V, x ∈ JostSet d n)
+    (hV_ET : ∀ x ∈ V, realEmbed x ∈ ExtendedTube d n)
+    (hV_permET : ∀ x ∈ V, realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n) :
+    ∀ x ∈ V,
+      extendF F (fun k => (realEmbed x) (σ k)) = extendF F (realEmbed x) := by
+  have hF_cinv : ∀ (Λ : ComplexLorentzGroup d)
+      (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
+      complexLorentzAction Λ z ∈ ForwardTube d n →
+      F (complexLorentzAction Λ z) = F z := by
+    intro Λ z hz hΛz
+    exact complex_lorentz_invariance n F hF_holo hF_real_inv Λ z hz hΛz
+  have hExtend_cont : ContinuousOn (extendF F) (ExtendedTube d n) :=
+    (extendF_holomorphicOn n F hF_holo hF_cinv).continuousOn
+  have hrealEmbed_cont :
+      Continuous (realEmbed : NPointDomain d n → (Fin n → Fin (d + 1) → ℂ)) := by
+    apply continuous_pi
+    intro k
+    apply continuous_pi
+    intro μ
+    exact Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply k))
+  have hpermReal_cont :
+      Continuous (fun x : NPointDomain d n => fun k => (realEmbed x) (σ k)) := by
+    apply continuous_pi
+    intro k
+    apply continuous_pi
+    intro μ
+    exact Complex.continuous_ofReal.comp ((continuous_apply μ).comp (continuous_apply (σ k)))
+  let gV : NPointDomain d n → ℂ := fun x => extendF F (fun k => (realEmbed x) (σ k))
+  let hVf : NPointDomain d n → ℂ := fun x => extendF F (realEmbed x)
+  have hgV_cont : ContinuousOn gV V := by
+    refine hExtend_cont.comp hpermReal_cont.continuousOn ?_
+    intro x hx
+    exact hV_permET x hx
+  have hhVf_cont : ContinuousOn hVf V := by
+    refine hExtend_cont.comp hrealEmbed_cont.continuousOn ?_
+    intro x hx
+    exact hV_ET x hx
+  obtain ⟨η, hη_abs⟩ := forwardConeAbs_nonempty d n
+  have hη : InForwardCone d n η := (inForwardCone_iff_mem_forwardConeAbs η).2 hη_abs
+  have hη_FT :
+      ∀ (x : Fin n → Fin (d + 1) → ℝ) (ε : ℝ), 0 < ε →
+        (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) ∈ ForwardTube d n := by
+    intro x ε hε k
+    show InOpenForwardCone d _
+    have him :
+        (fun μ => ((↑(x k μ) + ↑ε * ↑(η k μ) * Complex.I) -
+            (if h : k.val = 0 then 0 else
+              fun μ => ↑(x ⟨k.val - 1, by omega⟩ μ) +
+                ↑ε * ↑(η ⟨k.val - 1, by omega⟩ μ) * Complex.I) μ).im) =
+          ε • (fun μ => η k μ - (if h : k.val = 0 then 0 else η ⟨k.val - 1, by omega⟩) μ) := by
+      ext μ
+      by_cases hk : (k : ℕ) = 0
+      · simp [hk, Complex.add_im, Complex.mul_im, Complex.ofReal_im, Complex.ofReal_re,
+          Complex.I_im, Complex.I_re, Pi.smul_apply, smul_eq_mul]
+      · simp [hk, Complex.sub_im, Complex.add_im, Complex.mul_im, Complex.ofReal_im,
+          Complex.ofReal_re, Complex.I_im, Complex.I_re, Pi.smul_apply, smul_eq_mul]
+        ring
+    rw [him]
+    exact (bhw_inOpenForwardCone_iff_wightman _).2
+      (inOpenForwardCone_smul d ε hε _ (hη k))
+  have hEqOn : Set.EqOn gV hVf V := by
+    refine SCV.eqOn_open_of_compactSupport_schwartz_integral_eq_of_continuousOn
+      hV_open hgV_cont hhVf_cont ?_
+    intro φ hφ_compact hφ_tsupport
+    let eσ : NPointDomain d n ≃L[ℝ] NPointDomain d n :=
+      (LinearEquiv.funCongrLeft ℝ (Fin (d + 1) → ℝ) σ⁻¹).toContinuousLinearEquiv
+    let φσ : SchwartzNPoint d n :=
+      SchwartzMap.compCLMOfContinuousLinearEquiv ℂ eσ φ
+    have hφσ_apply : ∀ x : NPointDomain d n, φσ x = φ (fun k => x (σ⁻¹ k)) := by
+      intro x
+      rfl
+    have hφσ_compact : HasCompactSupport (φσ : NPointDomain d n → ℂ) := by
+      simpa [φσ, eσ, SchwartzMap.compCLMOfContinuousLinearEquiv_apply] using
+        hφ_compact.comp_homeomorph eσ.toHomeomorph
+    have hφ_jost :
+        ∀ x : NPointDomain d n, φ x ≠ 0 → x ∈ JostSet d n := by
+      intro x hxφ
+      have hx_support : x ∈ Function.support (φ : NPointDomain d n → ℂ) := by
+        simpa [Function.mem_support] using hxφ
+      have hx_tsupport : x ∈ tsupport (φ : NPointDomain d n → ℂ) := subset_tsupport _ hx_support
+      exact hV_jost x (hφ_tsupport hx_tsupport)
+    have hφ_ET :
+        ∀ x ∈ tsupport (φ : NPointDomain d n → ℂ), realEmbed x ∈ ExtendedTube d n := by
+      intro x hx
+      exact hV_ET x (hφ_tsupport hx)
+    have hφσ_tsupport :
+        tsupport (φσ : NPointDomain d n → ℂ) =
+          eσ.toHomeomorph ⁻¹' tsupport (φ : NPointDomain d n → ℂ) := by
+      simpa [φσ, eσ, SchwartzMap.compCLMOfContinuousLinearEquiv_apply] using
+        (tsupport_comp_eq_preimage (g := (φ : NPointDomain d n → ℂ)) eσ.toHomeomorph)
+    have hφσ_ET :
+        ∀ x ∈ tsupport (φσ : NPointDomain d n → ℂ), realEmbed x ∈ ExtendedTube d n := by
+      intro x hx
+      have hxσ : (fun k => x (σ⁻¹ k)) ∈ tsupport (φ : NPointDomain d n → ℂ) := by
+        simpa [hφσ_tsupport, eσ] using hx
+      have hxV : (fun k => x (σ⁻¹ k)) ∈ V := hφ_tsupport hxσ
+      simpa [realEmbed] using hV_permET (fun k => x (σ⁻¹ k)) hxV
+    have h_tendsto_φ :=
+      tendsto_extendF_boundary_integral_of_hasCompactSupport_ET n F hF_holo hF_cinv
+        φ hφ_compact η hη_FT hφ_ET
+    have h_tendsto_φσ :=
+      tendsto_extendF_boundary_integral_of_hasCompactSupport_ET n F hF_holo hF_cinv
+        φσ hφσ_compact η hη_FT hφσ_ET
+    have h_bv_φ := hF_bv_dist φ η hη
+    have h_bv_φσ := hF_bv_dist φσ η hη
+    haveI : (nhdsWithin (0 : ℝ) (Set.Ioi 0)).NeBot := by infer_instance
+    have h_pairing_φ :
+        (∫ x : NPointDomain d n, hVf x * φ x) = W n φ :=
+      tendsto_nhds_unique h_tendsto_φ h_bv_φ
+    have h_pairing_φσ :
+        (∫ x : NPointDomain d n, hVf x * φσ x) = W n φσ :=
+      tendsto_nhds_unique h_tendsto_φσ h_bv_φσ
+    have hW_eq : W n φσ = W n φ :=
+      distributional_perm_invariant_on_jost_support (d := d) n W hF_local_dist
+        φ hφ_jost σ⁻¹
+    have hpair :
+        (∫ x : NPointDomain d n, hVf x * φσ x) =
+          ∫ x : NPointDomain d n, hVf x * φ x := by
+      calc
+        ∫ x : NPointDomain d n, hVf x * φσ x = W n φσ := h_pairing_φσ
+        _ = W n φ := hW_eq
+        _ = ∫ x : NPointDomain d n, hVf x * φ x := h_pairing_φ.symm
+    have hperm :
+        (∫ x : NPointDomain d n, gV x * φ x) =
+          ∫ x : NPointDomain d n, hVf x * φσ x := by
+      simpa [gV, hVf, hφσ_apply, realEmbed] using
+        (integral_perm_eq_self (d := d) (n := n) σ
+          (fun x : NPointDomain d n => hVf x * φσ x))
+    calc
+      ∫ x : NPointDomain d n, gV x * φ x =
+        ∫ x : NPointDomain d n, hVf x * φσ x := hperm
+      _ = ∫ x : NPointDomain d n, hVf x * φ x := hpair
+  intro x hx
+  exact hEqOn hx
+
 /-- Local-witness variant of the permutation-overlap identity-theorem reduction:
 connected forward-overlap plus one real Jost witness in the ET overlap suffices. -/
-private theorem extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
+private theorem extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ : Equiv.Perm (Fin n))
     (hJostWitness :
       ∃ x : Fin n → Fin (d + 1) → ℝ,
@@ -1376,13 +1661,10 @@ private theorem extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
   have hV_eq : ∀ x ∈ V,
       extendF F (fun k => (realEmbed x) (σ k)) = extendF F (realEmbed x) := by
     intro x hxV
-    have hxJ : x ∈ JostSet d n := hxV.1
-    have hxD : realEmbed x ∈ D := hxV.2
-    have hxET : realEmbed x ∈ ExtendedTube d n := hxD.1
-    have hσxET : realEmbed (fun k => x (σ k)) ∈ ExtendedTube d n := by
-      simpa [D, permAct, realEmbed] using hxD.2
-    exact extendF_perm_eq_on_realJost (d := d) n F hF_holo hF_lorentz
-      hF_bv hF_local σ x hxJ hxET hσxET
+    exact extendF_perm_eq_on_realOpen_of_distributional_local_commutativity
+      (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+      σ V hV_open (fun x hx => hx.1) (fun x hx => hx.2.1)
+      (fun x hx => by simpa [D, permAct, realEmbed] using hx.2.2) x hxV
   intro z hz hσz
   have hzD : z ∈ D := ⟨hz, hσz⟩
   exact extendF_perm_eq_on_connectedDomain_of_realOpen n F hF_holo hF_lorentz
@@ -1391,20 +1673,22 @@ private theorem extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
 /-- Index-connectedness plus a local Jost witness package yields permutation
 overlap invariance of `extendF`. -/
 private theorem extendF_perm_overlap_of_jostWitness_and_indexConnected
+    [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ : Equiv.Perm (Fin n))
     (hJostWitness :
       ∃ x : Fin n → Fin (d + 1) → ℝ,
@@ -1421,26 +1705,28 @@ private theorem extendF_perm_overlap_of_jostWitness_and_indexConnected
   have hFwd_conn : IsConnected (permForwardOverlapSet (d := d) n σ) :=
     isConnected_permForwardOverlapSet_of_indexConnected (d := d) n σ hidx_conn hnonempty
   exact extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hFwd_conn
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hJostWitness hFwd_conn
 
 /-- If a (strong) `JostSet`-to-ET bridge is available and the
 permutation forward-overlap slice is connected, then `extendF` is permutation
 invariant on the full ET-overlap domain. -/
 private theorem extendF_perm_overlap_of_jostSet_and_forwardOverlapConnected
+    [NeZero d]
     (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (hd : 1 ≤ d) (hn : 1 ≤ n)
     (σ : Equiv.Perm (Fin n))
     (hJostET : ∀ x : Fin n → Fin (d + 1) → ℝ, x ∈ JostSet d n →
@@ -1463,7 +1749,7 @@ private theorem extendF_perm_overlap_of_jostSet_and_forwardOverlapConnected
       hJostET (fun k => x (σ k)) hσxJ
     exact ⟨x, hxJ, hxET, hσxET⟩
   exact extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hFwd_conn
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hJostWitness hFwd_conn
 
 -- NOTE: the hypothesis
 -- `∀ x ∈ JostSet d n, realEmbed x ∈ ExtendedTube d n`
@@ -1481,14 +1767,15 @@ private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_genera
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ : Equiv.Perm (Fin n))
     (hJostWitness :
       ∃ x : Fin n → Fin (d + 1) → ℝ,
@@ -1509,7 +1796,7 @@ private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_genera
     isConnected_permForwardOverlapIndexSet_of_real_double_coset_generation
       (d := d) n σ Λ0 hΛ0 hgen
   exact extendF_perm_overlap_of_jostWitness_and_indexConnected
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hidx_conn
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hJostWitness hidx_conn
 
 /-- Curried form of
 `extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation`. -/
@@ -1521,14 +1808,15 @@ private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_genera
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ : Equiv.Perm (Fin n))
     (hJostWitness :
       ∃ x : Fin n → Fin (d + 1) → ℝ,
@@ -1545,7 +1833,7 @@ private theorem extendF_perm_overlap_of_jostWitness_and_real_double_coset_genera
       permAct (d := d) σ z ∈ ExtendedTube d n →
       extendF F (permAct (d := d) σ z) = extendF F z := by
   exact extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hJostWitness
     ⟨Λ0, hΛ0, hgen⟩
 
 /-- Wrapper reduction: if the permutation forward-overlap index set is connected
@@ -1559,14 +1847,15 @@ private theorem extendF_perm_overlap_of_jostSet_and_real_double_coset_generation
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (realEmbed x))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-          F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (hd : 1 ≤ d) (hn : 1 ≤ n)
     (σ : Equiv.Perm (Fin n))
     (hJostET : ∀ x : Fin n → Fin (d + 1) → ℝ, x ∈ JostSet d n →
@@ -1592,7 +1881,7 @@ private theorem extendF_perm_overlap_of_jostSet_and_real_double_coset_generation
       hJostET (fun k => x (σ k)) hσxJ
     exact ⟨x, hxJ, hxET, hσxET⟩
   exact extendF_perm_overlap_of_jostWitness_and_real_double_coset_generation
-    (d := d) n F hF_holo hF_lorentz hF_bv hF_local σ hJostWitness hgenPack
+    (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hJostWitness hgenPack
 
 /-- Build a holomorphic extension domain for a fixed permutation `σ` from
     the corresponding permutation-invariance hypothesis.
@@ -1883,14 +2172,6 @@ private theorem iterated_eow_permutation_extension_of_extendF_perm (n : ℕ)
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (_hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (_hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
     (σ : Equiv.Perm (Fin n))
     (hExtPerm :
       ∀ (z : Fin n → Fin (d + 1) → ℂ),
@@ -2192,20 +2473,21 @@ private theorem iteratedExtension_exists_of_adjSwapStep
     Infrastructure gap: this requires eow_adj_swap_extension to work on
     general holomorphic domains (not just FT), which needs a generalization
     of the EOW theorem to tube-like subsets of the extended domain. -/
-private theorem iterated_eow_permutation_extension (n : ℕ)
+private theorem iterated_eow_permutation_extension [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ : Equiv.Perm (Fin n)) :
     ∃ (U_σ : Set (Fin n → Fin (d + 1) → ℂ))
       (F_σ : (Fin n → Fin (d + 1) → ℂ) → ℂ),
@@ -2278,7 +2560,7 @@ private theorem iterated_eow_permutation_extension (n : ℕ)
               simpa [permAct] using hσz
             have hmain :=
               extendF_perm_overlap_of_jostWitness_and_forwardOverlapConnected
-                (d := d) n F hF_holo hF_lorentz hF_bv hF_local
+                (d := d) n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
                 σ hJostWitness hFwd_conn z hz hσz_perm
             simpa [permAct] using hmain
           · have hd1 : 1 ≤ d := Nat.succ_le_of_lt (Nat.pos_of_ne_zero hd0)
@@ -2286,9 +2568,9 @@ private theorem iterated_eow_permutation_extension (n : ℕ)
             have hd_eq1 : d = 1 := Nat.le_antisymm hle hd1
             subst hd_eq1
             exact blocker_iterated_eow_hExtPerm_d1_nontrivial
-              n F hF_holo hF_lorentz hF_bv hF_local σ hσ hn
+              n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist σ hσ hn
       exact iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz
-        hF_bv hF_local σ hExtPerm
+        σ hExtPerm
 
 /-- Any extension data of the shape produced by
     `iterated_eow_permutation_extension` yields the corresponding
@@ -2328,20 +2610,21 @@ private theorem permInvariance_of_extensionData (n : ℕ)
 /-- If `extendF` is permutation-invariant on the extended-tube overlap for `τ`,
     then the corresponding forward-tube permutation-invariance statement follows
     via extension data packaging. -/
-private theorem permInvariance_of_extendF_overlap (n : ℕ)
+private theorem permInvariance_of_extendF_overlap [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (τ : Equiv.Perm (Fin n))
     (hExtPerm :
       ∀ (z : Fin n → Fin (d + 1) → ℂ),
@@ -2354,8 +2637,7 @@ private theorem permInvariance_of_extendF_overlap (n : ℕ)
         F (complexLorentzAction Γ (fun k => w (τ k))) = F w := by
   obtain ⟨U_τ, F_τ, hU_open, hFT_sub, hτFT_sub, hF_τ_holo,
     hF_τ_eq_F, hF_τ_inv, hF_τ_eq_Fτ⟩ :=
-    iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz
-      hF_bv hF_local τ hExtPerm
+    iterated_eow_permutation_extension_of_extendF_perm n F hF_holo hF_lorentz τ hExtPerm
   intro w hw Γ h
   exact permInvariance_of_extensionData n F τ U_τ F_τ hFT_sub hτFT_sub
     hF_τ_eq_F hF_τ_inv hF_τ_eq_Fτ hw h
@@ -2370,20 +2652,21 @@ private theorem permInvariance_of_extendF_overlap (n : ℕ)
     2. By Lorentz-perm commutation: Γ·(swap·(σ·w)) = swap·(Γ·(σ·w))
     3. Since swap·(Γ·(σ·w)) ∈ FT, Γ·(σ·w) ∈ swap·FT ⊆ U_{swap·σ}
     4. The Lorentz-invariant extension F_{swap·σ} bridges the gap -/
-private theorem eow_chain_adj_swap (n : ℕ)
+private theorem eow_chain_adj_swap [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     (σ₀ : Equiv.Perm (Fin n)) (i₀ : Fin n) (hi₀ : i₀.val + 1 < n)
     (_ih_σ : ∀ (w : Fin n → Fin (d + 1) → ℂ), w ∈ ForwardTube d n →
       ∀ (Γ : ComplexLorentzGroup d),
@@ -2400,24 +2683,25 @@ private theorem eow_chain_adj_swap (n : ℕ)
   -- Obtain the iterated EOW extension for τ
   obtain ⟨U_τ, F_τ, hU_open, hFT_sub, hτFT_sub, hF_τ_holo,
     hF_τ_eq_F, hF_τ_inv, hF_τ_eq_Fτ⟩ :=
-    iterated_eow_permutation_extension n F hF_holo hF_lorentz hF_bv hF_local τ
+    iterated_eow_permutation_extension n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist τ
   exact permInvariance_of_extensionData n F τ U_τ F_τ hFT_sub hτFT_sub
     hF_τ_eq_F hF_τ_inv hF_τ_eq_Fτ hw h
 
-private theorem F_permutation_invariance (n : ℕ)
+private theorem F_permutation_invariance [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     {w : Fin n → Fin (d + 1) → ℂ} (hw : w ∈ ForwardTube d n)
     {τ : Equiv.Perm (Fin n)} {Γ : ComplexLorentzGroup d}
     (h : complexLorentzAction Γ (fun k => w (τ k)) ∈ ForwardTube d n) :
@@ -2457,7 +2741,7 @@ private theorem F_permutation_invariance (n : ℕ)
     -- The resolution requires extending F holomorphically across permuted
     -- tubes via iterated EOW, which is a substantial infrastructure gap.
     -- Bootstrap with a helper capturing this gap.
-    exact eow_chain_adj_swap n F hF_holo hF_lorentz hF_bv hF_local
+    exact eow_chain_adj_swap n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
       σ₀ i₀ hi₀ ih_σ hw₀ h₀
 
 /-- Well-definedness: any two preimages of the same point give the same F-value.
@@ -2467,20 +2751,21 @@ private theorem F_permutation_invariance (n : ℕ)
     From Λ₁·(π₁·w₁) = Λ₂·(π₂·w₂), applying Λ₁⁻¹ and using the commutation:
     w₁ = (Λ₁⁻¹Λ₂)·((π₂π₁⁻¹)·w₂), then `F_permutation_invariance` gives
     F(w₁) = F(w₂). -/
-private theorem fullExtendF_well_defined (n : ℕ)
+private theorem fullExtendF_well_defined [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
     (hF_holo : DifferentiableOn ℂ F (ForwardTube d n))
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ)))
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W)
     {w₁ w₂ : Fin n → Fin (d + 1) → ℂ}
     (hw₁ : w₁ ∈ ForwardTube d n) (hw₂ : w₂ ∈ ForwardTube d n)
     {π₁ π₂ : Equiv.Perm (Fin n)} {Λ₁ Λ₂ : ComplexLorentzGroup d}
@@ -2504,7 +2789,8 @@ private theorem fullExtendF_well_defined (n : ℕ)
     simp only [complexLorentzAction, Equiv.Perm.mul_apply]
   -- Step 2: Apply F_permutation_invariance
   rw [hw₁_eq]
-  exact F_permutation_invariance n F hF_holo hF_lorentz hF_bv hF_local hw₂ (hw₁_eq ▸ hw₁)
+  exact F_permutation_invariance n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+    hw₂ (hw₁_eq ▸ hw₁)
 
 theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
     (F : (Fin n → Fin (d + 1) → ℂ) → ℂ)
@@ -2512,17 +2798,15 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
     (hF_lorentz : ∀ (Λ : RestrictedLorentzGroup d)
       (z : Fin n → Fin (d + 1) → ℂ), z ∈ ForwardTube d n →
       F (fun k μ => ∑ ν, (Λ.val.val μ ν : ℂ) * z k ν) = F z)
-    -- F extends continuously to the real boundary of the forward tube.
-    (hF_bv : ∀ (x : Fin n → Fin (d + 1) → ℝ),
-      ContinuousWithinAt F (ForwardTube d n) (fun k μ => (x k μ : ℂ)))
-    -- Local commutativity: at spacelike-separated pairs, the boundary values
-    -- of F and F∘swap agree.
-    (hF_local : ∀ (i : Fin n) (hi : i.val + 1 < n),
-      ∀ (x : Fin n → Fin (d + 1) → ℝ),
-        ∑ μ, minkowskiSignature d μ *
-          (x ⟨i.val + 1, hi⟩ μ - x i μ) ^ 2 > 0 →
-        F (fun k μ => (x (Equiv.swap i ⟨i.val + 1, hi⟩ k) μ : ℂ)) =
-        F (fun k μ => (x k μ : ℂ))) :
+    (W : (m : ℕ) → SchwartzNPoint d m → ℂ)
+    (hF_bv_dist : ∀ (f : SchwartzNPoint d n) (η : Fin n → Fin (d + 1) → ℝ),
+      InForwardCone d n η →
+      Filter.Tendsto
+        (fun ε : ℝ => ∫ x : NPointDomain d n,
+          F (fun k μ => (x k μ : ℂ) + ε * (η k μ : ℂ) * Complex.I) * f x)
+        (nhdsWithin 0 (Set.Ioi 0))
+        (nhds (W n f)))
+    (hF_local_dist : IsLocallyCommutativeWeak d W) :
     ∃ (F_ext : (Fin n → Fin (d + 1) → ℂ) → ℂ),
       -- F_ext is holomorphic on the permuted extended tube
       DifferentiableOn ℂ F_ext (PermutedExtendedTube d n) ∧
@@ -2582,7 +2866,7 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
           w ∈ ForwardTube d n ∧ z = complexLorentzAction Λ (fun k => w (π k)) :=
         ⟨π₀⁻¹, Λ₀, ψ z, hz_V, hz_chart⟩
       rw [dif_pos hex]
-      exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local
+      exact fullExtendF_well_defined n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
         hex.choose_spec.choose_spec.choose_spec.1 hz_V
         (hex.choose_spec.choose_spec.choose_spec.2.symm.trans hz_chart)
     have hFψ_diff : DifferentiableAt ℂ (fun z => F (ψ z)) z₀ :=
@@ -2604,7 +2888,8 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
         (fun k => w_c (hex.choose k)) =
         complexLorentzAction 1 (fun k => z ((Equiv.refl (Fin n)) k)) := by
       rw [← hz_eq, complexLorentzAction_one]; rfl
-    exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local hw_c hz h_eq
+    exact fullExtendF_well_defined n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
+      hw_c hz h_eq
   refine ⟨fullExtendF F, hProp1, hProp2, ?_, ?_, ?_⟩
   -- === Property 3: Complex Lorentz invariance ===
   -- If z = Λ'·w_p with w_p ∈ PermutedForwardTube π, then Λz = (ΛΛ')·w_p.
@@ -2642,7 +2927,7 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
         (fun k => hex_z.choose_spec.choose_spec.choose (hex_z.choose k)) := by
       rw [complexLorentzAction_mul, ← hz_eq']
       exact hΛz_eq.symm
-    exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local
+    exact fullExtendF_well_defined n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
       hex_Λz.choose_spec.choose_spec.choose_spec.1
       hex_z.choose_spec.choose_spec.choose_spec.1 h_eq
   -- === Property 4: Permutation symmetry ===
@@ -2682,7 +2967,7 @@ theorem bargmann_hall_wightman_theorem [NeZero d] (n : ℕ)
         complexLorentzAction hex_z.choose_spec.choose
         (fun k => hex_z.choose_spec.choose_spec.choose ((hex_z.choose * π) k)) :=
       hπz_eq.symm.trans h_zperm
-    exact fullExtendF_well_defined n F hF_holo hF_lorentz hF_bv hF_local
+    exact fullExtendF_well_defined n F hF_holo hF_lorentz W hF_bv_dist hF_local_dist
       hex_πz.choose_spec.choose_spec.choose_spec.1
       hex_z.choose_spec.choose_spec.choose_spec.1 h_eq
   -- === Property 5: Uniqueness ===
