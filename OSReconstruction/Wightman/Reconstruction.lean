@@ -2644,6 +2644,110 @@ theorem OSTensorAdmissible_of_tsupport_subset_orderedPositiveTimeRegion
   exact VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
     (d := d) (f := F.funcs n) (g := G.funcs m) (hF n) (hG m)
 
+/-- The honest Euclidean Borchers algebra for OS reflection positivity:
+    finitely supported sequences whose every component is topologically supported
+    in the ordered positive-time region. On this subtype the OS tensor terms are
+    automatically admissible. -/
+structure PositiveTimeBorchersSequence (d : ℕ) where
+  toBorchersSequence : BorchersSequence d
+  ordered_tsupport : ∀ n,
+    tsupport ((toBorchersSequence.funcs n : SchwartzNPoint d n) : NPointDomain d n → ℂ) ⊆
+      OrderedPositiveTimeRegion d n
+
+namespace PositiveTimeBorchersSequence
+
+variable {d : ℕ}
+
+instance : Coe (PositiveTimeBorchersSequence d) (BorchersSequence d) :=
+  ⟨PositiveTimeBorchersSequence.toBorchersSequence⟩
+
+instance : Zero (PositiveTimeBorchersSequence d) where
+  zero :=
+    ⟨0, fun n => by
+      simpa using (empty_subset (OrderedPositiveTimeRegion d n) :
+        (∅ : Set (NPointDomain d n)) ⊆ OrderedPositiveTimeRegion d n)⟩
+
+instance : Add (PositiveTimeBorchersSequence d) where
+  add F G :=
+    ⟨(F : BorchersSequence d) + (G : BorchersSequence d), fun n x hx => by
+      have hx' :
+          x ∈ tsupport
+            ((((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+              NPointDomain d n → ℂ) +
+              (((G : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+                NPointDomain d n → ℂ)) := by
+        simpa [BorchersSequence.add_funcs] using hx
+      have hx'' := (tsupport_add
+        ((((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ))
+        ((((G : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ))) hx'
+      exact hx''.elim (fun hxF => F.ordered_tsupport n hxF)
+        (fun hxG => G.ordered_tsupport n hxG)⟩
+
+instance : Neg (PositiveTimeBorchersSequence d) where
+  neg F := ⟨-(F : BorchersSequence d), fun n => by
+    rw [show (((-(F : BorchersSequence d)).funcs n : SchwartzNPoint d n) :
+        NPointDomain d n → ℂ) = -(((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ) by rfl]
+    rw [tsupport_neg]
+    exact F.ordered_tsupport n⟩
+
+instance : SMul ℂ (PositiveTimeBorchersSequence d) where
+  smul c F :=
+    ⟨c • (F : BorchersSequence d), fun n =>
+      (tsupport_smul_subset_right
+        (fun _ : NPointDomain d n => c)
+        ((((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ))).trans (F.ordered_tsupport n)⟩
+
+instance : Sub (PositiveTimeBorchersSequence d) where
+  sub F G :=
+    ⟨(F : BorchersSequence d) - (G : BorchersSequence d), fun n x hx => by
+      have hx' :
+          x ∈ tsupport
+            ((((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+              NPointDomain d n → ℂ) -
+              (((G : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+                NPointDomain d n → ℂ)) := by
+        simpa [BorchersSequence.sub_funcs] using hx
+      have hx'' := (tsupport_sub
+        ((((F : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ))
+        ((((G : BorchersSequence d).funcs n : SchwartzNPoint d n) :
+          NPointDomain d n → ℂ))) hx'
+      exact hx''.elim (fun hxF => F.ordered_tsupport n hxF)
+        (fun hxG => G.ordered_tsupport n hxG)⟩
+
+@[simp] theorem zero_toBorchersSequence :
+    ((0 : PositiveTimeBorchersSequence d) : BorchersSequence d) = 0 := rfl
+
+@[simp] theorem add_toBorchersSequence (F G : PositiveTimeBorchersSequence d) :
+    ((F + G : PositiveTimeBorchersSequence d) : BorchersSequence d) =
+      (F : BorchersSequence d) + (G : BorchersSequence d) := rfl
+
+@[simp] theorem neg_toBorchersSequence (F : PositiveTimeBorchersSequence d) :
+    ((-F : PositiveTimeBorchersSequence d) : BorchersSequence d) =
+      - (F : BorchersSequence d) := rfl
+
+@[simp] theorem smul_toBorchersSequence (c : ℂ) (F : PositiveTimeBorchersSequence d) :
+    ((c • F : PositiveTimeBorchersSequence d) : BorchersSequence d) =
+      c • (F : BorchersSequence d) := rfl
+
+@[simp] theorem sub_toBorchersSequence (F G : PositiveTimeBorchersSequence d) :
+    ((F - G : PositiveTimeBorchersSequence d) : BorchersSequence d) =
+      (F : BorchersSequence d) - (G : BorchersSequence d) := rfl
+
+/-- On the honest positive-time Euclidean Borchers algebra, OS tensor terms are
+    automatically zero-diagonal admissible. -/
+theorem ostensorAdmissible [NeZero d] (F G : PositiveTimeBorchersSequence d) :
+    OSTensorAdmissible d (F : BorchersSequence d) (G : BorchersSequence d) :=
+  OSTensorAdmissible_of_tsupport_subset_orderedPositiveTimeRegion
+    (d := d) (F : BorchersSequence d) (G : BorchersSequence d)
+    F.ordered_tsupport G.ordered_tsupport
+
+end PositiveTimeBorchersSequence
+
 /-- Pointwise block-swap identity for the OS-conjugated tensor product.
 
     This is the OS analogue of `conjTP_eq_borchersConj_conjTP`: applying the
@@ -3142,6 +3246,562 @@ structure OSLinearGrowthCondition (d : ℕ) [NeZero d] (OS : OsterwalderSchrader
 def OsterwalderSchraderAxioms.schwinger {d : ℕ} [NeZero d]
     (OS : OsterwalderSchraderAxioms d) : SchwingerFunctions d :=
   OS.S
+
+namespace PositiveTimeBorchersSequence
+
+variable {d : ℕ} [NeZero d]
+
+/-- The OS sesquilinear form on the honest positive-time Euclidean Borchers algebra. -/
+def osInner (OS : OsterwalderSchraderAxioms d)
+    (F G : PositiveTimeBorchersSequence d) : ℂ :=
+  OSInnerProduct d OS.S (F : BorchersSequence d) (G : BorchersSequence d)
+
+@[simp] theorem osInner_zero_right (OS : OsterwalderSchraderAxioms d)
+    (F : PositiveTimeBorchersSequence d) :
+    osInner OS F 0 = 0 := by
+  unfold osInner
+  simpa using OSInnerProduct_zero_right (d := d) OS.S OS.E0_linear (F : BorchersSequence d)
+
+@[simp] theorem osInner_zero_left (OS : OsterwalderSchraderAxioms d)
+    (F : PositiveTimeBorchersSequence d) :
+    osInner OS 0 F = 0 := by
+  unfold osInner
+  simpa using OSInnerProduct_zero_left (d := d) OS.S OS.E0_linear (F : BorchersSequence d)
+
+theorem osInner_add_right (OS : OsterwalderSchraderAxioms d)
+    (F G₁ G₂ : PositiveTimeBorchersSequence d) :
+    osInner OS F (G₁ + G₂) = osInner OS F G₁ + osInner OS F G₂ := by
+  unfold osInner
+  simpa using OSInnerProduct_add_right (d := d) OS.S OS.E0_linear
+    (F : BorchersSequence d) (G₁ : BorchersSequence d) (G₂ : BorchersSequence d)
+    (ostensorAdmissible F G₁) (ostensorAdmissible F G₂)
+
+theorem osInner_add_left (OS : OsterwalderSchraderAxioms d)
+    (F₁ F₂ G : PositiveTimeBorchersSequence d) :
+    osInner OS (F₁ + F₂) G = osInner OS F₁ G + osInner OS F₂ G := by
+  unfold osInner
+  simpa using OSInnerProduct_add_left (d := d) OS.S OS.E0_linear
+    (F₁ : BorchersSequence d) (F₂ : BorchersSequence d) (G : BorchersSequence d)
+    (ostensorAdmissible F₁ G) (ostensorAdmissible F₂ G)
+
+theorem osInner_smul_right (OS : OsterwalderSchraderAxioms d)
+    (c : ℂ) (F G : PositiveTimeBorchersSequence d) :
+    osInner OS F (c • G) = c * osInner OS F G := by
+  unfold osInner
+  simpa using OSInnerProduct_smul_right (d := d) OS.S OS.E0_linear
+    c (F : BorchersSequence d) (G : BorchersSequence d)
+
+theorem osInner_smul_left (OS : OsterwalderSchraderAxioms d)
+    (c : ℂ) (F G : PositiveTimeBorchersSequence d) :
+    osInner OS (c • F) G = starRingEnd ℂ c * osInner OS F G := by
+  unfold osInner
+  simpa using OSInnerProduct_smul_left (d := d) OS.S OS.E0_linear
+    c (F : BorchersSequence d) (G : BorchersSequence d)
+
+theorem osInner_neg_right (OS : OsterwalderSchraderAxioms d)
+    (F G : PositiveTimeBorchersSequence d) :
+    osInner OS F (-G) = -osInner OS F G := by
+  have hcongr :
+      osInner OS F (-G) = osInner OS F ((-1 : ℂ) • G) := by
+    unfold osInner
+    refine OSInnerProduct_congr_right d OS.S OS.E0_linear
+      (F : BorchersSequence d)
+      ((-G : PositiveTimeBorchersSequence d) : BorchersSequence d)
+      ((((-1 : ℂ) • G : PositiveTimeBorchersSequence d)) : BorchersSequence d) ?_
+    intro n
+    simpa [BorchersSequence.neg_funcs, BorchersSequence.smul_funcs] using
+      (neg_one_smul ((G : BorchersSequence d).funcs n : SchwartzNPoint d n))
+  rw [hcongr, osInner_smul_right]
+  ring
+
+theorem osInner_neg_left (OS : OsterwalderSchraderAxioms d)
+    (F G : PositiveTimeBorchersSequence d) :
+    osInner OS (-F) G = -osInner OS F G := by
+  have hcongr :
+      osInner OS (-F) G = osInner OS ((-1 : ℂ) • F) G := by
+    unfold osInner
+    refine OSInnerProduct_congr_left d OS.S OS.E0_linear
+      ((-F : PositiveTimeBorchersSequence d) : BorchersSequence d)
+      ((((-1 : ℂ) • F : PositiveTimeBorchersSequence d)) : BorchersSequence d)
+      (G : BorchersSequence d) ?_
+    intro n
+    simpa [BorchersSequence.neg_funcs, BorchersSequence.smul_funcs] using
+      (neg_one_smul ((F : BorchersSequence d).funcs n : SchwartzNPoint d n))
+  rw [hcongr, osInner_smul_left]
+  simp
+
+theorem osInner_sub_right (OS : OsterwalderSchraderAxioms d)
+    (F G₁ G₂ : PositiveTimeBorchersSequence d) :
+    osInner OS F (G₁ - G₂) = osInner OS F G₁ - osInner OS F G₂ := by
+  calc
+    osInner OS F (G₁ - G₂) = osInner OS F (G₁ + -G₂) := by rfl
+    _ = osInner OS F G₁ + osInner OS F (-G₂) := osInner_add_right OS F G₁ (-G₂)
+    _ = osInner OS F G₁ + (-osInner OS F G₂) := by rw [osInner_neg_right]
+    _ = osInner OS F G₁ - osInner OS F G₂ := by ring
+
+theorem osInner_sub_left (OS : OsterwalderSchraderAxioms d)
+    (F₁ F₂ G : PositiveTimeBorchersSequence d) :
+    osInner OS (F₁ - F₂) G = osInner OS F₁ G - osInner OS F₂ G := by
+  calc
+    osInner OS (F₁ - F₂) G = osInner OS (F₁ + -F₂) G := by rfl
+    _ = osInner OS F₁ G + osInner OS (-F₂) G := osInner_add_left OS F₁ (-F₂) G
+    _ = osInner OS F₁ G + (-osInner OS F₂ G) := by rw [osInner_neg_left]
+    _ = osInner OS F₁ G - osInner OS F₂ G := by ring
+
+theorem osInner_hermitian (OS : OsterwalderSchraderAxioms d)
+    (F G : PositiveTimeBorchersSequence d) :
+    osInner OS F G = starRingEnd ℂ (osInner OS G F) := by
+  unfold osInner
+  simpa using OSInnerProduct_hermitian (d := d) OS
+    (F : BorchersSequence d) (G : BorchersSequence d)
+    (ostensorAdmissible F G) (ostensorAdmissible G F)
+
+theorem osInner_nonneg_self (OS : OsterwalderSchraderAxioms d)
+    (F : PositiveTimeBorchersSequence d) :
+    0 ≤ (osInner OS F F).re :=
+  OS.E2_reflection_positive (F : BorchersSequence d) F.ordered_tsupport
+
+private theorem osInner_quadratic_re (OS : OsterwalderSchraderAxioms d)
+    (X Y : PositiveTimeBorchersSequence d) (t : ℝ) :
+    (osInner OS (X + (↑t : ℂ) • Y) (X + (↑t : ℂ) • Y)).re =
+    (osInner OS X X).re +
+      2 * (osInner OS X Y).re * t +
+      (osInner OS Y Y).re * t ^ 2 := by
+  rw [osInner_add_left, osInner_add_right, osInner_add_right,
+    osInner_smul_right, osInner_smul_left, osInner_smul_left, osInner_smul_right,
+    osInner_hermitian]
+  simp only [Complex.conj_ofReal, Complex.add_re, Complex.mul_re,
+    Complex.ofReal_re, Complex.ofReal_im, Complex.conj_re]
+  have hherm_re : (osInner OS Y X).re = (osInner OS X Y).re := by
+    have h := congrArg Complex.re (osInner_hermitian OS X Y)
+    simpa using h.symm
+  rw [hherm_re]
+  ring
+
+/-- Null vectors for the honest positive-time OS form are orthogonal to every
+    positive-time Borchers vector. This is the Euclidean analogue of
+    `null_inner_product_zero` on the Wightman side and is the key algebraic input
+    for an honest OS GNS quotient. -/
+theorem null_osInner_zero (OS : OsterwalderSchraderAxioms d)
+    (X Y : PositiveTimeBorchersSequence d)
+    (hX : (osInner OS X X).re = 0) :
+    osInner OS X Y = 0 := by
+  set w := osInner OS X Y with hw
+  have hre : w.re = 0 := by
+    apply mul_left_cancel₀ (two_ne_zero (α := ℝ))
+    rw [mul_zero]
+    apply quadratic_nonneg_linear_zero (osInner OS Y Y).re
+    · exact osInner_nonneg_self OS Y
+    · intro t
+      rw [show (osInner OS Y Y).re * t ^ 2 + 2 * w.re * t =
+          (osInner OS (X + (↑t : ℂ) • Y) (X + (↑t : ℂ) • Y)).re from by
+            rw [osInner_quadratic_re, hX]
+            ring]
+      exact osInner_nonneg_self OS (X + (↑t : ℂ) • Y)
+  have him : w.im = 0 := by
+    have hIw : osInner OS X (Complex.I • Y) = Complex.I * w := by
+      rw [osInner_smul_right]
+    have hIw_re : (Complex.I * w).re = -w.im := by
+      simp [Complex.mul_re, Complex.I_re, Complex.I_im]
+    have hre_Z : (osInner OS X (Complex.I • Y)).re = 0 := by
+      apply mul_left_cancel₀ (two_ne_zero (α := ℝ))
+      rw [mul_zero]
+      apply quadratic_nonneg_linear_zero (osInner OS (Complex.I • Y) (Complex.I • Y)).re
+      · exact osInner_nonneg_self OS (Complex.I • Y)
+      · intro t
+        rw [show (osInner OS (Complex.I • Y) (Complex.I • Y)).re * t ^ 2 +
+            2 * (osInner OS X (Complex.I • Y)).re * t =
+            (osInner OS (X + (↑t : ℂ) • (Complex.I • Y))
+              (X + (↑t : ℂ) • (Complex.I • Y))).re from by
+              rw [osInner_quadratic_re, hX]
+              ring]
+        exact osInner_nonneg_self OS (X + (↑t : ℂ) • (Complex.I • Y))
+    rw [hIw, hIw_re] at hre_Z
+    linarith
+  exact Complex.ext hre him
+
+theorem osInner_expand_diff (OS : OsterwalderSchraderAxioms d)
+    (F G : PositiveTimeBorchersSequence d) :
+    osInner OS (F - G) (F - G) =
+      osInner OS F F + osInner OS G G - osInner OS F G - osInner OS G F := by
+  rw [osInner_sub_left, osInner_sub_right, osInner_sub_right]
+  ring
+
+end PositiveTimeBorchersSequence
+
+/-- The honest OS null-space relation on the positive-time Euclidean Borchers algebra.
+    Two vectors are equivalent iff their difference has zero OS norm. -/
+def osBorchersSetoid {d : ℕ} [NeZero d] (OS : OsterwalderSchraderAxioms d) :
+    Setoid (PositiveTimeBorchersSequence d) where
+  r F G := (PositiveTimeBorchersSequence.osInner OS (F - G) (F - G)).re = 0
+  iseqv := by
+    refine ⟨?_, ?_, ?_⟩
+    · intro F
+      rw [PositiveTimeBorchersSequence.osInner_expand_diff]
+      ring_nf
+      simp
+    · intro F G hFG
+      have hfuncs_neg :
+          ∀ n,
+            (((G - F : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) =
+              (((-(F - G) : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) := by
+        intro n
+        simp [sub_eq_add_neg]
+      have hneg :
+          PositiveTimeBorchersSequence.osInner OS (G - F) (G - F) =
+            PositiveTimeBorchersSequence.osInner OS (-(F - G)) (-(F - G)) := by
+        unfold PositiveTimeBorchersSequence.osInner
+        exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hfuncs_neg).trans
+          (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hfuncs_neg)
+      have hsymm :
+          (PositiveTimeBorchersSequence.osInner OS (G - F) (G - F)).re =
+            (PositiveTimeBorchersSequence.osInner OS (F - G) (F - G)).re := by
+        rw [hneg, PositiveTimeBorchersSequence.osInner_neg_left,
+          PositiveTimeBorchersSequence.osInner_neg_right, neg_neg]
+      exact hsymm.trans hFG
+    · intro F G H hFG hGH
+      let A : PositiveTimeBorchersSequence d := F - G
+      let B : PositiveTimeBorchersSequence d := G - H
+      have hA : PositiveTimeBorchersSequence.osInner OS A A = 0 :=
+        PositiveTimeBorchersSequence.null_osInner_zero OS A A hFG
+      have hB : PositiveTimeBorchersSequence.osInner OS B B = 0 :=
+        PositiveTimeBorchersSequence.null_osInner_zero OS B B hGH
+      have hAB : PositiveTimeBorchersSequence.osInner OS A B = 0 :=
+        PositiveTimeBorchersSequence.null_osInner_zero OS A B hFG
+      have hBA : PositiveTimeBorchersSequence.osInner OS B A = 0 :=
+        PositiveTimeBorchersSequence.null_osInner_zero OS B A hGH
+      have hsum :
+          PositiveTimeBorchersSequence.osInner OS (A + B) (A + B) = 0 := by
+        rw [PositiveTimeBorchersSequence.osInner_add_left,
+          PositiveTimeBorchersSequence.osInner_add_right,
+          PositiveTimeBorchersSequence.osInner_add_right, hA, hAB, hBA, hB]
+        ring
+      have hkey :
+          ∀ n,
+            (((F - H : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) =
+              (((A + B : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) := by
+        intro n
+        simp [A, B, sub_eq_add_neg]
+        abel
+      have hFH :
+          PositiveTimeBorchersSequence.osInner OS (F - H) (F - H) =
+            PositiveTimeBorchersSequence.osInner OS (A + B) (A + B) := by
+        unfold PositiveTimeBorchersSequence.osInner
+        exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hkey).trans
+          (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hkey)
+      rw [hFH]
+      exact congrArg Complex.re hsum
+
+/-- The honest Euclidean pre-Hilbert space: quotient of positive-time Borchers
+    sequences by the OS null space. -/
+def OSPreHilbertSpace {d : ℕ} [NeZero d] (OS : OsterwalderSchraderAxioms d) : Type :=
+  Quotient (osBorchersSetoid OS)
+
+/-- The OS inner product on the Euclidean GNS quotient. -/
+def OSPreHilbertSpace.innerProduct {d : ℕ} [NeZero d] (OS : OsterwalderSchraderAxioms d) :
+    OSPreHilbertSpace OS → OSPreHilbertSpace OS → ℂ :=
+  Quotient.lift₂ (PositiveTimeBorchersSequence.osInner OS) (by
+    intro a₁ a₂ b₁ b₂ ha hb
+    have ha_eq :
+        ∀ G : PositiveTimeBorchersSequence d,
+          PositiveTimeBorchersSequence.osInner OS a₁ G =
+            PositiveTimeBorchersSequence.osInner OS b₁ G := by
+      intro G
+      have h := PositiveTimeBorchersSequence.null_osInner_zero OS (a₁ - b₁) G ha
+      rwa [PositiveTimeBorchersSequence.osInner_sub_left, sub_eq_zero] at h
+    have hb_eq :
+        ∀ F : PositiveTimeBorchersSequence d,
+          PositiveTimeBorchersSequence.osInner OS F a₂ =
+            PositiveTimeBorchersSequence.osInner OS F b₂ := by
+      intro F
+      have h := PositiveTimeBorchersSequence.null_osInner_zero OS (a₂ - b₂) F hb
+      rw [PositiveTimeBorchersSequence.osInner_sub_left, sub_eq_zero] at h
+      calc
+        PositiveTimeBorchersSequence.osInner OS F a₂ =
+            starRingEnd ℂ (PositiveTimeBorchersSequence.osInner OS a₂ F) := by
+              rw [PositiveTimeBorchersSequence.osInner_hermitian]
+        _ = starRingEnd ℂ (PositiveTimeBorchersSequence.osInner OS b₂ F) := by rw [h]
+        _ = starRingEnd ℂ (starRingEnd ℂ (PositiveTimeBorchersSequence.osInner OS F b₂)) := by
+              rw [PositiveTimeBorchersSequence.osInner_hermitian]
+        _ = PositiveTimeBorchersSequence.osInner OS F b₂ := by simp
+    rw [ha_eq a₂, hb_eq b₁])
+
+namespace OSPreHilbertSpace
+
+variable {d : ℕ} [NeZero d] (OS : OsterwalderSchraderAxioms d)
+
+/-- Two positive-time Borchers sequences with identical components represent the
+    same class in the honest OS quotient. -/
+theorem osBorchersSetoid_of_funcs_eq (F G : PositiveTimeBorchersSequence d)
+    (h : ∀ n, ((F : BorchersSequence d).funcs n) = ((G : BorchersSequence d).funcs n)) :
+    osBorchersSetoid OS F G := by
+  show (PositiveTimeBorchersSequence.osInner OS (F - G) (F - G)).re = 0
+  have hzero :
+      ∀ n,
+        (((F - G : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) =
+          (((0 : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) := by
+    intro n
+    simp [h n]
+  have hcongr :
+      PositiveTimeBorchersSequence.osInner OS (F - G) (F - G) =
+        PositiveTimeBorchersSequence.osInner OS 0 0 := by
+    unfold PositiveTimeBorchersSequence.osInner
+    exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hzero).trans
+      (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hzero)
+  rw [hcongr]
+  simp
+
+/-- Addition respects the OS null relation. -/
+theorem add_respects_equiv (F₁ G₁ F₂ G₂ : PositiveTimeBorchersSequence d)
+    (h₁ : osBorchersSetoid OS F₁ G₁) (h₂ : osBorchersSetoid OS F₂ G₂) :
+    osBorchersSetoid OS (F₁ + F₂) (G₁ + G₂) := by
+  have h1_null : PositiveTimeBorchersSequence.osInner OS (F₁ - G₁) (F₁ - G₁) = 0 :=
+    PositiveTimeBorchersSequence.null_osInner_zero OS (F₁ - G₁) (F₁ - G₁) h₁
+  have h2_null : PositiveTimeBorchersSequence.osInner OS (F₂ - G₂) (F₂ - G₂) = 0 :=
+    PositiveTimeBorchersSequence.null_osInner_zero OS (F₂ - G₂) (F₂ - G₂) h₂
+  have h12_null : PositiveTimeBorchersSequence.osInner OS (F₁ - G₁) (F₂ - G₂) = 0 :=
+    PositiveTimeBorchersSequence.null_osInner_zero OS (F₁ - G₁) (F₂ - G₂) h₁
+  have h21_null : PositiveTimeBorchersSequence.osInner OS (F₂ - G₂) (F₁ - G₁) = 0 :=
+    PositiveTimeBorchersSequence.null_osInner_zero OS (F₂ - G₂) (F₁ - G₁) h₂
+  show (PositiveTimeBorchersSequence.osInner OS
+    ((F₁ + F₂) - (G₁ + G₂)) ((F₁ + F₂) - (G₁ + G₂))).re = 0
+  have hfuncs :
+      ∀ n,
+        ((((F₁ + F₂) - (G₁ + G₂) : PositiveTimeBorchersSequence d) :
+          BorchersSequence d).funcs n) =
+          ((((F₁ - G₁) + (F₂ - G₂) : PositiveTimeBorchersSequence d) :
+            BorchersSequence d).funcs n) := by
+    intro n
+    simp [sub_eq_add_neg]
+    abel
+  have hcongr :
+      PositiveTimeBorchersSequence.osInner OS ((F₁ + F₂) - (G₁ + G₂))
+          ((F₁ + F₂) - (G₁ + G₂)) =
+        PositiveTimeBorchersSequence.osInner OS ((F₁ - G₁) + (F₂ - G₂))
+          ((F₁ - G₁) + (F₂ - G₂)) := by
+    unfold PositiveTimeBorchersSequence.osInner
+    exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hfuncs).trans
+      (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hfuncs)
+  rw [hcongr, PositiveTimeBorchersSequence.osInner_add_left,
+    PositiveTimeBorchersSequence.osInner_add_right,
+    PositiveTimeBorchersSequence.osInner_add_right,
+    h1_null, h12_null, h21_null, h2_null]
+  simp
+
+/-- Negation respects the OS null relation. -/
+theorem neg_respects_equiv (F G : PositiveTimeBorchersSequence d)
+    (h : osBorchersSetoid OS F G) :
+    osBorchersSetoid OS (-F) (-G) := by
+  show (PositiveTimeBorchersSequence.osInner OS ((-F) - (-G)) ((-F) - (-G))).re = 0
+  have hfuncs :
+      ∀ n,
+        ((((-F) - (-G) : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) =
+          (((-(F - G) : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) := by
+    intro n
+    simp [sub_eq_add_neg]
+    abel
+  have hcongr :
+      PositiveTimeBorchersSequence.osInner OS ((-F) - (-G)) ((-F) - (-G)) =
+        PositiveTimeBorchersSequence.osInner OS (-(F - G)) (-(F - G)) := by
+    unfold PositiveTimeBorchersSequence.osInner
+    exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hfuncs).trans
+      (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hfuncs)
+  rw [hcongr, PositiveTimeBorchersSequence.osInner_neg_left,
+    PositiveTimeBorchersSequence.osInner_neg_right, neg_neg]
+  exact h
+
+/-- Scalar multiplication respects the OS null relation. -/
+theorem smul_respects_equiv (c : ℂ) (F G : PositiveTimeBorchersSequence d)
+    (h : osBorchersSetoid OS F G) :
+    osBorchersSetoid OS (c • F) (c • G) := by
+  have hnull : PositiveTimeBorchersSequence.osInner OS (F - G) (F - G) = 0 :=
+    PositiveTimeBorchersSequence.null_osInner_zero OS (F - G) (F - G) h
+  show (PositiveTimeBorchersSequence.osInner OS ((c • F) - (c • G)) ((c • F) - (c • G))).re = 0
+  have hfuncs :
+      ∀ n,
+        ((((c • F) - (c • G) : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) =
+          ((((c • (F - G)) : PositiveTimeBorchersSequence d) : BorchersSequence d).funcs n) := by
+    intro n
+    simpa [BorchersSequence.sub_funcs, BorchersSequence.smul_funcs] using
+      (smul_sub c ((F : BorchersSequence d).funcs n) ((G : BorchersSequence d).funcs n)).symm
+  have hcongr :
+      PositiveTimeBorchersSequence.osInner OS ((c • F) - (c • G)) ((c • F) - (c • G)) =
+        PositiveTimeBorchersSequence.osInner OS (c • (F - G)) (c • (F - G)) := by
+    unfold PositiveTimeBorchersSequence.osInner
+    exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hfuncs).trans
+      (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hfuncs)
+  rw [hcongr, PositiveTimeBorchersSequence.osInner_smul_left,
+    PositiveTimeBorchersSequence.osInner_smul_right, hnull]
+  simp
+
+instance instZero : Zero (OSPreHilbertSpace OS) where
+  zero := Quotient.mk _ (0 : PositiveTimeBorchersSequence d)
+
+instance instAdd : Add (OSPreHilbertSpace OS) where
+  add := Quotient.map₂ (· + ·)
+    (fun _ _ h₁ _ _ h₂ => add_respects_equiv OS _ _ _ _ h₁ h₂)
+
+instance instNeg : Neg (OSPreHilbertSpace OS) where
+  neg := Quotient.map (- ·) (fun _ _ h => neg_respects_equiv OS _ _ h)
+
+instance instSMul : SMul ℂ (OSPreHilbertSpace OS) where
+  smul c := Quotient.map (c • ·) (fun _ _ h => smul_respects_equiv OS c _ _ h)
+
+instance instSub : Sub (OSPreHilbertSpace OS) where
+  sub a b := a + (-b)
+
+/-- If two positive-time sequences have identical components, their OS quotient
+    classes are equal. -/
+theorem mk_eq_of_funcs_eq (F G : PositiveTimeBorchersSequence d)
+    (h : ∀ n, ((F : BorchersSequence d).funcs n) = ((G : BorchersSequence d).funcs n)) :
+    (Quotient.mk (osBorchersSetoid OS) F : OSPreHilbertSpace OS) =
+      Quotient.mk (osBorchersSetoid OS) G :=
+  Quotient.sound (osBorchersSetoid_of_funcs_eq OS F G h)
+
+instance instAddCommGroup : AddCommGroup (OSPreHilbertSpace OS) where
+  add_assoc a b c := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      induction b using Quotient.inductionOn with
+      | h G =>
+        induction c using Quotient.inductionOn with
+        | h H =>
+          exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp [add_assoc])
+  zero_add a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+  add_zero a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+  add_comm a b := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      induction b using Quotient.inductionOn with
+      | h G =>
+        exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp [add_comm])
+  neg_add_cancel a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+  nsmul := nsmulRec
+  zsmul := zsmulRec
+
+instance instModule : Module ℂ (OSPreHilbertSpace OS) where
+  one_smul a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+  mul_smul c₁ c₂ a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp [mul_smul])
+  smul_zero c := by
+    exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+  smul_add c a b := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      induction b using Quotient.inductionOn with
+      | h G =>
+        exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp [smul_add])
+  add_smul c₁ c₂ a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp [add_smul])
+  zero_smul a := by
+    induction a using Quotient.inductionOn with
+    | h F =>
+      exact mk_eq_of_funcs_eq OS _ _ (fun n => by simp)
+
+instance instInner : Inner ℂ (OSPreHilbertSpace OS) where
+  inner := OSPreHilbertSpace.innerProduct OS
+
+@[simp] theorem inner_eq (F G : PositiveTimeBorchersSequence d) :
+    @inner ℂ (OSPreHilbertSpace OS) (instInner OS) ⟦F⟧ ⟦G⟧ =
+      PositiveTimeBorchersSequence.osInner OS F G := rfl
+
+theorem inner_conj_symm (x y : OSPreHilbertSpace OS) :
+    starRingEnd ℂ (@inner ℂ _ (instInner OS) y x) =
+      @inner ℂ _ (instInner OS) x y := by
+  induction x using Quotient.inductionOn with
+  | h F =>
+    induction y using Quotient.inductionOn with
+    | h G =>
+      simpa using (PositiveTimeBorchersSequence.osInner_hermitian OS F G).symm
+
+theorem inner_re_nonneg (x : OSPreHilbertSpace OS) :
+    0 ≤ RCLike.re (@inner ℂ _ (instInner OS) x x) := by
+  induction x using Quotient.inductionOn with
+  | h F =>
+    exact PositiveTimeBorchersSequence.osInner_nonneg_self OS F
+
+theorem inner_add_left (x y z : OSPreHilbertSpace OS) :
+    @inner ℂ _ (instInner OS) (x + y) z =
+      @inner ℂ _ (instInner OS) x z + @inner ℂ _ (instInner OS) y z := by
+  induction x using Quotient.inductionOn with
+  | h F =>
+    induction y using Quotient.inductionOn with
+    | h G =>
+      induction z using Quotient.inductionOn with
+      | h H =>
+        exact PositiveTimeBorchersSequence.osInner_add_left OS F G H
+
+theorem inner_smul_left (x y : OSPreHilbertSpace OS) (r : ℂ) :
+    @inner ℂ _ (instInner OS) (r • x) y =
+      starRingEnd ℂ r * @inner ℂ _ (instInner OS) x y := by
+  induction x using Quotient.inductionOn with
+  | h F =>
+    induction y using Quotient.inductionOn with
+    | h G =>
+      exact PositiveTimeBorchersSequence.osInner_smul_left OS r F G
+
+theorem inner_definite (x : OSPreHilbertSpace OS)
+    (h : @inner ℂ _ (instInner OS) x x = 0) : x = 0 := by
+  induction x using Quotient.inductionOn with
+  | h F =>
+    apply Quotient.sound
+    show (PositiveTimeBorchersSequence.osInner OS (F - 0) (F - 0)).re = 0
+    have hfuncs :
+        ∀ n,
+          (((F - (0 : PositiveTimeBorchersSequence d) : PositiveTimeBorchersSequence d) :
+            BorchersSequence d).funcs n) =
+            ((F : BorchersSequence d).funcs n) := by
+      intro n
+      simp
+    have hcongr :
+        PositiveTimeBorchersSequence.osInner OS (F - 0) (F - 0) =
+          PositiveTimeBorchersSequence.osInner OS F F := by
+      unfold PositiveTimeBorchersSequence.osInner
+      exact (OSInnerProduct_congr_left d OS.S OS.E0_linear _ _ _ hfuncs).trans
+        (OSInnerProduct_congr_right d OS.S OS.E0_linear _ _ _ hfuncs)
+    have h' : PositiveTimeBorchersSequence.osInner OS F F = 0 := h
+    rw [hcongr, h']
+    simp
+
+/-- The `InnerProductSpace.Core` instance on the honest Euclidean OS quotient. -/
+instance instCore : InnerProductSpace.Core ℂ (OSPreHilbertSpace OS) where
+  toCore := {
+    toInner := instInner OS
+    conj_inner_symm := inner_conj_symm OS
+    re_inner_nonneg := inner_re_nonneg OS
+    add_left := inner_add_left OS
+    smul_left := inner_smul_left OS
+  }
+  definite := inner_definite OS
+
+/-- The normed additive group structure induced by the honest OS inner product. -/
+noncomputable instance instNormedAddCommGroup :
+    NormedAddCommGroup (OSPreHilbertSpace OS) :=
+  @InnerProductSpace.Core.toNormedAddCommGroup ℂ _ _ _ _ (instCore OS)
+
+/-- The pre-Hilbert space structure on the honest Euclidean OS quotient. -/
+noncomputable instance instInnerProductSpace :
+    @InnerProductSpace ℂ (OSPreHilbertSpace OS) _
+      (instNormedAddCommGroup OS).toSeminormedAddCommGroup :=
+  @InnerProductSpace.ofCore ℂ _ _ _ _ (instCore OS).toCore
+
+end OSPreHilbertSpace
 
 /-- The zero-diagonal Wick-rotation relation between Wightman functions and their
     honest OS-I Euclidean counterparts.

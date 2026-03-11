@@ -3670,11 +3670,16 @@ theorem bhw_euclidean_reality_ae (Wfn : WightmanFunctions d) (n : ℕ) :
         simpa [D] using forwardTube_subset_hermitianReverseOverlap_d1 (n := n)
       -- Remaining low-dimensional gap: the old totally-real anchor strategy is
       -- impossible for `d = 1`, `n ≥ 2`, because `hermitianRealOverlap` is empty.
-      -- But the geometry itself is no longer the blocker: `ForwardTube 1 n ⊆ D`
-      -- now holds via `hermitianReverse(FT) ⊆ PET`. So the live missing step is
-      -- the analytic propagation/uniqueness argument showing `H = 0` on that
-      -- forward-tube piece and then on the connected overlap component meeting
-      -- the relevant Euclidean Wick points.
+      -- The geometry itself is no longer the blocker: `ForwardTube 1 n ⊆ D`
+      -- now holds via `hermitianReverse(FT) ⊆ PET`.
+      --
+      -- But connectedness of `D` is only the SECOND half of the replacement
+      -- argument. The first missing input is an honest forward-tube reflection /
+      -- boundary-uniqueness theorem showing `H = 0` on `ForwardTube 1 n`
+      -- itself, using boundary data on a real Jost open set (or an equivalent
+      -- edge-of-the-wedge / Schwarz-reflection statement). Only after that
+      -- input is in place can one propagate from the forward-tube piece to the
+      -- relevant overlap component meeting the Euclidean Wick points.
       let _ := hV_empty
       let _ := hFT_sub_D
       let _ := hH_holo

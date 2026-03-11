@@ -5,6 +5,7 @@ Authors: ModularPhysics Contributors
 -/
 import OSReconstruction.SCV.Polydisc
 import OSReconstruction.SCV.Osgood
+import OSReconstruction.SCV.LaplaceHolomorphic
 import OSReconstruction.SCV.IteratedCauchyIntegral
 import OSReconstruction.SCV.SeparatelyAnalytic
 import OSReconstruction.SCV.EdgeOfWedge
@@ -19,6 +20,7 @@ with the goal of proving the multi-dimensional edge-of-the-wedge theorem.
 ## Modules
 
 * `SCV.Polydisc` — Polydiscs and their topological properties
+* `SCV.LaplaceHolomorphic` — holomorphic Laplace transforms on half-planes
 * `SCV.IteratedCauchyIntegral` — Iterated circle integrals and Cauchy formula for polydiscs
 * `SCV.SeparatelyAnalytic` — Osgood/Hartogs infrastructure and extension lemmas
 * `SCV.EdgeOfWedge` — 1D edge-of-the-wedge infrastructure

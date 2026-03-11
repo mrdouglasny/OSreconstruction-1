@@ -494,9 +494,11 @@ theorem forwardTube_inter_translate_nonempty {d n : ℕ} [NeZero d]
     fun k μ => if μ = 0 then Complex.I * ((↑(k : ℕ) + 1) * M) else 0
   -- Imaginary successive differences for z equal M·e₀
   have him_diff_z : ∀ k : Fin n, (fun μ =>
-      (z k μ - (if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩) μ).im) =
+      (z k μ - (if h : k.val = 0 then (0 : Fin (d + 1) → ℂ)
+        else z ⟨k.val - 1, by omega⟩) μ).im) =
       fun μ => if μ = 0 then M else 0 := by
-    intro k; ext μ
+    intro k
+    ext μ
     by_cases hk : (k : ℕ) = 0
     · simp [z, hk]; split_ifs with hμ
       · simp [Complex.mul_im, Complex.I_re, Complex.I_im]
@@ -510,7 +512,8 @@ theorem forwardTube_inter_translate_nonempty {d n : ℕ} [NeZero d]
   have him_diff_zc_pos : ∀ k : Fin n, (k : ℕ) ≠ 0 → (fun μ =>
       ((z k μ + c μ) - (if h : k.val = 0 then (0 : Fin (d+1) → ℂ) else
         fun μ => z ⟨k.val - 1, by omega⟩ μ + c μ) μ).im) =
-      fun μ => (z k μ - (if h : k.val = 0 then 0 else z ⟨k.val - 1, by omega⟩) μ).im := by
+      fun μ => (z k μ - (if h : k.val = 0 then (0 : Fin (d + 1) → ℂ)
+        else z ⟨k.val - 1, by omega⟩) μ).im := by
     intro k hk; ext μ; simp [hk, Complex.sub_im]
   -- For z+c at k = 0, get (M + Im(c 0), Im(c_i))
   have him_diff_zc_zero : ∀ k : Fin n, (k : ℕ) = 0 → (fun μ =>
