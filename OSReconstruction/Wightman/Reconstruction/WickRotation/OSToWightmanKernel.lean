@@ -4,6 +4,7 @@
  Authors: Michael Douglas, ModularPhysics Contributors
  -/
 import OSReconstruction.SCV.Polydisc
+import OSReconstruction.vNA.MeasureTheory.SpectralIntegral
 import OSReconstruction.Wightman.Reconstruction.WickRotation.OSToWightmanSemigroup
 import OSReconstruction.SCV.SeparatelyAnalytic
 
@@ -154,6 +155,33 @@ theorem differentiableOn_osTimeShiftHilbertComplex_twoLayerSandwich
   · intro u v
     exact differentiableOn_inner_osTimeShiftHilbertComplex (d := d) OS lgc u v
   · exact continuousOn_osTimeShiftHilbertComplex (d := d) OS lgc
+
+/-- If the middle insertion is obtained from a bounded sesquilinear form by the
+Riesz construction `sesquilinearToOperator`, the resulting two-layer OS sandwich
+is jointly holomorphic on the product right half-plane.
+
+This is the exact bridge needed for the direct operator-construction route in the
+OS II base step: once the Schwinger product-test sesquilinear form is proved
+bounded, the holomorphicity machinery is already available. -/
+theorem differentiableOn_osTimeShiftHilbertComplex_twoLayerSandwich_of_boundedSesq
+    (OS : OsterwalderSchraderAxioms d) (lgc : OSLinearGrowthCondition d OS)
+    (B : OSHilbertSpace OS → OSHilbertSpace OS → ℂ)
+    (hB_linear_right : ∀ x, IsLinearMap ℂ (B x))
+    (hB_conj_linear_left :
+      ∀ y c x₁ x₂, B (c • x₁ + x₂) y = starRingEnd ℂ c * B x₁ y + B x₂ y)
+    (hB_bounded : ∃ C : ℝ, ∀ x y, ‖B x y‖ ≤ C * ‖x‖ * ‖y‖)
+    (x y : OSHilbertSpace OS) :
+    DifferentiableOn ℂ
+      (fun w : Fin 2 → ℂ =>
+        @inner ℂ (OSHilbertSpace OS) _ x
+          ((osTimeShiftHilbertComplex (d := d) OS lgc (w 0))
+            ((sesquilinearToOperator B hB_linear_right hB_conj_linear_left hB_bounded)
+              ((osTimeShiftHilbertComplex (d := d) OS lgc (w 1)) y))))
+      (productRightHalfPlane 2) := by
+  simpa using differentiableOn_osTimeShiftHilbertComplex_twoLayerSandwich
+    (d := d) OS lgc
+    (A := sesquilinearToOperator B hB_linear_right hB_conj_linear_left hB_bounded)
+    x y
 
 private theorem continuousOn_clm_apply_rightHalfPlane
     {H : Type*} [NormedAddCommGroup H] [InnerProductSpace ℂ H] [CompleteSpace H]

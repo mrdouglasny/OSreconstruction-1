@@ -1418,6 +1418,33 @@ theorem SchwartzMap.prependFieldCLMRight_apply {n : ℕ}
     (f : 𝓢(E, ℂ)) (g : 𝓢(Fin n → E, ℂ)) :
     SchwartzMap.prependFieldCLMRight f g = f.prependField g := rfl
 
+/-- For fixed head test `f`, each target seminorm of `prependField f` is controlled by
+finitely many Schwartz seminorms of the tail test. This is the finite-seminorm
+domination actually used by downstream continuity and boundedness arguments. -/
+theorem SchwartzMap.prependField_seminorm_bound_exists {n : ℕ}
+    (f : 𝓢(E, ℂ)) (p l : ℕ) :
+    ∃ s : Finset (ℕ × ℕ), ∃ C : NNReal, C ≠ 0 ∧
+      ∀ g : 𝓢(Fin n → E, ℂ),
+        SchwartzMap.seminorm ℝ p l (f.prependField g) ≤
+          (C • s.sup (schwartzSeminormFamily ℝ (Fin n → E) ℂ)) g := by
+  let L : 𝓢(Fin n → E, ℂ) →L[ℂ] 𝓢(Fin (n + 1) → E, ℂ) :=
+    SchwartzMap.prependFieldCLMRight (E := E) f
+  let q : Seminorm ℝ (𝓢(Fin n → E, ℂ)) :=
+    (schwartzSeminormFamily ℝ (Fin (n + 1) → E) ℂ (p, l)).comp
+      (L.restrictScalars ℝ).toLinearMap
+  have hq_cont : Continuous q := by
+    change Continuous (fun g : 𝓢(Fin n → E, ℂ) =>
+      schwartzSeminormFamily ℝ (Fin (n + 1) → E) ℂ (p, l) (L g))
+    exact ((schwartz_withSeminorms ℝ (Fin (n + 1) → E) ℂ).continuous_seminorm (p, l)).comp
+      L.continuous
+  obtain ⟨s, C, hC_ne, hq_bound⟩ :=
+    Seminorm.bound_of_continuous (schwartz_withSeminorms ℝ (Fin n → E) ℂ) q hq_cont
+  refine ⟨s, C, hC_ne, ?_⟩
+  intro g
+  change (schwartzSeminormFamily ℝ (Fin (n + 1) → E) ℂ (p, l)) (L g) ≤
+    (C • s.sup (schwartzSeminormFamily ℝ (Fin n → E) ℂ)) g
+  simpa [q] using hq_bound g
+
 /-! ### Splitting and Appending -/
 
 /-- splitFirst ∘ Fin.append extracts the first component. -/

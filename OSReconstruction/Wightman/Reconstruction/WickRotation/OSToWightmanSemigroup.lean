@@ -816,6 +816,37 @@ private theorem timeShiftSchwartzNPoint_preserves_ordered_positive_tsupport_nonn
     linarith
 
 omit [NeZero d] in
+private theorem timeShiftSchwartzNPoint_tsupport_subset_ordered_after_nonneg
+    {n : ℕ} (t : ℝ) (f : SchwartzNPoint d n)
+    (hf : tsupport ((f : SchwartzNPoint d n) : NPointDomain d n → ℂ) ⊆
+      OrderedPositiveTimeRegion d n) :
+    tsupport (((timeShiftSchwartzNPoint (d := d) t f : SchwartzNPoint d n) :
+      NPointDomain d n → ℂ)) ⊆
+      {x | ∀ i : Fin n, t < x i 0 ∧ ∀ j : Fin n, i < j → x i 0 < x j 0} := by
+  intro x hx
+  have hxpre :
+      (fun i => x i - timeShiftVec d t) ∈
+        tsupport ((f : SchwartzNPoint d n) : NPointDomain d n → ℂ) := by
+    exact tsupport_precomp_subset
+      (f := ((f : SchwartzNPoint d n) : NPointDomain d n → ℂ))
+      (h := translateNPointDomain (d := d) (n := n) (timeShiftVec d t))
+      (continuous_translateNPointDomain (d := d) (n := n) (timeShiftVec d t)) hx
+  have hord := hf hxpre
+  intro i
+  constructor
+  · have hi := (hord i).1
+    have htime : timeShiftVec d t 0 = t := by simp [timeShiftVec]
+    have : 0 < x i 0 - t := by
+      simpa [OrderedPositiveTimeRegion, htime] using hi
+    linarith
+  · intro j hij
+    have hij' := (hord i).2 j hij
+    have htime : timeShiftVec d t 0 = t := by simp [timeShiftVec]
+    have : x i 0 - t < x j 0 - t := by
+      simpa [OrderedPositiveTimeRegion, htime] using hij'
+    linarith
+
+omit [NeZero d] in
 theorem timeShiftSchwartzNPoint_preserves_ordered_positive_tsupport
     {n : ℕ} (t : ℝ) (ht : 0 < t) (f : SchwartzNPoint d n)
     (hf : tsupport ((f : SchwartzNPoint d n) : NPointDomain d n → ℂ) ⊆
@@ -824,6 +855,69 @@ theorem timeShiftSchwartzNPoint_preserves_ordered_positive_tsupport
       NPointDomain d n → ℂ)) ⊆ OrderedPositiveTimeRegion d n := by
   exact timeShiftSchwartzNPoint_preserves_ordered_positive_tsupport_nonneg
     (d := d) t (le_of_lt ht) f hf
+
+/-- If a head test is supported in the time slab `0 < τ_head < t`, then prepending it
+to a tail shifted forward by `t` preserves the ordered positive-time support surface. -/
+private theorem prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+    {n : ℕ} (t : ℝ) (f : SchwartzSpacetime d) (g : SchwartzNPoint d n)
+    (hf : tsupport (f : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (hg : tsupport ((g : SchwartzNPoint d n) : NPointDomain d n → ℂ) ⊆
+      OrderedPositiveTimeRegion d n) :
+    tsupport (((SchwartzMap.prependField f (timeShiftSchwartzNPoint (d := d) t g) :
+      SchwartzNPoint d (n + 1)) : NPointDomain d (n + 1) → ℂ)) ⊆
+      OrderedPositiveTimeRegion d (n + 1) := by
+  exact SchwartzMap.prependField_tsupport_subset_orderedPositiveTimeRegion_of_barrier
+    (d := d) (n := n) t f (timeShiftSchwartzNPoint (d := d) t g) hf
+    (timeShiftSchwartzNPoint_tsupport_subset_ordered_after_nonneg
+      (d := d) (n := n) t g hg)
+
+/-- The time-shifted prependField test from the previous theorem is automatically
+zero-diagonal, because its topological support lies in the ordered positive-time region. -/
+private theorem prependField_timeShift_vanishesToInfiniteOrderOnCoincidence_of_head_barrier
+    {n : ℕ} (t : ℝ) (f : SchwartzSpacetime d) (g : SchwartzNPoint d n)
+    (hf : tsupport (f : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (hg : tsupport ((g : SchwartzNPoint d n) : NPointDomain d n → ℂ) ⊆
+      OrderedPositiveTimeRegion d n) :
+    VanishesToInfiniteOrderOnCoincidence
+      (SchwartzMap.prependField f (timeShiftSchwartzNPoint (d := d) t g)) := by
+  apply VanishesToInfiniteOrderOnCoincidence_of_tsupport_disjoint
+  refine Set.disjoint_left.mpr ?_
+  intro x hx hxcoin
+  exact (not_mem_CoincidenceLocus_of_mem_OrderedPositiveTimeRegion
+    (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+      (d := d) (n := n) t f g hf hg hx)) hxcoin
+
+/-- Barrier-separated head-field insertion after Euclidean time shift stays inside the
+honest positive-time OS Borchers algebra. This is the first operator-level object on the
+direct OS kernel route: the support geometry is now packaged as an actual map, rather than
+remaining implicit in individual shell computations. -/
+def fieldActionTimeShiftPositiveTimeBorchers
+    (h : SchwartzSpacetime d) (t : ℝ)
+    (hh_barrier : tsupport (h : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t}) :
+    PositiveTimeBorchersSequence d → PositiveTimeBorchersSequence d :=
+  fun F =>
+    { toBorchersSequence :=
+        Reconstruction.fieldOperatorAction h
+          (timeShiftBorchers (d := d) t (F : BorchersSequence d))
+      ordered_tsupport := by
+        intro n
+        cases n with
+        | zero =>
+            simp [Reconstruction.fieldOperatorAction_funcs_zero]
+        | succ n =>
+            simpa [Reconstruction.fieldOperatorAction_funcs_succ, timeShiftBorchers_funcs] using
+              prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+                (d := d) (n := n) t h ((F : BorchersSequence d).funcs n)
+                hh_barrier (F.ordered_tsupport n) }
+
+@[simp] theorem fieldActionTimeShiftPositiveTimeBorchers_toBorchersSequence
+    (h : SchwartzSpacetime d) (t : ℝ)
+    (hh_barrier : tsupport (h : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (F : PositiveTimeBorchersSequence d) :
+    ((fieldActionTimeShiftPositiveTimeBorchers (d := d) h t hh_barrier F :
+      PositiveTimeBorchersSequence d) : BorchersSequence d) =
+      Reconstruction.fieldOperatorAction h
+        (timeShiftBorchers (d := d) t (F : BorchersSequence d)) := rfl
 
 private theorem continuousOn_os_pairing_term_timeShift_nonneg_of_isCompactSupport
     (OS : OsterwalderSchraderAxioms d) {n m : ℕ}
@@ -3078,6 +3172,179 @@ private theorem OSInnerProduct_single_right_timeShift
   simpa using
     (OSInnerProduct_single_single d OS.S OS.E0_linear n m f
       (timeShiftSchwartzNPoint (d := d) t g))
+
+/-- Concentrated inserted-right-factor shell with a time-shifted tail, under the honest
+ordered-support barrier hypotheses needed for the direct OS operator route. The result is
+rewritten on an explicit zero-diagonal witness rather than `ofClassical`. -/
+theorem osInner_single_fieldActionTimeShift_single_of_head_barrier
+    (OS : OsterwalderSchraderAxioms d)
+    {n m : ℕ} (f : SchwartzNPoint d n) (g : SchwartzNPoint d m)
+    (h : SchwartzSpacetime d) (t : ℝ)
+    (hf_pos : tsupport (f : NPointDomain d n → ℂ) ⊆ OrderedPositiveTimeRegion d n)
+    (hh_barrier : tsupport (h : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (hg_pos : tsupport (g : NPointDomain d m → ℂ) ⊆ OrderedPositiveTimeRegion d m) :
+    PositiveTimeBorchersSequence.osInner OS
+      (PositiveTimeBorchersSequence.single n f hf_pos)
+      (fieldActionTimeShiftPositiveTimeBorchers (d := d) h t hh_barrier
+        (PositiveTimeBorchersSequence.single m g hg_pos)) =
+      OS.S (n + (m + 1))
+        ⟨f.osConjTensorProduct (SchwartzMap.prependField h (timeShiftSchwartzNPoint (d := d) t g)),
+          VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
+            (d := d) (n := n) (m := m + 1) (f := f)
+            (g := SchwartzMap.prependField h (timeShiftSchwartzNPoint (d := d) t g))
+            hf_pos
+            (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+              (d := d) (n := m) t h g hh_barrier hg_pos)⟩ := by
+  let g' : SchwartzNPoint d m := timeShiftSchwartzNPoint (d := d) t g
+  have hzero :
+      VanishesToInfiniteOrderOnCoincidence
+        (f.osConjTensorProduct (SchwartzMap.prependField h g')) :=
+    VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
+      (d := d) (n := n) (m := m + 1) (f := f)
+      (g := SchwartzMap.prependField h g') hf_pos
+      (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+        (d := d) (n := m) t h g hh_barrier hg_pos)
+  have hshift_single :
+      ∀ k,
+        (timeShiftBorchers (d := d) t (BorchersSequence.single m g)).funcs k =
+          (BorchersSequence.single m g').funcs k := by
+    intro k
+    by_cases hk : k = m
+    · subst hk
+      simp [BorchersSequence.single, g', timeShiftBorchers_funcs]
+    · simp [BorchersSequence.single, hk, g', timeShiftBorchers_funcs]
+  have hfield_congr :
+      OSInnerProduct d OS.S (BorchersSequence.single n f)
+        (Reconstruction.fieldOperatorAction h
+          (timeShiftBorchers (d := d) t (BorchersSequence.single m g))) =
+      OSInnerProduct d OS.S (BorchersSequence.single n f)
+        (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g')) := by
+    refine OSInnerProduct_congr_right d OS.S OS.E0_linear
+      (BorchersSequence.single n f)
+      (Reconstruction.fieldOperatorAction h
+        (timeShiftBorchers (d := d) t (BorchersSequence.single m g)))
+      (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g')) ?_
+    intro k
+    cases k with
+    | zero =>
+        simp [Reconstruction.fieldOperatorAction_funcs_zero]
+    | succ k =>
+        simpa [Reconstruction.fieldOperatorAction_funcs_succ] using
+          congrArg (SchwartzMap.prependField h) (hshift_single k)
+  have hmain :
+      OSInnerProduct d OS.S (BorchersSequence.single n f)
+        (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g')) =
+      OS.S (n + (m + 1))
+        ⟨f.osConjTensorProduct (SchwartzMap.prependField h g'), hzero⟩ := by
+    exact (OSInnerProduct_single_fieldOperatorAction_single
+      (d := d) OS.S OS.E0_linear n m f g' h).trans
+      (by rw [ZeroDiagonalSchwartz.ofClassical_of_vanishes
+        (f := f.osConjTensorProduct (SchwartzMap.prependField h g')) hzero])
+  unfold PositiveTimeBorchersSequence.osInner
+  simpa [g', fieldActionTimeShiftPositiveTimeBorchers,
+    PositiveTimeBorchersSequence.single_toBorchersSequence] using
+    hfield_congr.trans hmain
+
+private theorem OSInnerProduct_single_fieldOperatorAction_timeShift_right_of_head_barrier
+    (OS : OsterwalderSchraderAxioms d)
+    {n : ℕ} (f : SchwartzNPoint d n) (h : SchwartzSpacetime d) (t : ℝ)
+    (hf_pos : tsupport (f : NPointDomain d n → ℂ) ⊆ OrderedPositiveTimeRegion d n)
+    (hh_barrier : tsupport (h : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (G : PositiveTimeBorchersSequence d) :
+    OSInnerProduct d OS.S (BorchersSequence.single n f)
+      (Reconstruction.fieldOperatorAction h
+        (timeShiftBorchers (d := d) t (G : BorchersSequence d))) =
+      ∑ m ∈ Finset.range (((G : BorchersSequence d).bound + 1)),
+        OS.S (n + (m + 1))
+          ⟨f.osConjTensorProduct
+              (SchwartzMap.prependField h
+                (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m))),
+            VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
+              (d := d) (n := n) (m := m + 1) (f := f)
+              (g := SchwartzMap.prependField h
+                (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m)))
+              hf_pos
+              (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+                (d := d) (n := m) t h ((G : BorchersSequence d).funcs m)
+                hh_barrier (G.ordered_tsupport m))⟩ := by
+  unfold OSInnerProduct
+  rw [BorchersSequence.single_bound, Finset.sum_range_succ]
+  have hleft :
+      ∑ i ∈ Finset.range n,
+        ∑ j ∈ Finset.range
+            ((Reconstruction.fieldOperatorAction h
+                (timeShiftBorchers (d := d) t (G : BorchersSequence d))).bound + 1),
+          OS.S (i + j) (ZeroDiagonalSchwartz.ofClassical
+            (((BorchersSequence.single n f).funcs i).osConjTensorProduct
+              ((Reconstruction.fieldOperatorAction h
+                (timeShiftBorchers (d := d) t (G : BorchersSequence d))).funcs j))) = 0 := by
+    refine Finset.sum_eq_zero ?_
+    intro i hi
+    have hi_ne : i ≠ n := Nat.ne_of_lt (Finset.mem_range.mp hi)
+    refine Finset.sum_eq_zero ?_
+    intro j hj
+    rw [BorchersSequence.single_funcs_ne hi_ne, SchwartzNPoint.osConjTensorProduct_zero_left,
+      ZeroDiagonalSchwartz.ofClassical_zero, (OS.E0_linear _).map_zero]
+  rw [hleft, zero_add, BorchersSequence.single_funcs_eq]
+  rw [Reconstruction.fieldOperatorAction_bound]
+  simp only [timeShiftBorchers]
+  rw [Finset.sum_range_succ']
+  simp only [Reconstruction.fieldOperatorAction_funcs_zero,
+    SchwartzNPoint.osConjTensorProduct_zero_right, ZeroDiagonalSchwartz.ofClassical_zero,
+    (OS.E0_linear _).map_zero, add_zero]
+  apply Finset.sum_congr rfl
+  intro m hm
+  have hzero :
+      VanishesToInfiniteOrderOnCoincidence
+        (f.osConjTensorProduct
+          (SchwartzMap.prependField h
+            (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m)))) :=
+    VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
+      (d := d) (n := n) (m := m + 1) (f := f)
+      (g := SchwartzMap.prependField h
+        (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m)))
+      hf_pos
+      (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+        (d := d) (n := m) t h ((G : BorchersSequence d).funcs m)
+        hh_barrier (G.ordered_tsupport m))
+  rw [Reconstruction.fieldOperatorAction_funcs_succ, timeShiftBorchers_funcs,
+    ZeroDiagonalSchwartz.ofClassical_of_vanishes
+      (f := f.osConjTensorProduct
+        (SchwartzMap.prependField h
+          (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m))))
+      hzero]
+
+/-- With a concentrated left factor, barrier-separated shifted field insertion on an
+arbitrary positive-time right Borchers vector expands as a finite sum of explicit
+zero-diagonal Schwinger terms. This is the honest algebraic shell needed before any
+boundedness or quotient-extension argument can begin. -/
+theorem osInner_single_fieldActionTimeShift_of_head_barrier
+    (OS : OsterwalderSchraderAxioms d)
+    {n : ℕ} (f : SchwartzNPoint d n) (h : SchwartzSpacetime d) (t : ℝ)
+    (hf_pos : tsupport (f : NPointDomain d n → ℂ) ⊆ OrderedPositiveTimeRegion d n)
+    (hh_barrier : tsupport (h : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < t})
+    (G : PositiveTimeBorchersSequence d) :
+    PositiveTimeBorchersSequence.osInner OS
+      (PositiveTimeBorchersSequence.single n f hf_pos)
+      (fieldActionTimeShiftPositiveTimeBorchers (d := d) h t hh_barrier G) =
+      ∑ m ∈ Finset.range (((G : BorchersSequence d).bound + 1)),
+        OS.S (n + (m + 1))
+          ⟨f.osConjTensorProduct
+              (SchwartzMap.prependField h
+                (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m))),
+            VanishesToInfiniteOrderOnCoincidence_osConjTensorProduct_of_tsupport_subset_orderedPositiveTimeRegion
+              (d := d) (n := n) (m := m + 1) (f := f)
+              (g := SchwartzMap.prependField h
+                (timeShiftSchwartzNPoint (d := d) t ((G : BorchersSequence d).funcs m)))
+              hf_pos
+              (prependField_timeShift_tsupport_subset_orderedPositiveTimeRegion_of_head_barrier
+                (d := d) (n := m) t h ((G : BorchersSequence d).funcs m)
+                hh_barrier (G.ordered_tsupport m))⟩ := by
+  unfold PositiveTimeBorchersSequence.osInner
+  simpa [fieldActionTimeShiftPositiveTimeBorchers,
+    PositiveTimeBorchersSequence.single_toBorchersSequence] using
+    OSInnerProduct_single_fieldOperatorAction_timeShift_right_of_head_barrier
+      (d := d) OS f h t hf_pos hh_barrier G
 
 /-- Real Euclidean time shift against a concentrated right factor reduces to a finite
 sum over the left Borchers components. -/

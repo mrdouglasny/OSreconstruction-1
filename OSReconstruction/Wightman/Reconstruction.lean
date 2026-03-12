@@ -1025,6 +1025,24 @@ theorem fieldOperatorAction_smul_vec_funcs (f : SchwartzSpacetime d)
   | zero => simp
   | succ k => simp [SchwartzMap.prependField_smul_right, BorchersSequence.smul_funcs]
 
+/-- On a concentrated Borchers vector, `fieldOperatorAction` stays concentrated and
+raises the degree by one by prepending the new test function. -/
+theorem fieldOperatorAction_single_funcs (f : SchwartzSpacetime d)
+    (n k : ℕ) (g : SchwartzNPoint d n) :
+    (fieldOperatorAction f (BorchersSequence.single n g)).funcs k =
+      (BorchersSequence.single (n + 1) (SchwartzMap.prependField f g)).funcs k := by
+  cases k with
+  | zero =>
+      simp
+  | succ k =>
+      by_cases hk : k = n
+      · subst hk
+        simp
+      · have hksucc : k.succ ≠ n + 1 := by
+          omega
+        simp [fieldOperatorAction_funcs_succ, BorchersSequence.single_funcs_ne hk,
+          BorchersSequence.single_funcs_ne hksucc]
+
 /-- Per-term adjoint identity: W_{(n+1)+m}((prependField f fn).conjTP gm) =
     W_{n+(m+1)}(fn.conjTP (prependField f̄ gm)). Both evaluate the Wightman function
     on pointwise-equal test functions (up to Fin.cast and mul_comm in ℂ). -/
@@ -2516,6 +2534,99 @@ private theorem continuous_splitLast {n m : ℕ} :
     (continuous_apply (Fin.natAdd n i) :
       Continuous fun x : NPointDomain d (n + m) => x (Fin.natAdd n i))
 
+/-- If a head test is supported in a positive-time barrier `0 < τ_head < τ` and the
+tail test is supported strictly after that barrier with increasing times, then
+`prependField` lands in the ordered positive-time region. This is the basic
+support geometry behind interleaved OS insertions. -/
+theorem SchwartzMap.prependField_tsupport_subset_orderedPositiveTimeRegion_of_barrier
+    {n : ℕ} (τ : ℝ) (f : SchwartzSpacetime d) (g : SchwartzNPoint d n)
+    (hf : tsupport (f : SpacetimeDim d → ℂ) ⊆ {x | 0 < x 0 ∧ x 0 < τ})
+    (hg : tsupport (g : NPointDomain d n → ℂ) ⊆
+      {x | ∀ i : Fin n, τ < x i 0 ∧ ∀ j : Fin n, i < j → x i 0 < x j 0}) :
+    tsupport (((SchwartzMap.prependField f g : SchwartzNPoint d (n + 1)) :
+      NPointDomain d (n + 1) → ℂ)) ⊆ OrderedPositiveTimeRegion d (n + 1) := by
+  let A : Set (NPointDomain d (n + 1)) := {x | 0 < x 0 0 ∧ x 0 0 < τ}
+  let B : Set (NPointDomain d (n + 1)) :=
+    {x | ∀ i : Fin n, τ < x i.succ 0 ∧ ∀ j : Fin n, i < j → x i.succ 0 < x j.succ 0}
+  have hA :
+      tsupport (fun x : NPointDomain d (n + 1) => f (x 0)) ⊆ A := by
+    intro x hx
+    exact hf <|
+      tsupport_precomp_subset
+        (f := (f : SpacetimeDim d → ℂ))
+        (h := fun y : NPointDomain d (n + 1) => y 0)
+        (by simpa using (continuous_apply (0 : Fin (n + 1)))) hx
+  have hB :
+      tsupport (fun x : NPointDomain d (n + 1) => g (fun i : Fin n => x i.succ)) ⊆ B := by
+    intro x hx
+    exact hg <|
+      tsupport_precomp_subset
+        (f := (g : NPointDomain d n → ℂ))
+        (h := fun y : NPointDomain d (n + 1) => fun i : Fin n => y i.succ)
+        (by
+          apply continuous_pi
+          intro i
+          simpa using (continuous_apply i.succ :
+            Continuous (fun y : NPointDomain d (n + 1) => y i.succ))) hx
+  have hsupport :
+      tsupport (((SchwartzMap.prependField f g : SchwartzNPoint d (n + 1)) :
+          NPointDomain d (n + 1) → ℂ)) ⊆ A ∩ B := by
+    intro x hx
+    have hxprod :
+        x ∈ tsupport (fun y : NPointDomain d (n + 1) =>
+          f (y 0) * g (fun i : Fin n => y i.succ)) := by
+      simpa [SchwartzMap.prependField_apply] using hx
+    refine ⟨hA ((tsupport_mul_subset_left
+      (f := fun y : NPointDomain d (n + 1) => f (y 0))
+      (g := fun y : NPointDomain d (n + 1) => g (fun i : Fin n => y i.succ))) hxprod), ?_⟩
+    exact hB ((tsupport_mul_subset_right
+      (f := fun y : NPointDomain d (n + 1) => f (y 0))
+      (g := fun y : NPointDomain d (n + 1) => g (fun i : Fin n => y i.succ))) hxprod)
+  intro x hx
+  rcases hsupport hx with ⟨hxA, hxB⟩
+  have hτ_pos : 0 < τ := lt_trans hxA.1 hxA.2
+  intro i
+  constructor
+  · by_cases hi0 : i.val = 0
+    · have hi : i = 0 := Fin.ext hi0
+      simpa [A, hi] using hxA.1
+    · let i' : Fin n := ⟨i.val - 1, by omega⟩
+      have hi : i'.succ = i := by
+        ext
+        simp [i']
+        omega
+      have hτlt : τ < x i 0 := by
+        simpa [B, i', hi] using (hxB i').1
+      linarith
+  · intro j hij
+    by_cases hi0 : i.val = 0
+    · have hi : i = 0 := Fin.ext hi0
+      have hj0 : j.val ≠ 0 := by omega
+      let j' : Fin n := ⟨j.val - 1, by omega⟩
+      have hj' : j'.succ = j := by
+        ext
+        simp [j']
+        omega
+      have hτlt : τ < x j 0 := by
+        simpa [B, j', hj'] using (hxB j').1
+      have hx0lt : x i 0 < τ := by simpa [A, hi] using hxA.2
+      linarith
+    · have hj0 : j.val ≠ 0 := by omega
+      let i' : Fin n := ⟨i.val - 1, by omega⟩
+      let j' : Fin n := ⟨j.val - 1, by omega⟩
+      have hi' : i'.succ = i := by
+        ext
+        simp [i']
+        omega
+      have hj' : j'.succ = j := by
+        ext
+        simp [j']
+        omega
+      have hij' : i' < j' := by
+        simp [i', j']
+        omega
+      simpa [B, i', j', hi', hj'] using (hxB i').2 j' hij'
+
 /-- OS-conjugated tensor products of ordered positive-time test functions are
     automatically zero-diagonal.
 
@@ -3080,6 +3191,34 @@ theorem OSInnerProduct_congr_right (S : (n : ℕ) → ZeroDiagonalSchwartz d n �
   congr 1
   ext m
   rw [h m]
+
+/-- Single/single OS evaluation with one inserted test on the right. This is the
+basic concentrated `k = 3` shell for the direct operator-construction route. -/
+theorem OSInnerProduct_single_fieldOperatorAction_single
+    (S : (n : ℕ) → ZeroDiagonalSchwartz d n → ℂ)
+    (hlin : ∀ n, IsLinearMap ℂ (S n))
+    (n m : ℕ) (f : SchwartzNPoint d n) (g : SchwartzNPoint d m)
+    (h : SchwartzSpacetime d) :
+    OSInnerProduct d S (BorchersSequence.single n f)
+      (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g)) =
+        S (n + (m + 1)) (ZeroDiagonalSchwartz.ofClassical
+          (f.osConjTensorProduct (SchwartzMap.prependField h g))) := by
+  have hcongr :
+      OSInnerProduct d S (BorchersSequence.single n f)
+        (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g)) =
+      OSInnerProduct d S (BorchersSequence.single n f)
+        (BorchersSequence.single (m + 1) (SchwartzMap.prependField h g)) := by
+    refine OSInnerProduct_congr_right d S hlin
+      (BorchersSequence.single n f)
+      (Reconstruction.fieldOperatorAction h (BorchersSequence.single m g))
+      (BorchersSequence.single (m + 1) (SchwartzMap.prependField h g)) ?_
+    intro k
+    exact Reconstruction.fieldOperatorAction_single_funcs
+      (d := d) (f := h) (n := m) (k := k) (g := g)
+  rw [hcongr]
+  simpa [add_assoc] using
+    OSInnerProduct_single_single (d := d) S hlin n (m + 1) f
+      (SchwartzMap.prependField h g)
 
 /-- The OS inner product depends only on `funcs`, not on `bound` (left argument). -/
 theorem OSInnerProduct_congr_left (S : (n : ℕ) → ZeroDiagonalSchwartz d n → ℂ)
