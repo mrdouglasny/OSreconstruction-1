@@ -428,6 +428,54 @@ theorem schwinger_continuation_base_step {d : ℕ} [NeZero d]
     sorry
   exact schwinger_continuation_base_step_of_flatWitness OS k G hG_holo hG_euclid
 
+/-- Two-point payoff from any explicit Euclidean witness. Once a center cutoff
+`χ₀` with integral `1` is fixed, the admissible Schwinger two-point family
+`χ ↦ S₂(twoPointDifferenceLift χ h)` is recovered by scaling the single witness
+integral at `χ₀` by `∫ χ`. This is the first concrete `k = 2` consequence on the
+path to `schwinger_continuation_base_step`. -/
+theorem schwinger_twoPointDifferenceLift_eq_centerWitnessIntegral
+    (OS : OsterwalderSchraderAxioms d)
+    (Ψ : (Fin 2 → Fin (d + 1) → ℂ) → ℂ)
+    (hΨ_euclid : ∀ (f : ZeroDiagonalSchwartz d 2),
+      OS.S 2 f = ∫ x : NPointDomain d 2,
+        Ψ (fun i => wickRotatePoint (x i)) * (f.1 x))
+    (h : SchwartzSpacetime d)
+    (h0 : (0 : SpacetimeDim d) ∉ tsupport (h : SpacetimeDim d → ℂ))
+    (χ₀ : SchwartzSpacetime d)
+    (hχ₀ : ∫ x : SpacetimeDim d, χ₀ x = 1)
+    (χ : SchwartzSpacetime d) :
+    OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h)) =
+      (∫ x : NPointDomain d 2,
+          Ψ (fun i => wickRotatePoint (x i)) * (twoPointDifferenceLift χ₀ h) x) *
+        ∫ y : SpacetimeDim d, χ y := by
+  have hcenter :=
+    OsterwalderSchraderAxioms.twoPointDifferenceLift_eq_centerValue
+      (d := d) OS h h0 χ₀ hχ₀ χ
+  have hχ₀_vanish :
+      VanishesToInfiniteOrderOnCoincidence (twoPointDifferenceLift χ₀ h) :=
+    twoPointDifferenceLift_vanishes_of_zero_not_mem_tsupport χ₀ h h0
+  have hχ₀_eval :
+      OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) =
+        ∫ x : NPointDomain d 2,
+          Ψ (fun i => wickRotatePoint (x i)) * (twoPointDifferenceLift χ₀ h) x := by
+    calc
+      OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h))
+          = ∫ x : NPointDomain d 2,
+              Ψ (fun i => wickRotatePoint (x i)) *
+                ((ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)).1 x) := by
+            exact hΨ_euclid (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h))
+      _ = ∫ x : NPointDomain d 2,
+            Ψ (fun i => wickRotatePoint (x i)) * (twoPointDifferenceLift χ₀ h) x := by
+            simp [hχ₀_vanish]
+  calc
+    OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h))
+        = OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) *
+            ∫ y : SpacetimeDim d, χ y := hcenter
+    _ = (∫ x : NPointDomain d 2,
+          Ψ (fun i => wickRotatePoint (x i)) * (twoPointDifferenceLift χ₀ h) x) *
+            ∫ y : SpacetimeDim d, χ y := by
+          rw [hχ₀_eval]
+
 /-- **ξ-shift: the correct one-variable perturbation in the cumulative-sum structure.**
 
     In the cumulative-sum parametrization, the j-th new variable at level r is
