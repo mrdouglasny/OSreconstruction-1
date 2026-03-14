@@ -1059,6 +1059,33 @@ theorem OsterwalderSchraderAxioms.exists_const_twoPointDifferenceLift_eq_integra
   simpa [twoPointDifferenceLiftZeroDiagCLM_eq_ofClassical, ContinuousLinearMap.comp_apply,
     SchwartzMap.integralCLM_apply, smul_eq_mul] using hχ
 
+/-- Normalized-center form of the two-point Schwinger reduction. Once a center
+Schwartz cutoff `χ₀` with integral `1` is fixed, every admissible lifted
+two-point value is obtained by scaling the single value at `χ₀` by `∫ χ`. -/
+theorem OsterwalderSchraderAxioms.twoPointDifferenceLift_eq_centerValue
+    (OS : OsterwalderSchraderAxioms d)
+    (h : SchwartzSpacetime d)
+    (h0 : (0 : SpacetimeDim d) ∉ tsupport (h : SpacetimeDim d → ℂ))
+    (χ₀ : SchwartzSpacetime d)
+    (hχ₀ : ∫ x : SpacetimeDim d, χ₀ x = 1)
+    (χ : SchwartzSpacetime d) :
+    OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h)) =
+      OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) *
+        ∫ x : SpacetimeDim d, χ x := by
+  obtain ⟨c, hc⟩ :=
+    OsterwalderSchraderAxioms.exists_const_twoPointDifferenceLift_eq_integral
+      (d := d) OS h h0
+  have hχ₀_eval :
+      OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) = c := by
+    simpa [hχ₀] using hc χ₀
+  have hc' : c = OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) := by
+    simpa using hχ₀_eval.symm
+  calc
+    OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h))
+      = c * ∫ x : SpacetimeDim d, χ x := hc χ
+    _ = OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ₀ h)) *
+          ∫ x : SpacetimeDim d, χ x := by rw [hc']
+
 /-- Varying one factor of a product tensor and then evaluating the Schwinger
 functional gives a continuous linear functional in that slot, provided the
 updated product tensors remain zero-diagonal. -/

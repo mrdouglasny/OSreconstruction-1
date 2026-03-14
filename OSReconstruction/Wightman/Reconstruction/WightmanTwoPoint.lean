@@ -121,6 +121,28 @@ theorem exists_const_twoPointDifferenceLift_eq_integral
   simpa [T, W, twoPointDifferenceLiftLeftCLM_apply, ContinuousLinearMap.comp_apply,
     SchwartzMap.integralCLM_apply, smul_eq_mul] using hχ
 
+/-- Normalized-center form of the two-point Wightman reduction. Fixing any
+center cutoff `χ₀` with integral `1` turns the existential constant in the
+center/difference reduction into the explicit value at `χ₀`. -/
+theorem twoPointDifferenceLift_eq_centerValue
+    (Wfn : WightmanFunctions d) (h : SchwartzSpacetime d)
+    (χ₀ : SchwartzSpacetime d)
+    (hχ₀ : ∫ x : SpacetimeDim d, χ₀ x = 1)
+    (χ : SchwartzSpacetime d) :
+    Wfn.W 2 (twoPointDifferenceLift χ h) =
+      Wfn.W 2 (twoPointDifferenceLift χ₀ h) * ∫ x : SpacetimeDim d, χ x := by
+  obtain ⟨c, hc⟩ :=
+    exists_const_twoPointDifferenceLift_eq_integral (d := d) Wfn h
+  have hχ₀_eval : Wfn.W 2 (twoPointDifferenceLift χ₀ h) = c := by
+    simpa [hχ₀] using hc χ₀
+  have hc' : c = Wfn.W 2 (twoPointDifferenceLift χ₀ h) := by
+    simpa using hχ₀_eval.symm
+  calc
+    Wfn.W 2 (twoPointDifferenceLift χ h)
+      = c * ∫ x : SpacetimeDim d, χ x := hc χ
+    _ = Wfn.W 2 (twoPointDifferenceLift χ₀ h) * ∫ x : SpacetimeDim d, χ x := by
+          rw [hc']
+
 /-- The same two-point center/difference reduction after the global sign map. -/
 theorem exists_const_neg_twoPointDifferenceLift_eq_integral
     (Wfn : WightmanFunctions d) (h : SchwartzSpacetime d) :
@@ -139,6 +161,30 @@ theorem exists_const_neg_twoPointDifferenceLift_eq_integral
     simpa [neg_twoPointDifferenceLift] using hneg
   rw [integral_negSchwartzSpacetime_eq] at hneg'
   exact hneg'
+
+/-- Normalized-center form of the signed two-point Wightman reduction. -/
+theorem neg_twoPointDifferenceLift_eq_centerValue
+    (Wfn : WightmanFunctions d) (h : SchwartzSpacetime d)
+    (χ₀ : SchwartzSpacetime d)
+    (hχ₀ : ∫ x : SpacetimeDim d, χ₀ x = 1)
+    (χ : SchwartzSpacetime d) :
+    Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ h)) =
+      Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ₀ h)) *
+        ∫ x : SpacetimeDim d, χ x := by
+  obtain ⟨c, hc⟩ :=
+    exists_const_neg_twoPointDifferenceLift_eq_integral (d := d) Wfn h
+  have hχ₀_eval :
+      Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ₀ h)) = c := by
+    simpa [hχ₀] using hc χ₀
+  have hc' :
+      c = Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ₀ h)) := by
+    simpa using hχ₀_eval.symm
+  calc
+    Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ h))
+      = c * ∫ x : SpacetimeDim d, χ x := hc χ
+    _ = Wfn.W 2 (negSchwartzNPointTwo (d := d) (twoPointDifferenceLift χ₀ h)) *
+          ∫ x : SpacetimeDim d, χ x := by
+          rw [hc']
 
 /-- Two-point reality after the rapidity-reduced partner term reduces to a comparison
 between the constants attached to `h` and `-h`. This isolates the exact sign gap. -/

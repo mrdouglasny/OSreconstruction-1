@@ -636,14 +636,6 @@ private theorem osConjTensorProduct_timeShift_eq_tailTimeShift {n m : ℕ}
     (osConjTensorProduct_tailTimeShift_eq_timeShift
       (d := d) (f := f) (g := g) (hm := hm) (t := -t) (x := x)).symm
 
-/-- Translation in Euclidean spacetime preserves Lebesgue measure. -/
-private theorem translate_spacetime_measurePreserving (a : SpacetimeDim d) :
-    MeasureTheory.MeasurePreserving
-      (fun x : SpacetimeDim d => x - a) MeasureTheory.volume MeasureTheory.volume := by
-  simpa [sub_eq_add_neg] using
-    (MeasureTheory.measurePreserving_add_right
-      (MeasureTheory.volume : MeasureTheory.Measure (SpacetimeDim d)) (-a))
-
 /-- Tail translation of the right block preserves Lebesgue measure on configuration
 space. This is the change-of-variables ingredient for converting the sign-correct
 flat-update slice picture back to the Euclidean integral. -/
@@ -957,7 +949,7 @@ the positive right-factor time shift of a simple tensor is recovered by the same
 witness evaluated on the `+ t * I` ξ-shifted Euclidean configuration. This is the
 direct `OS.S`-level slice identity needed before the finite-sum `ExpandBoth`
 assembly in `schwinger_continuation_base_step`. -/
-private theorem schwinger_simpleTensor_timeShift_eq_xiShift {n m : ℕ}
+theorem schwinger_simpleTensor_timeShift_eq_xiShift {n m : ℕ}
     (OS : OsterwalderSchraderAxioms d)
     (hm : 0 < m)
     (Ψ : (Fin (n + m) → Fin (d + 1) → ℂ) → ℂ)
@@ -1010,7 +1002,7 @@ private theorem schwinger_simpleTensor_timeShift_eq_xiShift {n m : ℕ}
 element against a concentrated right factor is the finite sum of the corresponding
 `ξ`-shifted Euclidean witnesses over the left Borchers components. This is the first
 genuine finite-sum upgrade of `schwinger_simpleTensor_timeShift_eq_xiShift`. -/
-private theorem OSInnerProductTimeShiftHolomorphicValue_ofReal_eq_right_single_xiShift_sum
+theorem OSInnerProductTimeShiftHolomorphicValue_ofReal_eq_right_single_xiShift_sum
     (OS : OsterwalderSchraderAxioms d) (lgc : OSLinearGrowthCondition d OS)
     (Ψ : (N : ℕ) → (Fin N → Fin (d + 1) → ℂ) → ℂ)
     (hΨ_euclid : ∀ (N : ℕ) (h : ZeroDiagonalSchwartz d N),
@@ -1149,7 +1141,7 @@ simple-tensor Schwinger term, which is then rewritten by
 `schwinger_simpleTensor_timeShift_eq_xiShift`. This is the first production theorem
 that directly connects the one-variable OS holomorphic family to the Euclidean
 slice witness used in `schwinger_continuation_base_step`. -/
-private theorem OSInnerProductTimeShiftHolomorphicValueExpandBoth_single_eq_xiShift
+theorem OSInnerProductTimeShiftHolomorphicValueExpandBoth_single_eq_xiShift
     (OS : OsterwalderSchraderAxioms d) (lgc : OSLinearGrowthCondition d OS)
     {n m : ℕ} (hm : 0 < m)
     (Ψ : (Fin (n + m) → Fin (d + 1) → ℂ) → ℂ)
@@ -1227,7 +1219,7 @@ private theorem OSInnerProductTimeShiftHolomorphicValueExpandBoth_single_eq_xiSh
 /-- Finite double-sum Euclidean recovery for `ExpandBoth` on positive real points.
 Each summand is rewritten honestly according to whether the right block contributes
 a genuine time-difference variable (`m > 0`) or is the vacuum branch (`m = 0`). -/
-private theorem OSInnerProductTimeShiftHolomorphicValueExpandBoth_ofReal_eq_piecewise_xiShift
+theorem OSInnerProductTimeShiftHolomorphicValueExpandBoth_ofReal_eq_piecewise_xiShift
     (OS : OsterwalderSchraderAxioms d) (lgc : OSLinearGrowthCondition d OS)
     (Ψ : (N : ℕ) → (Fin N → Fin (d + 1) → ℂ) → ℂ)
     (hΨ_euclid : ∀ (N : ℕ) (h : ZeroDiagonalSchwartz d N),
