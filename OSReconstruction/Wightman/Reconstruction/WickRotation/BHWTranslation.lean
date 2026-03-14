@@ -1089,6 +1089,23 @@ theorem baseFiberSector_eq_preimage_diffPermSector {m d : ℕ} [NeZero d]
     exact (mem_baseFiberSector_iff_diffCoordWitness (m := m) (d := d) ζtail π ζ₀).mpr
       ⟨Λ, w, hw, hξ⟩
 
+private theorem tail_complexLorentzAction {m d : ℕ}
+    (Λ : ComplexLorentzGroup d)
+    (ξ : Fin (m + 1) → Fin (d + 1) → ℂ) :
+    Fin.tail (BHW.complexLorentzAction Λ ξ) =
+      BHW.complexLorentzAction Λ (Fin.tail ξ) := by
+  ext i μ
+  simp [BHW.complexLorentzAction, Fin.tail]
+
+/-- Tail-difference sector attached to a permutation: the possible fixed tails
+arising from permuted forward-tube configurations in difference coordinates. -/
+def tailDiffPermSector (m d : ℕ) [NeZero d]
+    (π : Equiv.Perm (Fin (m + 1))) :
+    Set (Fin m → Fin (d + 1) → ℂ) :=
+  {ηtail | ∃ w : Fin (m + 1) → Fin (d + 1) → ℂ,
+      w ∈ PermutedForwardTube d (m + 1) π ∧
+      Fin.tail (BHW.diffCoordFun (m + 1) d w) = ηtail}
+
 /-- Fixed-`Λ` slice of a base-fiber sector. -/
 def baseFiberSectorSlice (m d : ℕ) [NeZero d]
     (ζtail : Fin m → Fin (d + 1) → ℂ)
@@ -1172,6 +1189,279 @@ theorem baseFiberSectorSlice_isPreconnected {m d : ℕ} [NeZero d]
     IsPreconnected (baseFiberSectorSlice m d ζtail π Λ) :=
   (baseFiberSectorSlice_convex ζtail π Λ).isPreconnected
 
+/-- Fixed-`Λ` base-fiber slices can be characterized directly by pulling the
+configuration back through `Λ⁻¹` and requiring it to lie in the permuted forward
+tube. This removes the existential witness from the slice membership test. -/
+theorem mem_baseFiberSectorSlice_iff_inv_mem_permutedForwardTube {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1)))
+    (Λ : ComplexLorentzGroup d)
+    (ζ₀ : Fin (d + 1) → ℂ) :
+    ζ₀ ∈ baseFiberSectorSlice m d ζtail π Λ ↔
+      BHW.complexLorentzAction Λ⁻¹ (baseFiberConfig m d ζtail ζ₀) ∈
+        PermutedForwardTube d (m + 1) π := by
+  constructor
+  · rintro ⟨w, hw, hz⟩
+    rw [hz]
+    simpa [BHW.complexLorentzAction_inv]
+  · intro hζ₀
+    refine ⟨BHW.complexLorentzAction Λ⁻¹ (baseFiberConfig m d ζtail ζ₀), hζ₀, ?_⟩
+    symm
+    simpa using
+      (BHW.complexLorentzAction_inv (d := d) (n := m + 1) (Λ := Λ⁻¹)
+        (z := baseFiberConfig m d ζtail ζ₀))
+
+/-- Lorentz-group index set of nonempty fixed-`Λ` slices for a base-fiber sector. -/
+def baseFiberSectorIndexSet (m d : ℕ) [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1))) : Set (ComplexLorentzGroup d) :=
+  {Λ : ComplexLorentzGroup d | (baseFiberSectorSlice m d ζtail π Λ).Nonempty}
+
+/-- Structural form of the base-fiber sector index set: a Lorentz parameter
+belongs to the index set exactly when the transformed fixed tail lands in the
+corresponding tail-difference sector. This removes the existential base
+coordinate from the index-set geometry. -/
+theorem mem_baseFiberSectorIndexSet_iff_inv_tail_mem_tailDiffPermSector
+    {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1)))
+    (Λ : ComplexLorentzGroup d) :
+    Λ ∈ baseFiberSectorIndexSet m d ζtail π ↔
+      BHW.complexLorentzAction Λ⁻¹ ζtail ∈ tailDiffPermSector m d π := by
+  constructor
+  · rintro ⟨ζ₀, ⟨w, hw, hz⟩⟩
+    refine ⟨w, hw, ?_⟩
+    have hcfg :
+        Fin.cons ζ₀ ζtail =
+          BHW.complexLorentzAction Λ (BHW.diffCoordFun (m + 1) d w) := by
+      calc
+        Fin.cons ζ₀ ζtail
+            = BHW.diffCoordFun (m + 1) d (baseFiberConfig m d ζtail ζ₀) := by
+                simpa [BHW.diffCoordEquiv_apply] using
+                  (BHW.diffCoord_partialSum (m + 1) d (Fin.cons ζ₀ ζtail)).symm
+        _ = BHW.diffCoordFun (m + 1) d (BHW.complexLorentzAction Λ w) := by
+              simp [hz]
+        _ = BHW.complexLorentzAction Λ (BHW.diffCoordFun (m + 1) d w) :=
+              diffCoordFun_complexLorentzAction Λ w
+    have hinv :
+        BHW.complexLorentzAction Λ⁻¹ (Fin.cons ζ₀ ζtail) =
+          BHW.diffCoordFun (m + 1) d w := by
+      rw [hcfg]
+      exact BHW.complexLorentzAction_inv (d := d) (n := m + 1) Λ
+        (BHW.diffCoordFun (m + 1) d w)
+    have htail := congrArg Fin.tail hinv
+    simpa [tail_complexLorentzAction, Fin.cons_self_tail] using htail.symm
+  · rintro ⟨w, hw, htail⟩
+    let ξ : Fin (m + 1) → Fin (d + 1) → ℂ :=
+      BHW.complexLorentzAction Λ (BHW.diffCoordFun (m + 1) d w)
+    let ζ₀ : Fin (d + 1) → ℂ := ξ 0
+    refine ⟨ζ₀, ⟨w, hw, ?_⟩⟩
+    have htailξ : Fin.tail ξ = ζtail := by
+      calc
+        Fin.tail ξ
+            = BHW.complexLorentzAction Λ
+                (Fin.tail (BHW.diffCoordFun (m + 1) d w)) := by
+                    simp [ξ, tail_complexLorentzAction]
+        _ = BHW.complexLorentzAction Λ (BHW.complexLorentzAction Λ⁻¹ ζtail) := by
+              rw [htail]
+        _ = ζtail := by
+              simpa using
+                (BHW.complexLorentzAction_inv (d := d) (n := m) (Λ := Λ⁻¹)
+                  (z := ζtail))
+    have hcons : Fin.cons ζ₀ ζtail = ξ := by
+      ext k μ
+      refine Fin.cases ?_ ?_ k
+      · rfl
+      · intro i
+        have hi := congrFun htailξ i
+        have hiμ := congrFun hi μ
+        simpa [ζ₀, ξ, Fin.tail] using hiμ.symm
+    calc
+      baseFiberConfig m d ζtail ζ₀
+          = BHW.partialSumFun (m + 1) d (Fin.cons ζ₀ ζtail) := rfl
+      _ = BHW.partialSumFun (m + 1) d ξ := by rw [hcons]
+      _ = BHW.partialSumFun (m + 1) d
+            (BHW.complexLorentzAction Λ (BHW.diffCoordFun (m + 1) d w)) := by
+              rfl
+      _ = BHW.complexLorentzAction Λ
+            (BHW.partialSumFun (m + 1) d (BHW.diffCoordFun (m + 1) d w)) := by
+              exact partialSumFun_complexLorentzAction Λ (BHW.diffCoordFun (m + 1) d w)
+      _ = BHW.complexLorentzAction Λ w := by
+            simp [BHW.partialSum_diffCoord]
+
+/-- A witness in a fixed base-fiber sector slice persists for nearby Lorentz
+parameters, because `PermutedForwardTube` is open and the pulled-back
+configuration depends continuously on `Λ`. -/
+private theorem baseFiberSectorSlice_nonempty_nhds {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1)))
+    {Λ : ComplexLorentzGroup d}
+    {ζ₀ : Fin (d + 1) → ℂ}
+    (hζ₀ : ζ₀ ∈ baseFiberSectorSlice m d ζtail π Λ) :
+    ∃ V : Set (ComplexLorentzGroup d), IsOpen V ∧ Λ ∈ V ∧
+      ∀ Λ' ∈ V, ζ₀ ∈ baseFiberSectorSlice m d ζtail π Λ' := by
+  rw [mem_baseFiberSectorSlice_iff_inv_mem_permutedForwardTube (m := m) (d := d) ζtail π Λ ζ₀] at hζ₀
+  refine ⟨{Λ' : ComplexLorentzGroup d |
+      BHW.complexLorentzAction Λ'⁻¹ (baseFiberConfig m d ζtail ζ₀) ∈
+        PermutedForwardTube d (m + 1) π}, ?_, hζ₀, ?_⟩
+  · have hcont : Continuous (fun Λ' : ComplexLorentzGroup d =>
+        BHW.complexLorentzAction Λ'⁻¹ (baseFiberConfig m d ζtail ζ₀)) := by
+      simpa using
+        (BHW.continuous_complexLorentzAction_fst (baseFiberConfig m d ζtail ζ₀)).comp
+          (show Continuous fun Λ' : ComplexLorentzGroup d => Λ'⁻¹ from continuous_inv)
+    have hopen : IsOpen (PermutedForwardTube d (m + 1) π) := by
+      simpa [PermutedForwardTube] using
+        ((BHW_forwardTube_eq (d := d) (n := m + 1)) ▸
+          BHW.isOpen_forwardTube (d := d) (n := m + 1)).preimage
+          (continuous_pi fun k =>
+            continuous_pi fun μ =>
+              (continuous_apply μ).comp (continuous_apply (π k)))
+    exact hopen.preimage hcont
+  · intro Λ' hΛ'
+    exact (mem_baseFiberSectorSlice_iff_inv_mem_permutedForwardTube
+      (m := m) (d := d) ζtail π Λ' ζ₀).2 hΛ'
+
+theorem isOpen_baseFiberSectorIndexSet {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1))) :
+    IsOpen (baseFiberSectorIndexSet m d ζtail π) := by
+  rw [isOpen_iff_mem_nhds]
+  intro Λ hΛ
+  rcases hΛ with ⟨ζ₀, hζ₀⟩
+  rcases baseFiberSectorSlice_nonempty_nhds (m := m) (d := d) ζtail π hζ₀ with
+    ⟨V, hV_open, hΛV, hV_sub⟩
+  refine Filter.mem_of_superset (hV_open.mem_nhds hΛV) ?_
+  intro Λ' hΛ'V
+  exact ⟨ζ₀, hV_sub Λ' hΛ'V⟩
+
+theorem nonempty_baseFiberSectorIndexSet_of_sectorNonempty {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1)))
+    (hnonempty : (baseFiberSector m d ζtail π).Nonempty) :
+    (baseFiberSectorIndexSet m d ζtail π).Nonempty := by
+  rcases hnonempty with ⟨ζ₀, hζ₀⟩
+  rw [baseFiberSector_eq_iUnion_slice (m := m) (d := d) ζtail π] at hζ₀
+  rcases Set.mem_iUnion.mp hζ₀ with ⟨Λ, hΛ⟩
+  exact ⟨Λ, ⟨ζ₀, hΛ⟩⟩
+
+theorem nonempty_baseFiberSectorIndexSet_iff_sectorNonempty {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1))) :
+    (baseFiberSectorIndexSet m d ζtail π).Nonempty ↔
+      (baseFiberSector m d ζtail π).Nonempty := by
+  constructor
+  · rintro ⟨Λ, ζ₀, hζ₀⟩
+    rw [baseFiberSector_eq_iUnion_slice (m := m) (d := d) ζtail π]
+    exact ⟨ζ₀, Set.mem_iUnion.mpr ⟨Λ, hζ₀⟩⟩
+  · exact nonempty_baseFiberSectorIndexSet_of_sectorNonempty (m := m) (d := d) ζtail π
+
+/-- Connected-index reduction for base-fiber sector slices. If the set of Lorentz
+parameters with nonempty slices is connected, then the full base-fiber sector is
+preconnected. -/
+theorem isPreconnected_baseFiberSector_of_indexConnected {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (π : Equiv.Perm (Fin (m + 1)))
+    (hidx_conn : IsConnected (baseFiberSectorIndexSet m d ζtail π))
+    (hnonempty : (baseFiberSector m d ζtail π).Nonempty) :
+    IsPreconnected (baseFiberSector m d ζtail π) := by
+  let t : Set (ComplexLorentzGroup d) := baseFiberSectorIndexSet m d ζtail π
+
+  have hpre_union_subtype :
+      IsPreconnected
+        (⋃ x : {Λ : ComplexLorentzGroup d | t Λ},
+          baseFiberSectorSlice m d ζtail π x.1) := by
+    apply IsPreconnected.iUnion_of_reflTransGen
+    · intro x
+      exact baseFiberSectorSlice_isPreconnected ζtail π x.1
+    · intro x y
+      let R :
+          {Λ : ComplexLorentzGroup d | t Λ} →
+          {Λ : ComplexLorentzGroup d | t Λ} → Prop :=
+        fun a b =>
+          ((baseFiberSectorSlice m d ζtail π a.1) ∩
+            (baseFiberSectorSlice m d ζtail π b.1)).Nonempty
+      let U : Set {Λ : ComplexLorentzGroup d | t Λ} :=
+        {a | Relation.ReflTransGen R x a}
+
+      have hU_open : IsOpen U := by
+        rw [isOpen_iff_mem_nhds]
+        intro a haU
+        rcases a.2 with ⟨ζ₀, hζ₀a⟩
+        rcases baseFiberSectorSlice_nonempty_nhds (m := m) (d := d) ζtail π hζ₀a with
+          ⟨V, hV_open, haV, hV_sub⟩
+        let W : Set {Λ : ComplexLorentzGroup d | t Λ} := Subtype.val ⁻¹' V
+        have hW_open : IsOpen W := hV_open.preimage continuous_subtype_val
+        have haW : a ∈ W := by simpa [W] using haV
+        refine Filter.mem_of_superset (hW_open.mem_nhds haW) ?_
+        intro b hbW
+        have hbV : b.1 ∈ V := by simpa [W] using hbW
+        have hζ₀b : ζ₀ ∈ baseFiberSectorSlice m d ζtail π b.1 := hV_sub b.1 hbV
+        have hab : R a b := ⟨ζ₀, hζ₀a, hζ₀b⟩
+        exact Relation.ReflTransGen.tail haU hab
+
+      have hU_closed : IsClosed U := by
+        rw [← isOpen_compl_iff]
+        rw [isOpen_iff_mem_nhds]
+        intro a haU
+        rcases a.2 with ⟨ζ₀, hζ₀a⟩
+        rcases baseFiberSectorSlice_nonempty_nhds (m := m) (d := d) ζtail π hζ₀a with
+          ⟨V, hV_open, haV, hV_sub⟩
+        let W : Set {Λ : ComplexLorentzGroup d | t Λ} := Subtype.val ⁻¹' V
+        have hW_open : IsOpen W := hV_open.preimage continuous_subtype_val
+        have haW : a ∈ W := by simpa [W] using haV
+        refine Filter.mem_of_superset (hW_open.mem_nhds haW) ?_
+        intro b hbW hbU
+        have hbV : b.1 ∈ V := by simpa [W] using hbW
+        have hζ₀b : ζ₀ ∈ baseFiberSectorSlice m d ζtail π b.1 := hV_sub b.1 hbV
+        have hba : R b a := ⟨ζ₀, hζ₀b, hζ₀a⟩
+        have ha_inU : a ∈ U := Relation.ReflTransGen.tail hbU hba
+        exact haU ha_inU
+
+      have hU_nonempty : U.Nonempty := ⟨x, Relation.ReflTransGen.refl⟩
+
+      haveI : ConnectedSpace {Λ : ComplexLorentzGroup d | t Λ} :=
+        Subtype.connectedSpace hidx_conn
+
+      have hU_eq : U = Set.univ := IsClopen.eq_univ ⟨hU_closed, hU_open⟩ hU_nonempty
+      have hyU : y ∈ U := by simp [hU_eq]
+      exact hyU
+
+  have h_union_eq_all :
+      (⋃ x : {Λ : ComplexLorentzGroup d | t Λ},
+        baseFiberSectorSlice m d ζtail π x.1)
+        = ⋃ Λ : ComplexLorentzGroup d,
+            baseFiberSectorSlice m d ζtail π Λ := by
+    ext ζ₀
+    constructor
+    · intro hζ₀
+      rcases Set.mem_iUnion.mp hζ₀ with ⟨x, hx⟩
+      exact Set.mem_iUnion.mpr ⟨x.1, hx⟩
+    · intro hζ₀
+      rcases Set.mem_iUnion.mp hζ₀ with ⟨Λ, hΛ⟩
+      have hΛt : t Λ := ⟨ζ₀, hΛ⟩
+      exact Set.mem_iUnion.mpr ⟨⟨Λ, hΛt⟩, hΛ⟩
+
+  have hset_eq :
+      baseFiberSector m d ζtail π =
+        (⋃ x : {Λ : ComplexLorentzGroup d | t Λ},
+          baseFiberSectorSlice m d ζtail π x.1) := by
+    calc
+      baseFiberSector m d ζtail π
+          = ⋃ Λ : ComplexLorentzGroup d,
+              baseFiberSectorSlice m d ζtail π Λ :=
+            baseFiberSector_eq_iUnion_slice (m := m) (d := d) ζtail π
+      _ = (⋃ x : {Λ : ComplexLorentzGroup d | t Λ},
+            baseFiberSectorSlice m d ζtail π x.1) :=
+          h_union_eq_all.symm
+
+  rcases hnonempty with ⟨ζ₀, hζ₀⟩
+  have h_union_nonempty :
+      (⋃ x : {Λ : ComplexLorentzGroup d | t Λ},
+        baseFiberSectorSlice m d ζtail π x.1).Nonempty := by
+    rw [← hset_eq]
+    exact ⟨ζ₀, hζ₀⟩
+  simpa [hset_eq] using hpre_union_subtype
+
 /-- Sector-decomposition reduction for base-fiber preconnectedness. This is the
 exact analogue of `permutedExtendedTube_isPreconnected`, but on the fixed-tail
 base fiber. Once sector slices are known to be preconnected and adjacent slices
@@ -1207,6 +1497,76 @@ theorem baseFiber_isPreconnected_of_sector_geometry {m d : ℕ} [NeZero d]
         apply Relation.ReflTransGen.tail ih
         simpa [baseFiberSector, mul_assoc] using hoverlap (π₁ * σ₀) i₀ hi₀
 
+/-- Cleaner sector-gluing reduction for the base fiber: only the nonempty
+permutation sectors matter. If every sector is preconnected and the graph of
+nonempty sectors is connected under nonempty overlaps, then the full base fiber
+is preconnected. This is the right theorem surface for the live blocker, since
+empty sectors should not force artificial overlap obligations. -/
+theorem baseFiber_isPreconnected_of_active_sector_geometry {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (hsector : ∀ π : Equiv.Perm (Fin (m + 1)),
+      IsPreconnected (baseFiberSector m d ζtail π))
+    (hactive :
+      ∀ x y : {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty},
+        Relation.ReflTransGen
+          (fun a b :
+            {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty} =>
+              (baseFiberSector m d ζtail a.1 ∩ baseFiberSector m d ζtail b.1).Nonempty)
+          x y) :
+    IsPreconnected (baseFiber m d ζtail) := by
+  have h_union_eq :
+      (⋃ x : {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty},
+        baseFiberSector m d ζtail x.1)
+        = ⋃ π : Equiv.Perm (Fin (m + 1)), baseFiberSector m d ζtail π := by
+    ext ζ₀
+    constructor
+    · intro hζ₀
+      rcases Set.mem_iUnion.mp hζ₀ with ⟨x, hx⟩
+      exact Set.mem_iUnion.mpr ⟨x.1, hx⟩
+    · intro hζ₀
+      rcases Set.mem_iUnion.mp hζ₀ with ⟨π, hπ⟩
+      have hπ_nonempty : (baseFiberSector m d ζtail π).Nonempty := ⟨ζ₀, hπ⟩
+      exact Set.mem_iUnion.mpr ⟨⟨π, hπ_nonempty⟩, hπ⟩
+  rw [baseFiber_eq_iUnion_baseFiberSector]
+  rw [← h_union_eq]
+  apply IsPreconnected.iUnion_of_reflTransGen
+  · intro x
+    exact hsector x.1
+  · intro x y
+    exact hactive x y
+
+/-- Combined reduction for the fixed-tail base fiber. To prove
+`isPreconnected_baseFiber`, it is enough to show:
+1. each nonempty sector has connected Lorentz index set of nonempty fixed-`Λ`
+   slices;
+2. the graph of nonempty sectors is connected under nonempty overlaps.
+
+This packages the current production strategy into the exact two geometric
+subproblems that remain after the slice-level convexity work. -/
+theorem baseFiber_isPreconnected_of_index_and_active_geometry {m d : ℕ} [NeZero d]
+    (ζtail : Fin m → Fin (d + 1) → ℂ)
+    (hidx_conn :
+      ∀ x : {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty},
+        IsConnected (baseFiberSectorIndexSet m d ζtail x.1))
+    (hactive :
+      ∀ x y : {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty},
+        Relation.ReflTransGen
+          (fun a b :
+            {π : Equiv.Perm (Fin (m + 1)) // (baseFiberSector m d ζtail π).Nonempty} =>
+              (baseFiberSector m d ζtail a.1 ∩ baseFiberSector m d ζtail b.1).Nonempty)
+          x y) :
+    IsPreconnected (baseFiber m d ζtail) := by
+  apply baseFiber_isPreconnected_of_active_sector_geometry (m := m) (d := d) ζtail
+  · intro π
+    by_cases hπ : (baseFiberSector m d ζtail π).Nonempty
+    · exact isPreconnected_baseFiberSector_of_indexConnected
+        (m := m) (d := d) ζtail π
+        (hidx_conn ⟨π, hπ⟩) hπ
+    · have hempty : baseFiberSector m d ζtail π = ∅ :=
+        Set.eq_empty_iff_forall_notMem.mpr fun ζ₀ hζ₀ => hπ ⟨ζ₀, hζ₀⟩
+      simpa [hempty] using (isPreconnected_empty : IsPreconnected (∅ : Set (Fin (d + 1) → ℂ)))
+  · exact hactive
+
 /-- **Preconnectedness of the fixed-tail base fiber.**
 
     For fixed tail difference coordinates `ζtail`, the set of base values `ζ₀`
@@ -1223,6 +1583,12 @@ theorem baseFiber_isPreconnected_of_sector_geometry {m d : ℕ} [NeZero d]
     `PET ∩ {z | z + c ∈ PET}`, this fiber statement matches the actual
     difference-variable geometry of translation invariance and avoids the
     false-looking 1-dimensional line-fiber route that was removed.
+
+    The live production reduction is now
+    `baseFiber_isPreconnected_of_index_and_active_geometry`, so the remaining
+    work is exactly:
+    1. connectedness of the Lorentz index set for each nonempty fiber sector;
+    2. connectedness of the active sector graph under nonempty overlaps.
 
     **Numerical status (2026-03-14).** In the tested `d = 1`, `n = 2` regime,
     sampled base fibers remained connected even for the same shifts that split
