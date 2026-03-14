@@ -4,6 +4,7 @@ Released under Apache 2.0 license.
 Authors: Michael Douglas, ModularPhysics Contributors
 -/
 import OSReconstruction.Wightman.Reconstruction.WickRotation.OSToWightmanKernel
+import OSReconstruction.Wightman.Reconstruction.WickRotation.OSToWightmanTwoPoint
 import OSReconstruction.Wightman.Reconstruction.WickRotation.OSToWightmanBoundaryValues
 import OSReconstruction.Wightman.Reconstruction.WickRotation.HermitianBoundaryPairing
 
@@ -44,6 +45,8 @@ The implementation is split across several files in the `WickRotation/` subfolde
 - `OSToWightmanKernel.lean`: operator-valued complex semigroup and first interleaved
   sandwich kernel lemmas
 - `OSToWightman.lean`: E'→R' analytic-continuation core and live base-step blocker
+- `OSToWightmanTwoPoint.lean`: specialized `k = 2` continuation and spectral
+  reduction ladder
 - `OSToWightmanBoundaryValues.lean`: boundary-value package, axiom transfer,
   and bridge theorems
 

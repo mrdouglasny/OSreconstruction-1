@@ -66,12 +66,16 @@ Current blocker map:
 - The analyticity-critical `E -> R` path is the split
   `WickRotation/OSToWightmanSemigroup.lean` ->
   `WickRotation/OSToWightman.lean` ->
+  `WickRotation/OSToWightmanTwoPoint.lean` ->
   `WickRotation/OSToWightmanBoundaryValues.lean`.
 - `OSToWightmanSemigroup.lean` is the established OS semigroup/spectral/Laplace
   and one-variable holomorphic layer.
 - The live root `E -> R` blocker is
   `schwinger_continuation_base_step` in `OSToWightman.lean`:
   constructing the flat holomorphic witness from the interleaved OS slice data.
+- `OSToWightmanTwoPoint.lean` now carries the specialized `k = 2`
+  center/difference spectral and holomorphic reduction ladder, so the core
+  `OSToWightman.lean` file stays focused on the base-step analytic machinery.
 - The current working route for that blocker is direct kernel construction plus
   separate-holomorphic/Osgood assembly, not abstract OS-side insertion operators
   or a wrapper around density.
@@ -120,7 +124,8 @@ flowchart TD
 
   ER --> OWS["WickRotation/OSToWightmanSemigroup (0)"]
   OWS --> OWC["WickRotation/OSToWightman (1)"]
-  OWC --> OWB["WickRotation/OSToWightmanBoundaryValues (7)"]
+  OWC --> OWT["WickRotation/OSToWightmanTwoPoint (0)"]
+  OWT --> OWB["WickRotation/OSToWightmanBoundaryValues (7)"]
   OWC --> LS["SCV/LaplaceSchwartz (0)"]
   OWC --> BO["SCV/BochnerTubeTheorem (2)"]
   OWC --> PW["SCV/PaleyWiener (0)"]
@@ -141,6 +146,7 @@ flowchart TD
 | `Wightman/Reconstruction/WickRotation/SchwingerAxioms.lean` | 6 | coincidence singularities, reality/reflection, cluster, OS=W term |
 | `Wightman/Reconstruction/WickRotation/OSToWightmanSemigroup.lean` | 0 | OS semigroup, spectral/Laplace bridge, one-variable holomorphic infrastructure |
 | `Wightman/Reconstruction/WickRotation/OSToWightman.lean` | 1 | base-step continuation / flat witness assembly |
+| `Wightman/Reconstruction/WickRotation/OSToWightmanTwoPoint.lean` | 0 | specialized `k = 2` spectral / holomorphic reduction ladder |
 | `Wightman/Reconstruction/WickRotation/OSToWightmanBoundaryValues.lean` | 7 | tempered boundary values, transfer chain, cluster |
 | `SCV/LaplaceSchwartz.lean` | 0 | generic tempered boundary-value lemmas extracted |
 | `SCV/TubeDistributions.lean` | 0 | sorry-free |
@@ -221,6 +227,7 @@ the tracked production tree, not as a complete file listing.
 │   │           ├── SchwingerAxioms.lean         # R -> E Wick-rotation axioms
 │   │           ├── OSToWightmanSemigroup.lean   # OS semigroup, spectral/Laplace, 1-variable holomorphy
 │   │           ├── OSToWightman.lean            # flat-witness continuation core
+│   │           ├── OSToWightmanTwoPoint.lean    # specialized two-point reduction ladder
 │   │           └── OSToWightmanBoundaryValues.lean # tempered BV package and axiom transfer
 │   ├── SCV/
 │   │   ├── Polydisc.lean                 # polydisc geometry
@@ -264,8 +271,9 @@ Two navigation notes:
   `Wightman/Reconstruction/SchwingerOS.lean`.
 - `Wightman/Reconstruction/Main.lean` only wires the top-level theorems.
 - The old monolithic `OSToWightman` layer no longer exists as a single file.
-  The live `E -> R` lane is intentionally split across `OSToWightmanSemigroup.lean`,
-  `OSToWightman.lean`, and `OSToWightmanBoundaryValues.lean`.
+  The live `E -> R` lane is intentionally split across
+  `OSToWightmanSemigroup.lean`, `OSToWightman.lean`,
+  `OSToWightmanTwoPoint.lean`, and `OSToWightmanBoundaryValues.lean`.
 
 ## References
 
