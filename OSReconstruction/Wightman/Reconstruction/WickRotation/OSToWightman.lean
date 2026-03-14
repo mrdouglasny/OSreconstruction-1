@@ -626,6 +626,73 @@ theorem schwinger_twoPoint_flatCenterDiffWitness_eq_of_centerIntegral_one
       (d := d) OS G hG_euclid h h0 χ₁ hχ₁ χ₀
   simpa [hχ₀] using h₀.symm.trans h₁
 
+/-- For any normalized center cutoff `χ` with `∫ χ = 1`, the two-point
+Schwinger value is exactly the corresponding flat center/difference witness
+integral with the same cutoff inserted in the center slot. -/
+theorem schwinger_twoPointDifferenceLift_eq_flatCenterDiffWitnessIntegral_of_centerIntegral_one
+    (OS : OsterwalderSchraderAxioms d)
+    (G : (Fin (2 * (d + 1)) → ℂ) → ℂ)
+    (hG_euclid : ∀ (f : ZeroDiagonalSchwartz d 2),
+      OS.S 2 f = ∫ x : NPointDomain d 2,
+        G (BHW.toDiffFlat 2 d (fun i => wickRotatePoint (x i))) * (f.1 x))
+    (h : SchwartzSpacetime d)
+    (h0 : (0 : SpacetimeDim d) ∉ tsupport (h : SpacetimeDim d → ℂ))
+    (χ : SchwartzSpacetime d)
+    (hχ : ∫ x : SpacetimeDim d, χ x = 1) :
+    OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h)) =
+      ∫ z : NPointDomain d 2,
+        G (BHW.flattenCfg 2 d (fun i => wickRotatePoint (z i))) *
+          (χ (z 0) * h (z 1)) := by
+  simpa [hχ] using
+    (schwinger_twoPointDifferenceLift_eq_flatCenterDiffWitnessIntegral
+      (d := d) OS G hG_euclid h h0 χ hχ χ)
+
+/-- The normalized flat center/difference witness value is translation-invariant
+in the center slot. This is the witness-side form of the two-point Schwinger
+translation reduction after collapsing to the flat BHW coordinates. -/
+theorem schwinger_twoPoint_flatCenterDiffWitness_translation_invariant_of_centerIntegral_one
+    (OS : OsterwalderSchraderAxioms d)
+    (G : (Fin (2 * (d + 1)) → ℂ) → ℂ)
+    (hG_euclid : ∀ (f : ZeroDiagonalSchwartz d 2),
+      OS.S 2 f = ∫ x : NPointDomain d 2,
+        G (BHW.toDiffFlat 2 d (fun i => wickRotatePoint (x i))) * (f.1 x))
+    (h : SchwartzSpacetime d)
+    (h0 : (0 : SpacetimeDim d) ∉ tsupport (h : SpacetimeDim d → ℂ))
+    (χ : SchwartzSpacetime d)
+    (hχ : ∫ x : SpacetimeDim d, χ x = 1)
+    (a : SpacetimeDim d) :
+    ∫ z : NPointDomain d 2,
+      G (BHW.flattenCfg 2 d (fun i => wickRotatePoint (z i))) *
+        (SCV.translateSchwartz a χ (z 0) * h (z 1)) =
+      ∫ z : NPointDomain d 2,
+        G (BHW.flattenCfg 2 d (fun i => wickRotatePoint (z i))) *
+          (χ (z 0) * h (z 1)) := by
+  have htrans : ∫ x : SpacetimeDim d, SCV.translateSchwartz a χ x = 1 := by
+    rw [show ∫ x : SpacetimeDim d, SCV.translateSchwartz a χ x =
+        ∫ x : SpacetimeDim d, χ x by
+          simpa [SCV.translateSchwartz_apply] using
+            (MeasureTheory.integral_add_right_eq_self
+              (μ := (MeasureTheory.volume : MeasureTheory.Measure (SpacetimeDim d)))
+              (fun x : SpacetimeDim d => χ x) a)]
+    exact hχ
+  calc
+    ∫ z : NPointDomain d 2,
+        G (BHW.flattenCfg 2 d (fun i => wickRotatePoint (z i))) *
+          (SCV.translateSchwartz a χ (z 0) * h (z 1))
+      = OS.S 2 (ZeroDiagonalSchwartz.ofClassical
+          (twoPointDifferenceLift (SCV.translateSchwartz a χ) h)) := by
+            symm
+            exact schwinger_twoPointDifferenceLift_eq_flatCenterDiffWitnessIntegral_of_centerIntegral_one
+              (d := d) OS G hG_euclid h h0 (SCV.translateSchwartz a χ) htrans
+    _ = OS.S 2 (ZeroDiagonalSchwartz.ofClassical (twoPointDifferenceLift χ h)) := by
+          exact (OsterwalderSchraderAxioms.schwinger_twoPointDifferenceLift_translation_invariant
+            (d := d) (OS := OS) (a := a) (χ := χ) (h := h) h0).symm
+    _ = ∫ z : NPointDomain d 2,
+          G (BHW.flattenCfg 2 d (fun i => wickRotatePoint (z i))) *
+            (χ (z 0) * h (z 1)) := by
+          exact schwinger_twoPointDifferenceLift_eq_flatCenterDiffWitnessIntegral_of_centerIntegral_one
+            (d := d) OS G hG_euclid h h0 χ hχ
+
 /-- **ξ-shift: the correct one-variable perturbation in the cumulative-sum structure.**
 
     In the cumulative-sum parametrization, the j-th new variable at level r is
